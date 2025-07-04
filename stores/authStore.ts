@@ -42,6 +42,7 @@ interface AuthState {
   setLoading: (loading: boolean) => void;
   initialize: () => Promise<void>;
   fetchProfile: (userId: string) => Promise<void>;
+  createProfile: (userId: string, email: string, fullName?: string) => Promise<{ error?: string }>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -116,8 +117,21 @@ export const useAuthStore = create<AuthState>()(
             return { error: error.message };
           }
 
-          // The trigger should automatically create the profile
-          // We don't need to manually create it here
+          if (data.user) {
+            // Try to create profile manually if trigger doesn't work
+            const profileResult = await get().createProfile(data.user.id, email, fullName);
+            if (profileResult.error) {
+              console.warn('Profile creation failed, but user was created:', profileResult.error);
+              // Don't return error here, user creation was successful
+            }
+
+            set({
+              user: data.user,
+              session: data.session,
+              isAuthenticated: !!data.session,
+              isLoading: false,
+            });
+          }
           
           set({ isLoading: false });
           return {};
@@ -125,6 +139,46 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: false });
           console.error('Sign up error:', error);
           return { error: error?.message || 'An unexpected error occurred during sign up' };
+        }
+      },
+
+      createProfile: async (userId: string, email: string, fullName?: string) => {
+        try {
+          const supabase = await getSupabase();
+          
+          // Check if profile already exists
+          const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', userId)
+            .single();
+
+          if (existingProfile) {
+            console.log('Profile already exists');
+            return {};
+          }
+
+          // Create new profile
+          const { error } = await supabase
+            .from('profiles')
+            .insert({
+              id: userId,
+              email: email,
+              full_name: fullName || null,
+              bio: null,
+              avatar_url: null,
+            });
+
+          if (error) {
+            console.error('Error creating profile:', error);
+            return { error: error.message };
+          }
+
+          console.log('Profile created successfully');
+          return {};
+        } catch (error: any) {
+          console.error('Error in createProfile:', error);
+          return { error: error.message };
         }
       },
 
@@ -209,6 +263,13 @@ export const useAuthStore = create<AuthState>()(
 
           if (error) {
             console.error('Error fetching profile:', error);
+            // If profile doesn't exist, try to create it
+            if (error.code === 'PGRST116') {
+              const { user } = get();
+              if (user) {
+                await get().createProfile(userId, user.email || '', user.user_metadata?.full_name);
+              }
+            }
             return;
           }
 

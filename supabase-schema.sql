@@ -1,5 +1,5 @@
 -- Create profiles table
-CREATE TABLE profiles (
+CREATE TABLE IF NOT EXISTS profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   email TEXT NOT NULL,
   full_name TEXT,
@@ -10,7 +10,7 @@ CREATE TABLE profiles (
 );
 
 -- Create recipes table
-CREATE TABLE recipes (
+CREATE TABLE IF NOT EXISTS recipes (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   title TEXT NOT NULL,
   description TEXT,
@@ -29,7 +29,7 @@ CREATE TABLE recipes (
 );
 
 -- Create favorites table
-CREATE TABLE favorites (
+CREATE TABLE IF NOT EXISTS favorites (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   recipe_id UUID REFERENCES recipes(id) ON DELETE CASCADE NOT NULL,
@@ -41,6 +41,18 @@ CREATE TABLE favorites (
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE recipes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view their own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
+DROP POLICY IF EXISTS "Anyone can view recipes" ON recipes;
+DROP POLICY IF EXISTS "Users can create recipes" ON recipes;
+DROP POLICY IF EXISTS "Users can update their own recipes" ON recipes;
+DROP POLICY IF EXISTS "Users can delete their own recipes" ON recipes;
+DROP POLICY IF EXISTS "Users can view their own favorites" ON favorites;
+DROP POLICY IF EXISTS "Users can create their own favorites" ON favorites;
+DROP POLICY IF EXISTS "Users can delete their own favorites" ON favorites;
 
 -- Create policies for profiles
 CREATE POLICY "Users can view their own profile" ON profiles
@@ -75,12 +87,17 @@ CREATE POLICY "Users can create their own favorites" ON favorites
 CREATE POLICY "Users can delete their own favorites" ON favorites
   FOR DELETE USING (auth.uid() = user_id);
 
+-- Drop existing function and trigger if they exist
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS handle_new_user();
+
 -- Create function to handle profile creation
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO profiles (id, email, full_name)
-  VALUES (NEW.id, NEW.email, NEW.raw_user_meta_data->>'full_name');
+  INSERT INTO public.profiles (id, email, full_name)
+  VALUES (NEW.id, NEW.email, NEW.raw_user_meta_data->>'full_name')
+  ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
