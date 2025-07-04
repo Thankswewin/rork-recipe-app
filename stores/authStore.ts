@@ -84,18 +84,6 @@ export const useAuthStore = create<AuthState>()(
         try {
           console.log('Auth store: Starting sign up process');
           
-          // Test Supabase connection first
-          const { data: testData, error: testError } = await supabase
-            .from('profiles')
-            .select('count')
-            .limit(1);
-          
-          if (testError) {
-            console.error('Supabase connection test failed:', testError);
-          } else {
-            console.log('Supabase connection test successful');
-          }
-          
           const { data, error } = await supabase.auth.signUp({
             email,
             password,
@@ -106,42 +94,26 @@ export const useAuthStore = create<AuthState>()(
             },
           });
 
-          console.log('Auth store: Sign up response:', { data: !!data, error: error?.message });
+          console.log('Auth store: Sign up response:', { 
+            user: !!data.user, 
+            session: !!data.session,
+            error: error?.message 
+          });
 
           if (error) {
             set({ isLoading: false });
             return { error: error.message };
           }
 
-          if (data.user) {
-            console.log('Auth store: User created, attempting to create profile');
-            // Try to create profile, but don't fail if it already exists (due to trigger)
-            const { error: profileError } = await supabase
-              .from('profiles')
-              .upsert({
-                id: data.user.id,
-                email: data.user.email!,
-                full_name: fullName || null,
-                avatar_url: null,
-                bio: null,
-              }, {
-                onConflict: 'id'
-              });
-
-            if (profileError) {
-              console.error('Profile creation error (may be expected if trigger exists):', profileError);
-              // Don't return error here as the user account was created successfully
-            } else {
-              console.log('Auth store: Profile created successfully');
-            }
-          }
+          // The trigger should automatically create the profile
+          // We don't need to manually create it here
           
           set({ isLoading: false });
           return {};
         } catch (error: any) {
           set({ isLoading: false });
           console.error('Sign up error:', error);
-          return { error: error?.message || 'Database error saving new user' };
+          return { error: error?.message || 'An unexpected error occurred during sign up' };
         }
       },
 

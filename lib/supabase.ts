@@ -7,8 +7,9 @@ const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 console.log('Supabase config:', { 
-  url: supabaseUrl?.substring(0, 30) + '...', 
-  hasKey: !!supabaseAnonKey 
+  url: supabaseUrl, 
+  hasKey: !!supabaseAnonKey,
+  keyLength: supabaseAnonKey?.length
 });
 
 if (!supabaseUrl || !supabaseAnonKey) {
@@ -49,6 +50,22 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false,
   },
 });
+
+// Test Supabase connection
+export const testSupabaseConnection = async () => {
+  try {
+    const { data, error } = await supabase.from('profiles').select('count').limit(1);
+    if (error) {
+      console.error('Supabase connection test failed:', error);
+      return { success: false, error: error.message };
+    }
+    console.log('Supabase connection test successful');
+    return { success: true };
+  } catch (error: any) {
+    console.error('Supabase connection test error:', error);
+    return { success: false, error: error.message };
+  }
+};
 
 export type Database = {
   public: {
