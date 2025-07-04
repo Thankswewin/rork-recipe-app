@@ -3,8 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 // Get Supabase credentials from environment variables
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://qczagsahfjpzottzamwk.supabase.co';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjemFnc2FoZmpwem90dHphbXdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEyODYzNjksImV4cCI6MjA2Njg2MjM2OX0.bNu5mt1OEkUrYHop7nvQcJHX4ouD12npL0yfhUnOaGA';
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 console.log('Supabase config:', { 
   url: supabaseUrl?.substring(0, 30) + '...', 
