@@ -1,16 +1,40 @@
 import React from "react";
-import { StyleSheet, View, Text, Image, TouchableOpacity, ScrollView } from "react-native";
+import { StyleSheet, View, Text, Image, TouchableOpacity, ScrollView, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { currentUser, recipes } from "@/constants/mockData";
+import { recipes } from "@/constants/mockData";
 import { Settings, Edit, LogOut, BookOpen, Award, Clock } from "lucide-react-native";
 import BackButton from "@/components/BackButton";
 import { Stack } from "expo-router";
 import { useTheme } from "@/hooks/useTheme";
+import { useAuthStore } from "@/stores/authStore";
 
 export default function ProfileScreen() {
   // For demo purposes, let's say the user has created 2 recipes
   const userRecipes = recipes.slice(0, 2);
   const { colors } = useTheme();
+  const { user, profile, signOut } = useAuthStore();
+
+  const handleSignOut = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: signOut,
+        },
+      ]
+    );
+  };
+
+  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'User';
+  const displayEmail = user?.email || 'user@example.com';
+  const avatarUrl = profile?.avatar_url || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face';
   
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
@@ -27,10 +51,10 @@ export default function ProfileScreen() {
         </View>
         
         <View style={styles.profileSection}>
-          <Image source={{ uri: currentUser.avatar }} style={styles.profileImage} />
+          <Image source={{ uri: avatarUrl }} style={styles.profileImage} />
           <View style={styles.profileInfo}>
-            <Text style={[styles.profileName, { color: colors.text }]}>{currentUser.name}</Text>
-            <Text style={[styles.profileBio, { color: colors.muted }]}>Food enthusiast & home chef</Text>
+            <Text style={[styles.profileName, { color: colors.text }]}>{displayName}</Text>
+            <Text style={[styles.profileBio, { color: colors.muted }]}>{profile?.bio || 'Food enthusiast & home chef'}</Text>
           </View>
           <TouchableOpacity style={[styles.editProfileButton, { borderColor: colors.muted }]}>
             <View style={[styles.editIconContainer, { backgroundColor: '#10B981', borderColor: colors.iconBorder }]}>
@@ -104,7 +128,10 @@ export default function ProfileScreen() {
           ))}
         </View>
         
-        <TouchableOpacity style={[styles.logoutButton, { borderColor: colors.tint }]}>
+        <TouchableOpacity 
+          style={[styles.logoutButton, { borderColor: colors.tint }]}
+          onPress={handleSignOut}
+        >
           <View style={[styles.logoutIconContainer, { backgroundColor: colors.tint, borderColor: colors.iconBorder }]}>
             <LogOut size={18} color="black" />
           </View>

@@ -4,12 +4,14 @@ import { Home, Search, Heart, User, Bot } from "lucide-react-native";
 import { StyleSheet, View, Text } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/hooks/useTheme";
+import { AuthGuard } from "@/components/AuthGuard";
 
 export default function TabLayout() {
   const { colors } = useTheme();
 
   return (
-    <Tabs
+    <AuthGuard>
+      <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.tint,
         tabBarInactiveTintColor: colors.tabIconDefault,
@@ -63,7 +65,8 @@ export default function TabLayout() {
           ),
         }}
       />
-    </Tabs>
+      </Tabs>
+    </AuthGuard>
   );
 }
 
