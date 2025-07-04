@@ -45,22 +45,31 @@ export default function SignUpScreen() {
     }
 
     setIsLoading(true);
-    const { error } = await signUp(email, password, fullName);
-    setIsLoading(false);
+    try {
+      console.log('Attempting to sign up with:', { email, fullName });
+      const { error } = await signUp(email, password, fullName);
+      setIsLoading(false);
 
-    if (error) {
-      Alert.alert('Sign Up Failed', error);
-    } else {
-      Alert.alert(
-        'Success',
-        'Account created successfully! Please check your email to verify your account.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.replace('/auth/sign-in'),
-          },
-        ]
-      );
+      if (error) {
+        console.error('Sign up error:', error);
+        Alert.alert('Sign Up Failed', error);
+      } else {
+        console.log('Sign up successful');
+        Alert.alert(
+          'Success',
+          'Account created successfully! Please check your email to verify your account.',
+          [
+            {
+              text: 'OK',
+              onPress: () => router.replace('/auth/sign-in'),
+            },
+          ]
+        );
+      }
+    } catch (error: any) {
+      setIsLoading(false);
+      console.error('Unexpected sign up error:', error);
+      Alert.alert('Sign Up Failed', 'An unexpected error occurred. Please try again.');
     }
   };
 
