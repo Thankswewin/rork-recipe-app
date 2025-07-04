@@ -15,7 +15,7 @@ import { Stack, router } from 'expo-router';
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/authStore';
 import { useTheme } from '@/hooks/useTheme';
-import { testSupabaseConnection } from '@/lib/supabase';
+// Remove direct import
 
 export default function SignUpScreen() {
   const [fullName, setFullName] = useState('');
@@ -48,11 +48,17 @@ export default function SignUpScreen() {
     setIsLoading(true);
     try {
       console.log('Testing Supabase connection first...');
-      const connectionTest = await testSupabaseConnection();
-      if (!connectionTest.success) {
-        setIsLoading(false);
-        Alert.alert('Connection Error', `Database connection failed: ${connectionTest.error}`);
-        return;
+      try {
+        const { testSupabaseConnection } = await import('@/lib/supabase');
+        const connectionTest = await testSupabaseConnection();
+        if (!connectionTest.success) {
+          setIsLoading(false);
+          Alert.alert('Connection Error', `Database connection failed: ${connectionTest.error}`);
+          return;
+        }
+      } catch (importError) {
+        console.warn('Could not test Supabase connection:', importError);
+        // Continue anyway
       }
       
       console.log('Attempting to sign up with:', { email, fullName });

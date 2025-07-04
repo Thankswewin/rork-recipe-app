@@ -1,8 +1,17 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '@/lib/supabase';
 import { User, Session } from '@supabase/supabase-js';
+
+// Lazy import supabase to avoid immediate execution
+let supabaseClient: any = null;
+const getSupabase = async () => {
+  if (!supabaseClient) {
+    const { supabase } = await import('@/lib/supabase');
+    supabaseClient = supabase;
+  }
+  return supabaseClient;
+};
 
 interface Profile {
   id: string;
@@ -48,6 +57,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
         
         try {
+          const supabase = await getSupabase();
           const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
@@ -84,6 +94,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           console.log('Auth store: Starting sign up process');
           
+          const supabase = await getSupabase();
           const { data, error } = await supabase.auth.signUp({
             email,
             password,
@@ -121,6 +132,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
         
         try {
+          const supabase = await getSupabase();
           await supabase.auth.signOut();
           set({
             user: null,
@@ -137,6 +149,7 @@ export const useAuthStore = create<AuthState>()(
 
       resetPassword: async (email: string) => {
         try {
+          const supabase = await getSupabase();
           const { error } = await supabase.auth.resetPasswordForEmail(email);
           
           if (error) {
@@ -154,6 +167,7 @@ export const useAuthStore = create<AuthState>()(
         if (!user) return { error: 'Not authenticated' };
 
         try {
+          const supabase = await getSupabase();
           const { error } = await supabase
             .from('profiles')
             .update({
@@ -186,6 +200,7 @@ export const useAuthStore = create<AuthState>()(
 
       fetchProfile: async (userId: string) => {
         try {
+          const supabase = await getSupabase();
           const { data, error } = await supabase
             .from('profiles')
             .select('*')
@@ -230,6 +245,7 @@ export const useAuthStore = create<AuthState>()(
         
         try {
           // Get initial session
+          const supabase = await getSupabase();
           const { data: { session }, error } = await supabase.auth.getSession();
           
           if (error) {
