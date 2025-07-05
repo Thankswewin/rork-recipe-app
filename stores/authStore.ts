@@ -737,37 +737,37 @@ export const useAuthStore = create<AuthState>()(
         try {
           const supabase = await getSupabase();
           
+          console.log('Creating/getting conversation between:', user.id, 'and', otherUserId);
+          
           // Check if conversation already exists between these two users
-          const { data: existingConversation } = await supabase
+          const { data: userConversations, error: userConversationsError } = await supabase
             .from('conversation_participants')
-            .select(`
-              conversation_id,
-              conversations!inner (id)
-            `)
-            .eq('user_id', user.id)
-            .then(async (result: { data: any[] | null; error: any }) => {
-              if (result.error || !result.data) return { data: null };
-              
-              // For each conversation the current user is in, check if the other user is also in it
-              for (const item of result.data) {
-                const { data: otherParticipant } = await supabase
-                  .from('conversation_participants')
-                  .select('id')
-                  .eq('conversation_id', item.conversation_id)
-                  .eq('user_id', otherUserId)
-                  .single();
-                
-                if (otherParticipant) {
-                  return { data: item };
-                }
-              }
-              
-              return { data: null };
-            });
+            .select('conversation_id')
+            .eq('user_id', user.id);
 
-          if (existingConversation.data) {
-            return { conversationId: existingConversation.data.conversation_id };
+          if (userConversationsError) {
+            console.error('Error fetching user conversations:', userConversationsError);
+            return { error: 'Failed to check existing conversations' };
           }
+
+          if (userConversations && userConversations.length > 0) {
+            // Check if any of these conversations also include the other user
+            for (const userConv of userConversations) {
+              const { data: otherParticipant, error: otherParticipantError } = await supabase
+                .from('conversation_participants')
+                .select('id')
+                .eq('conversation_id', userConv.conversation_id)
+                .eq('user_id', otherUserId)
+                .maybeSingle();
+
+              if (!otherParticipantError && otherParticipant) {
+                console.log('Found existing conversation:', userConv.conversation_id);
+                return { conversationId: userConv.conversation_id };
+              }
+            }
+          }
+
+          console.log('No existing conversation found, creating new one');
 
           // Create new conversation
           const { data: newConversation, error: conversationError } = await supabase
@@ -780,6 +780,8 @@ export const useAuthStore = create<AuthState>()(
             console.error('Error creating conversation:', conversationError);
             return { error: 'Failed to create conversation' };
           }
+
+          console.log('Created new conversation:', newConversation.id);
 
           // Add both users as participants
           const { error: participantsError } = await supabase
@@ -796,6 +798,7 @@ export const useAuthStore = create<AuthState>()(
             return { error: 'Failed to create conversation' };
           }
 
+          console.log('Successfully created conversation with participants');
           return { conversationId: newConversation.id };
         } catch (error: any) {
           console.error('Error creating conversation:', error);
