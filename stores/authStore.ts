@@ -270,37 +270,66 @@ export const useAuthStore = create<AuthState>()(
         try {
           const supabase = await getSupabase();
           
+          console.log('Starting avatar upload for user:', user.id);
+          
           // Convert image to blob for upload
           const response = await fetch(imageUri);
-          const blob = await response.blob();
+          if (!response.ok) {
+            return { error: 'Failed to fetch image from URI' };
+          }
           
-          const fileExt = imageUri.split('.').pop();
+          const blob = await response.blob();
+          console.log('Image blob created, size:', blob.size);
+          
+          const fileExt = imageUri.split('.').pop() || 'jpg';
           const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-          const filePath = `avatars/${fileName}`;
+          const filePath = `${user.id}/${fileName}`; // Organize by user ID
 
-          const { error: uploadError } = await supabase.storage
+          console.log('Uploading to path:', filePath);
+
+          const { error: uploadError, data: uploadData } = await supabase.storage
             .from('avatars')
-            .upload(filePath, blob);
+            .upload(filePath, blob, {
+              cacheControl: '3600',
+              upsert: true // Replace existing file if it exists
+            });
 
           if (uploadError) {
+            console.error('Upload error:', uploadError);
+            
+            // Provide more specific error messages
+            if (uploadError.message.includes('Bucket not found')) {
+              return { error: 'Storage bucket not configured. Please contact support.' };
+            } else if (uploadError.message.includes('not allowed')) {
+              return { error: 'File type not allowed. Please use JPG, PNG, or WebP images.' };
+            } else if (uploadError.message.includes('too large')) {
+              return { error: 'Image file is too large. Please use an image smaller than 5MB.' };
+            }
+            
             return { error: uploadError.message };
           }
+
+          console.log('Upload successful:', uploadData);
 
           const { data } = supabase.storage
             .from('avatars')
             .getPublicUrl(filePath);
 
           const avatarUrl = data.publicUrl;
+          console.log('Generated public URL:', avatarUrl);
 
           // Update profile with new avatar URL
           const { error: updateError } = await get().updateProfile({ avatar_url: avatarUrl });
           
           if (updateError) {
+            console.error('Profile update error:', updateError);
             return { error: updateError };
           }
 
+          console.log('Avatar upload completed successfully');
           return { url: avatarUrl };
         } catch (error: any) {
+          console.error('Avatar upload error:', error);
           return { error: error.message || 'Failed to upload avatar' };
         }
       },
