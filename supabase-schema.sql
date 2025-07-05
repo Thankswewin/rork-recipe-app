@@ -38,8 +38,7 @@ CREATE TABLE IF NOT EXISTS favorites (
 );
 
 -- Enable Row Level Security
--- Temporarily disable RLS on profiles to allow trigger to work
--- ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE recipes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
 
@@ -58,16 +57,15 @@ DROP POLICY IF EXISTS "Users can view their own favorites" ON favorites;
 DROP POLICY IF EXISTS "Users can create their own favorites" ON favorites;
 DROP POLICY IF EXISTS "Users can delete their own favorites" ON favorites;
 
--- Profiles policies disabled temporarily to allow trigger to work
--- Will re-enable after testing
--- CREATE POLICY "Users can view their own profile" ON profiles
---   FOR SELECT USING (auth.uid() = id);
+-- Create policies for profiles
+CREATE POLICY "Users can view their own profile" ON profiles
+  FOR SELECT USING (auth.uid() = id);
 
--- CREATE POLICY "Users can update their own profile" ON profiles
---   FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Users can update their own profile" ON profiles
+  FOR UPDATE USING (auth.uid() = id);
 
--- CREATE POLICY "Allow profile creation" ON profiles
---   FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "Allow profile creation" ON profiles
+  FOR INSERT WITH CHECK (auth.uid() = id);
 
 -- Create policies for recipes
 CREATE POLICY "Anyone can view recipes" ON recipes
@@ -98,7 +96,7 @@ DROP FUNCTION IF EXISTS handle_new_user();
 
 -- Create function to handle profile creation
 CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $
+RETURNS TRIGGER AS $$
 BEGIN
   -- Insert profile with security definer to bypass RLS
   INSERT INTO public.profiles (id, email, full_name)
@@ -119,7 +117,7 @@ EXCEPTION
     RAISE WARNING 'Failed to create profile for user %: %', NEW.id, SQLERRM;
     RETURN NEW;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Create trigger for new user registration
 CREATE TRIGGER on_auth_user_created
