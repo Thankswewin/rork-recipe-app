@@ -103,3 +103,57 @@ export interface SearchFilters {
   maxPrepTime?: number;
   maxCookTime?: number;
 }
+
+// Chef Assistant Types
+export interface ChatMessage {
+  id: string;
+  type: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  imageUri?: string;
+  audioUri?: string;
+  metadata?: {
+    confidence?: number;
+    detectedIngredients?: string[];
+    cookingTips?: string[];
+    recipeStep?: number;
+  };
+}
+
+export interface CookingSession {
+  id: string;
+  recipeName: string;
+  startTime: Date;
+  currentStep: number;
+  totalSteps: number;
+  messages: ChatMessage[];
+  isActive: boolean;
+}
+
+export interface ChefAgent {
+  id: string;
+  name: string;
+  specialty: string;
+  personality: string;
+  avatar: string;
+  description: string;
+  isCustom: boolean;
+}
+
+export interface CookingAnalysis {
+  confidence: number;
+  detectedIngredients: string[];
+  cookingTips: string[];
+  nextSteps: string[];
+  safetyWarnings?: string[];
+  estimatedTime?: number;
+  difficulty?: 'easy' | 'medium' | 'hard';
+}
+
+export interface VoiceCommand {
+  id: string;
+  transcription: string;
+  confidence: number;
+  intent: 'question' | 'instruction' | 'help' | 'navigation';
+  timestamp: Date;
+}

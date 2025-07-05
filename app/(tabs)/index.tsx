@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { StyleSheet, View, Text, Image, ScrollView, TouchableOpacity, FlatList } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Bell, MessageCircle, Search, Plus } from "lucide-react-native";
+import { Bell, MessageCircle, Search, Plus, Bot } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { recipes, categories, currentUser } from "@/constants/mockData";
 import { useRouter } from "expo-router";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthStore } from "@/stores/authStore";
+import { useChefAssistantStore } from "@/stores/chefAssistantStore";
 import ThemeToggle from "@/components/ThemeToggle";
 
 export default function HomeScreen() {
@@ -15,6 +16,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { profile, unreadNotificationsCount, fetchNotifications } = useAuthStore();
+  const { selectedAgent } = useChefAssistantStore();
 
   // Fetch notifications when screen loads
   useEffect(() => {
@@ -55,6 +57,10 @@ export default function HomeScreen() {
 
   const handleMessagesPress = () => {
     router.push("/messages");
+  };
+
+  const handleChefAssistantPress = () => {
+    router.push("/(tabs)/assistant");
   };
 
   const avatarUrl = profile?.avatar_url || currentUser.avatar;
@@ -106,9 +112,41 @@ export default function HomeScreen() {
                     <MessageCircle size={20} color="black" />
                   </View>
                 </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.iconButtonContainer}
+                  onPress={handleChefAssistantPress}
+                >
+                  <View style={[styles.iconButton, { backgroundColor: '#8B5CF6', borderColor: colors.iconBorder }]}>
+                    <Bot size={20} color="black" />
+                  </View>
+                </TouchableOpacity>
                 <ThemeToggle />
               </View>
             </View>
+
+            {/* Chef Assistant Quick Access */}
+            <TouchableOpacity 
+              style={styles.assistantQuickAccess}
+              onPress={handleChefAssistantPress}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={["#8B5CF6", "#7C3AED"]}
+                style={styles.assistantCard}
+              >
+                <View style={styles.assistantContent}>
+                  <View style={styles.assistantInfo}>
+                    <Text style={styles.assistantTitle}>🧠 {selectedAgent?.name || 'Chef Assistant'}</Text>
+                    <Text style={styles.assistantDescription}>
+                      Ready to help with your cooking! Ask me anything.
+                    </Text>
+                  </View>
+                  <View style={[styles.assistantIcon, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                    <Bot size={24} color="white" />
+                  </View>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
 
             {/* Search and Create Recipe */}
             <View style={styles.searchContainer}>
@@ -292,7 +330,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 16,
   },
   userInfo: {
     alignItems: "center",
@@ -311,7 +349,7 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
+    gap: 12,
   },
   iconButtonContainer: {
     borderRadius: 12,
@@ -342,6 +380,40 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
     paddingHorizontal: 4,
+  },
+  assistantQuickAccess: {
+    marginBottom: 20,
+    borderRadius: 16,
+  },
+  assistantCard: {
+    borderRadius: 16,
+    padding: 16,
+  },
+  assistantContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  assistantInfo: {
+    flex: 1,
+  },
+  assistantTitle: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  assistantDescription: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  assistantIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchContainer: {
     flexDirection: "row",
