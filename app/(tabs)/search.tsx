@@ -10,7 +10,7 @@ import SearchBar from "@/components/SearchBar";
 import CategoryCard from "@/components/CategoryCard";
 import RecipeCard from "@/components/RecipeCard";
 import UserProfileCard from "@/components/UserProfileCard";
-import DebugSupabase from "@/components/DebugSupabase";
+
 import { recipes, categories } from "@/constants/mockData";
 
 interface UserProfile {
@@ -329,7 +329,6 @@ export default function SearchScreen() {
           </>
         ) : (
           <View style={styles.usersSection}>
-            <DebugSupabase />
             <FlatList
               data={users}
               keyExtractor={(item) => item.id}

@@ -53,36 +53,35 @@ export default function FollowersScreen() {
       // Fetch followers - users who follow this user
       const { data: followersData, error: followersError } = await supabase
         .from('followers')
-        .select(`
-          follower_id,
-          follower:profiles!followers_follower_id_fkey (
-            id,
-            username,
-            full_name,
-            avatar_url,
-            bio
-          )
-        `)
+        .select('follower_id')
         .eq('following_id', id);
 
-      console.log('Followers query result:', { followersData, followersError });
-
       let followersProfiles: UserProfile[] = [];
-      if (!followersError && followersData) {
-        followersProfiles = followersData
-          .filter((f: any) => f.follower !== null)
-          .map((f: any) => ({
-            id: f.follower.id,
-            username: f.follower.username,
-            full_name: f.follower.full_name,
-            avatar_url: f.follower.avatar_url,
-            bio: f.follower.bio,
+      if (!followersError && followersData && followersData.length > 0) {
+        const followerIds = followersData.map(f => f.follower_id);
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, username, full_name, avatar_url, bio')
+          .in('id', followerIds);
+        
+        if (profilesData) {
+          followersProfiles = profilesData.map(profile => ({
+            id: profile.id,
+            username: profile.username,
+            full_name: profile.full_name,
+            avatar_url: profile.avatar_url,
+            bio: profile.bio,
             recipe_count: 0,
             is_following: false,
           }));
-        console.log('Processed followers:', followersProfiles);
-        setFollowers(followersProfiles);
-      } else if (followersError) {
+        }
+      }
+
+      console.log('Followers query result:', { followersData, followersError });
+      console.log('Processed followers:', followersProfiles);
+      setFollowers(followersProfiles);
+      
+      if (followersError) {
         console.error('Followers error:', followersError);
         setFollowers([]);
       }
@@ -90,36 +89,35 @@ export default function FollowersScreen() {
       // Fetch following - users this user follows
       const { data: followingData, error: followingError } = await supabase
         .from('followers')
-        .select(`
-          following_id,
-          following:profiles!followers_following_id_fkey (
-            id,
-            username,
-            full_name,
-            avatar_url,
-            bio
-          )
-        `)
+        .select('following_id')
         .eq('follower_id', id);
 
-      console.log('Following query result:', { followingData, followingError });
-
       let followingProfiles: UserProfile[] = [];
-      if (!followingError && followingData) {
-        followingProfiles = followingData
-          .filter((f: any) => f.following !== null)
-          .map((f: any) => ({
-            id: f.following.id,
-            username: f.following.username,
-            full_name: f.following.full_name,
-            avatar_url: f.following.avatar_url,
-            bio: f.following.bio,
+      if (!followingError && followingData && followingData.length > 0) {
+        const followingIds = followingData.map(f => f.following_id);
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, username, full_name, avatar_url, bio')
+          .in('id', followingIds);
+        
+        if (profilesData) {
+          followingProfiles = profilesData.map(profile => ({
+            id: profile.id,
+            username: profile.username,
+            full_name: profile.full_name,
+            avatar_url: profile.avatar_url,
+            bio: profile.bio,
             recipe_count: 0,
             is_following: false,
           }));
-        console.log('Processed following:', followingProfiles);
-        setFollowing(followingProfiles);
-      } else if (followingError) {
+        }
+      }
+
+      console.log('Following query result:', { followingData, followingError });
+      console.log('Processed following:', followingProfiles);
+      setFollowing(followingProfiles);
+      
+      if (followingError) {
         console.error('Following error:', followingError);
         setFollowing([]);
       }
