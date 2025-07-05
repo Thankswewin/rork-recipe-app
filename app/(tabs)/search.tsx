@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { StyleSheet, View, Text, FlatList, TouchableOpacity, Image, TextInput, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Search, User, UserPlus, UserCheck, BookOpen, Filter, TrendingUp } from "lucide-react-native";
-import { Stack, router } from "expo-router";
+import { Stack, router, useFocusEffect } from "expo-router";
 import { useTheme } from "@/hooks/useTheme";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/stores/authStore";
@@ -28,8 +28,18 @@ export default function SearchScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const { colors } = useTheme();
   const { user: currentUser } = useAuthStore();
+
+  // Refresh user search when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      if (searchType === 'users' && searchQuery.trim()) {
+        searchUsers(searchQuery);
+      }
+    }, [searchType, searchQuery, refreshKey])
+  );
 
   const searchUsers = async (query: string) => {
     if (!query.trim()) {
@@ -133,9 +143,8 @@ export default function SearchScreen() {
           : user
       ));
 
-      // Force refresh of user data when navigating to profile
-      // This ensures the profile screen shows the correct follow state
-      console.log(`Follow state updated for user ${userId}: ${!isCurrentlyFollowing}`);
+      // Trigger a refresh for other screens
+      setRefreshKey(prev => prev + 1);
       
     } catch (error) {
       console.error('Error toggling follow:', error);
@@ -245,7 +254,6 @@ export default function SearchScreen() {
                   <CategoryCard
                     key={category.id}
                     category={category}
-                    isSelected={selectedCategory === category.name}
                     onPress={() => setSelectedCategory(selectedCategory === category.name ? null : category.name)}
                   />
                 ))}

@@ -42,6 +42,7 @@ export default function UserProfileScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
+  const [avatarKey, setAvatarKey] = useState(0); // Force re-render of avatar
   const { colors } = useTheme();
   const { user: currentUser } = useAuthStore();
 
@@ -59,6 +60,12 @@ export default function UserProfileScreen() {
       }
     }, [id])
   );
+
+  // Update avatar key when user profile avatar changes
+  useEffect(() => {
+    setAvatarKey(prev => prev + 1);
+    setImageError(false);
+  }, [userProfile?.avatar_url]);
 
   const fetchUserData = async () => {
     if (!id) return;
@@ -221,12 +228,14 @@ export default function UserProfileScreen() {
 
   const displayName = userProfile.full_name || userProfile.username || 'Unknown User';
   
-  // Better avatar URL handling with proper fallback
+  // Better avatar URL handling with proper fallback and cache busting
   const getAvatarSource = () => {
     if (imageError || !userProfile.avatar_url) {
       return { uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face' };
     }
-    return { uri: userProfile.avatar_url };
+    // Add cache busting parameter to force reload
+    const separator = userProfile.avatar_url.includes('?') ? '&' : '?';
+    return { uri: `${userProfile.avatar_url}${separator}t=${avatarKey}` };
   };
 
   return (
@@ -245,6 +254,7 @@ export default function UserProfileScreen() {
         
         <View style={styles.profileSection}>
           <Image 
+            key={avatarKey} // Force re-render when key changes
             source={getAvatarSource()} 
             style={styles.profileImage}
             onError={() => setImageError(true)}

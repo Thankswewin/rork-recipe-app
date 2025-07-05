@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { StyleSheet, View, Text, Image, TouchableOpacity, ScrollView, Alert, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { recipes } from "@/constants/mockData";
@@ -19,10 +19,22 @@ export default function ProfileScreen() {
   });
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [avatarKey, setAvatarKey] = useState(0); // Force re-render of avatar
   
   const userRecipes = recipes.slice(0, 2);
   const { colors } = useTheme();
-  const { user, profile, signOut, updateProfile, uploadAvatar, checkUsernameAvailability } = useAuthStore();
+  const { user, profile, signOut, updateProfile, uploadAvatar, checkUsernameAvailability, refreshProfile } = useAuthStore();
+
+  // Refresh profile when screen comes into focus
+  useEffect(() => {
+    refreshProfile();
+  }, []);
+
+  // Update avatar key when profile avatar changes
+  useEffect(() => {
+    setAvatarKey(prev => prev + 1);
+    setImageError(false);
+  }, [profile?.avatar_url]);
 
   const handleSignOut = () => {
     Alert.alert(
@@ -173,19 +185,22 @@ export default function ProfileScreen() {
       Alert.alert('Upload Failed', error);
     } else {
       Alert.alert('Success', 'Avatar updated successfully');
-      setImageError(false); // Reset image error state after successful upload
+      // Force refresh the profile to get the latest avatar URL
+      await refreshProfile();
     }
   };
 
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'User';
   const displayEmail = user?.email || 'user@example.com';
   
-  // Better avatar URL handling with proper fallback
+  // Better avatar URL handling with proper fallback and cache busting
   const getAvatarSource = () => {
     if (imageError || !profile?.avatar_url) {
       return { uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face' };
     }
-    return { uri: profile.avatar_url };
+    // Add cache busting parameter to force reload
+    const separator = profile.avatar_url.includes('?') ? '&' : '?';
+    return { uri: `${profile.avatar_url}${separator}t=${avatarKey}` };
   };
   
   return (
@@ -205,6 +220,7 @@ export default function ProfileScreen() {
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
             <Image 
+              key={avatarKey} // Force re-render when key changes
               source={getAvatarSource()} 
               style={styles.profileImage}
               onError={() => setImageError(true)}
@@ -219,7 +235,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
             {isUploadingAvatar && (
               <View style={styles.uploadingOverlay}>
-                <Text style={[styles.uploadingText, { color: colors.text }]}>Uploading...</Text>
+                <Text style={[styles.uploadingText, { color: 'white' }]}>Uploading...</Text>
               </View>
             )}
           </View>

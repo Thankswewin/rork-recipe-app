@@ -46,6 +46,7 @@ interface AuthState {
   initialize: () => Promise<void>;
   fetchProfile: (userId: string) => Promise<void>;
   createProfile: (userId: string, email: string, fullName?: string) => Promise<{ error?: string }>;
+  refreshProfile: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -229,33 +230,31 @@ export const useAuthStore = create<AuthState>()(
 
         try {
           const supabase = await getSupabase();
-          const { error } = await supabase
+          const { data, error } = await supabase
             .from('profiles')
             .update({
               ...updates,
               updated_at: new Date().toISOString(),
             })
-            .eq('id', user.id);
+            .eq('id', user.id)
+            .select()
+            .single();
 
           if (error) {
+            console.error('Error updating profile:', error);
             return { error: error.message };
           }
 
-          // Update local profile
-          const { profile } = get();
-          if (profile) {
-            set({
-              profile: {
-                ...profile,
-                ...updates,
-                updated_at: new Date().toISOString(),
-              },
-            });
+          // Update local profile with the returned data
+          if (data) {
+            set({ profile: data });
+            console.log('Profile updated successfully:', data);
           }
 
           return {};
-        } catch (error) {
-          return { error: 'An unexpected error occurred' };
+        } catch (error: any) {
+          console.error('Error in updateProfile:', error);
+          return { error: error?.message || 'An unexpected error occurred' };
         }
       },
 
@@ -313,7 +312,7 @@ export const useAuthStore = create<AuthState>()(
           const avatarUrl = data.publicUrl;
           console.log('Generated public URL:', avatarUrl);
 
-          // Update profile with new avatar URL
+          // Update profile with new avatar URL and get the updated profile
           const { error: updateError } = await get().updateProfile({ avatar_url: avatarUrl });
           
           if (updateError) {
@@ -383,6 +382,13 @@ export const useAuthStore = create<AuthState>()(
           set({ profile: data });
         } catch (error) {
           console.error('Error fetching profile:', error);
+        }
+      },
+
+      refreshProfile: async () => {
+        const { user } = get();
+        if (user) {
+          await get().fetchProfile(user.id);
         }
       },
 

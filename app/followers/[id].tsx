@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, FlatList, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useLocalSearchParams, router } from 'expo-router';
+import { Stack, useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Users, UserPlus } from 'lucide-react-native';
 import BackButton from '@/components/BackButton';
 import UserProfileCard from '@/components/UserProfileCard';
@@ -33,6 +33,15 @@ export default function FollowersScreen() {
       fetchFollowData();
     }
   }, [id]);
+
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      if (id) {
+        fetchFollowData();
+      }
+    }, [id])
+  );
 
   const fetchFollowData = async () => {
     if (!id) return;
@@ -104,8 +113,8 @@ export default function FollowersScreen() {
       // Check which users the current user is following
       if (currentUser) {
         const allUserIds = [
-          ...followers.map((u: UserProfile) => u.id),
-          ...following.map((u: UserProfile) => u.id)
+          ...followersProfiles.map((u: UserProfile) => u.id),
+          ...followingProfiles.map((u: UserProfile) => u.id)
         ].filter((id, index, arr) => arr.indexOf(id) === index);
 
         if (allUserIds.length > 0) {
