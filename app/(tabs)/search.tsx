@@ -10,6 +10,7 @@ import SearchBar from "@/components/SearchBar";
 import CategoryCard from "@/components/CategoryCard";
 import RecipeCard from "@/components/RecipeCard";
 import UserProfileCard from "@/components/UserProfileCard";
+import DebugSupabase from "@/components/DebugSupabase";
 import { recipes, categories } from "@/constants/mockData";
 
 interface UserProfile {
@@ -106,34 +107,66 @@ export default function SearchScreen() {
   }, [searchQuery, searchType]);
 
   const handleFollowToggle = async (userId: string, isCurrentlyFollowing: boolean) => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      console.error('No current user found');
+      return;
+    }
+
+    // Check if trying to follow self
+    if (currentUser.id === userId) {
+      console.error('Cannot follow yourself');
+      return;
+    }
+
+    console.log('Follow toggle:', { userId, isCurrentlyFollowing, currentUserId: currentUser.id });
+
+    // Check authentication status
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.error('No active session found');
+      return;
+    }
 
     try {
       if (isCurrentlyFollowing) {
         // Unfollow
-        const { error } = await supabase
+        const { error, data } = await supabase
           .from('followers')
           .delete()
           .eq('follower_id', currentUser.id)
-          .eq('following_id', userId);
+          .eq('following_id', userId)
+          .select();
 
         if (error) {
-          console.error('Error unfollowing user:', error);
+          console.error('Error unfollowing user:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
           return;
         }
+        console.log('Unfollow successful:', data);
       } else {
         // Follow
-        const { error } = await supabase
+        const { error, data } = await supabase
           .from('followers')
           .insert({
             follower_id: currentUser.id,
             following_id: userId,
-          });
+          })
+          .select();
 
         if (error) {
-          console.error('Error following user:', error);
+          console.error('Error following user:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
           return;
         }
+        console.log('Follow successful:', data);
       }
 
       // Update local state immediately for better UX
@@ -146,8 +179,11 @@ export default function SearchScreen() {
       // Trigger a refresh for other screens
       setRefreshKey(prev => prev + 1);
       
-    } catch (error) {
-      console.error('Error toggling follow:', error);
+    } catch (error: any) {
+      console.error('Error toggling follow:', {
+        message: error.message || 'Unknown error',
+        error: error
+      });
     }
   };
 
@@ -293,6 +329,7 @@ export default function SearchScreen() {
           </>
         ) : (
           <View style={styles.usersSection}>
+            <DebugSupabase />
             <FlatList
               data={users}
               keyExtractor={(item) => item.id}

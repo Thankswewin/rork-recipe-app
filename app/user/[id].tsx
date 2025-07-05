@@ -130,44 +130,80 @@ export default function UserProfileScreen() {
   };
 
   const handleFollowToggle = async () => {
-    if (!currentUser || !id || isFollowLoading) return;
+    if (!currentUser || !id || isFollowLoading) {
+      console.error('Cannot toggle follow:', { currentUser: !!currentUser, id, isFollowLoading });
+      return;
+    }
+
+    // Check if trying to follow self
+    if (currentUser.id === id) {
+      console.error('Cannot follow yourself');
+      return;
+    }
+
+    console.log('Profile follow toggle:', { userId: id, isFollowing, currentUserId: currentUser.id });
+    
+    // Check authentication status
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.error('No active session found');
+      return;
+    }
 
     setIsFollowLoading(true);
+    
     try {
       if (isFollowing) {
         // Unfollow
-        const { error } = await supabase
+        const { error, data } = await supabase
           .from('followers')
           .delete()
           .eq('follower_id', currentUser.id)
-          .eq('following_id', id);
+          .eq('following_id', id)
+          .select();
         
         if (error) {
-          console.error('Error unfollowing user:', error);
+          console.error('Error unfollowing user:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
           return;
         }
         
+        console.log('Profile unfollow successful:', data);
         setIsFollowing(false);
         setUserStats(prev => ({ ...prev, followers_count: Math.max(0, prev.followers_count - 1) }));
       } else {
         // Follow
-        const { error } = await supabase
+        const { error, data } = await supabase
           .from('followers')
           .insert({
             follower_id: currentUser.id,
             following_id: id,
-          });
+          })
+          .select();
         
         if (error) {
-          console.error('Error following user:', error);
+          console.error('Error following user:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
           return;
         }
         
+        console.log('Profile follow successful:', data);
         setIsFollowing(true);
         setUserStats(prev => ({ ...prev, followers_count: prev.followers_count + 1 }));
       }
-    } catch (error) {
-      console.error('Error toggling follow:', error);
+    } catch (error: any) {
+      console.error('Error toggling follow:', {
+        message: error.message || 'Unknown error',
+        error: error
+      });
     } finally {
       setIsFollowLoading(false);
     }
