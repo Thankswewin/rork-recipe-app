@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { StyleSheet, View, Text, Image, ScrollView, TouchableOpacity, FlatList } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Bell, Settings, Search, Plus } from "lucide-react-native";
+import { Bell, MessageCircle, Search, Plus } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { recipes, categories, currentUser } from "@/constants/mockData";
 import { useRouter } from "expo-router";
@@ -50,7 +50,11 @@ export default function HomeScreen() {
   };
 
   const handleProfilePress = () => {
-    router.push("/profile");
+    router.push("/(tabs)/profile");
+  };
+
+  const handleMessagesPress = () => {
+    router.push("/messages");
   };
 
   const displayName = profile?.full_name || profile?.username || currentUser.name;
@@ -91,12 +95,15 @@ export default function HomeScreen() {
                     </View>
                   </View>
                 </TouchableOpacity>
-                <ThemeToggle />
-                <TouchableOpacity style={styles.iconButtonContainer}>
-                  <View style={[styles.iconButton, { backgroundColor: '#3B82F6', borderColor: colors.iconBorder }]}>
-                    <Settings size={20} color="black" />
+                <TouchableOpacity 
+                  style={styles.iconButtonContainer}
+                  onPress={handleMessagesPress}
+                >
+                  <View style={[styles.iconButton, { backgroundColor: '#10B981', borderColor: colors.iconBorder }]}>
+                    <MessageCircle size={20} color="black" />
                   </View>
                 </TouchableOpacity>
+                <ThemeToggle />
               </View>
             </View>
 
