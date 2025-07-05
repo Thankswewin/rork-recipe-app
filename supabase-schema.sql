@@ -46,6 +46,7 @@ ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can view their own profile" ON profiles;
 DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
 DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
+DROP POLICY IF EXISTS "Service role can insert profiles" ON profiles;
 DROP POLICY IF EXISTS "Anyone can view recipes" ON recipes;
 DROP POLICY IF EXISTS "Users can create recipes" ON recipes;
 DROP POLICY IF EXISTS "Users can update their own recipes" ON recipes;
@@ -63,6 +64,10 @@ CREATE POLICY "Users can update their own profile" ON profiles
 
 CREATE POLICY "Users can insert their own profile" ON profiles
   FOR INSERT WITH CHECK (auth.uid() = id);
+
+-- Allow service role to insert profiles (for trigger function)
+CREATE POLICY "Service role can insert profiles" ON profiles
+  FOR INSERT WITH CHECK (true);
 
 -- Create policies for recipes
 CREATE POLICY "Anyone can view recipes" ON recipes
@@ -99,6 +104,11 @@ BEGIN
   VALUES (NEW.id, NEW.email, NEW.raw_user_meta_data->>'full_name')
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN
+    -- Log the error but don't fail the user creation
+    RAISE WARNING 'Failed to create profile for user %: %', NEW.id, SQLERRM;
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -106,3 +116,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+
+-- Grant necessary permissions
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT ALL ON public.profiles TO anon, authenticated;
+GRANT ALL ON public.recipes TO anon, authenticated;
+GRANT ALL ON public.favorites TO anon, authenticated;
