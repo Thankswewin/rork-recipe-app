@@ -745,7 +745,7 @@ export const useAuthStore = create<AuthState>()(
               conversations!inner (id)
             `)
             .eq('user_id', user.id)
-            .then(async (result) => {
+            .then(async (result: { data: any[] | null; error: any }) => {
               if (result.error || !result.data) return { data: null };
               
               // For each conversation the current user is in, check if the other user is also in it
