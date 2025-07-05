@@ -57,7 +57,6 @@ export default function HomeScreen() {
     router.push("/messages");
   };
 
-  const displayName = profile?.full_name || profile?.username || currentUser.name;
   const avatarUrl = profile?.avatar_url || currentUser.avatar;
 
   return (
@@ -72,7 +71,11 @@ export default function HomeScreen() {
                 onPress={handleProfilePress}
                 activeOpacity={0.8}
               >
-                <Image source={{ uri: avatarUrl }} style={[styles.avatar, { borderColor: colors.iconBorder }]} />
+                <Image 
+                  source={{ uri: avatarUrl }} 
+                  style={[styles.avatar, { borderColor: colors.iconBorder }]} 
+                  onError={() => console.log('Avatar load error')}
+                />
               </TouchableOpacity>
               <View style={styles.actions}>
                 <TouchableOpacity 
