@@ -84,6 +84,9 @@ interface AuthState {
   clearNotifications: () => void;
   addNotification: (notification: Notification) => void;
   setupRealtimeSubscriptions: () => Promise<() => void>;
+  
+  // Messaging actions
+  createOrGetConversation: (otherUserId: string) => Promise<{ conversationId?: string; error?: string }>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -720,6 +723,83 @@ export const useAuthStore = create<AuthState>()(
         } catch (error) {
           console.error('Error setting up realtime subscriptions:', error);
           return () => {};
+        }
+      },
+
+      createOrGetConversation: async (otherUserId: string) => {
+        const { user } = get();
+        if (!user) return { error: 'Not authenticated' };
+
+        if (user.id === otherUserId) {
+          return { error: 'Cannot create conversation with yourself' };
+        }
+
+        try {
+          const supabase = await getSupabase();
+          
+          // Check if conversation already exists between these two users
+          const { data: existingConversation } = await supabase
+            .from('conversation_participants')
+            .select(`
+              conversation_id,
+              conversations!inner (id)
+            `)
+            .eq('user_id', user.id)
+            .then(async (result) => {
+              if (result.error || !result.data) return { data: null };
+              
+              // For each conversation the current user is in, check if the other user is also in it
+              for (const item of result.data) {
+                const { data: otherParticipant } = await supabase
+                  .from('conversation_participants')
+                  .select('id')
+                  .eq('conversation_id', item.conversation_id)
+                  .eq('user_id', otherUserId)
+                  .single();
+                
+                if (otherParticipant) {
+                  return { data: item };
+                }
+              }
+              
+              return { data: null };
+            });
+
+          if (existingConversation.data) {
+            return { conversationId: existingConversation.data.conversation_id };
+          }
+
+          // Create new conversation
+          const { data: newConversation, error: conversationError } = await supabase
+            .from('conversations')
+            .insert({})
+            .select()
+            .single();
+
+          if (conversationError) {
+            console.error('Error creating conversation:', conversationError);
+            return { error: 'Failed to create conversation' };
+          }
+
+          // Add both users as participants
+          const { error: participantsError } = await supabase
+            .from('conversation_participants')
+            .insert([
+              { conversation_id: newConversation.id, user_id: user.id },
+              { conversation_id: newConversation.id, user_id: otherUserId },
+            ]);
+
+          if (participantsError) {
+            console.error('Error adding participants:', participantsError);
+            // Clean up the conversation if participants couldn't be added
+            await supabase.from('conversations').delete().eq('id', newConversation.id);
+            return { error: 'Failed to create conversation' };
+          }
+
+          return { conversationId: newConversation.id };
+        } catch (error: any) {
+          console.error('Error creating conversation:', error);
+          return { error: error.message || 'Failed to create conversation' };
         }
       },
 

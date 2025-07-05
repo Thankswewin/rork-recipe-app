@@ -60,12 +60,42 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Create conversations table
+CREATE TABLE IF NOT EXISTS conversations (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  last_message_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create conversation participants table
+CREATE TABLE IF NOT EXISTS conversation_participants (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(conversation_id, user_id)
+);
+
+-- Create messages table
+CREATE TABLE IF NOT EXISTS messages (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE NOT NULL,
+  sender_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  content TEXT NOT NULL,
+  read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Enable Row Level Security
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE recipes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE followers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversation_participants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if they exist
 DROP POLICY IF EXISTS "Users can view their own profile" ON profiles;
@@ -86,6 +116,11 @@ DROP POLICY IF EXISTS "Users can view followers" ON followers;
 DROP POLICY IF EXISTS "Users can manage their own follows" ON followers;
 DROP POLICY IF EXISTS "Users can view their own notifications" ON notifications;
 DROP POLICY IF EXISTS "Users can update their own notifications" ON notifications;
+DROP POLICY IF EXISTS "Users can view their conversations" ON conversations;
+DROP POLICY IF EXISTS "Users can view their conversation participants" ON conversation_participants;
+DROP POLICY IF EXISTS "Users can manage their conversation participants" ON conversation_participants;
+DROP POLICY IF EXISTS "Users can view their messages" ON messages;
+DROP POLICY IF EXISTS "Users can send messages" ON messages;
 
 -- Create policies for profiles
 CREATE POLICY "Users can view their own profile" ON profiles
@@ -137,11 +172,56 @@ CREATE POLICY "Users can view their own notifications" ON notifications
 CREATE POLICY "Users can update their own notifications" ON notifications
   FOR UPDATE USING (auth.uid() = user_id);
 
+-- Create policies for conversations
+CREATE POLICY "Users can view their conversations" ON conversations
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM conversation_participants 
+      WHERE conversation_id = conversations.id 
+      AND user_id = auth.uid()
+    )
+  );
+
+-- Create policies for conversation participants
+CREATE POLICY "Users can view their conversation participants" ON conversation_participants
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM conversation_participants cp 
+      WHERE cp.conversation_id = conversation_participants.conversation_id 
+      AND cp.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can manage their conversation participants" ON conversation_participants
+  FOR ALL USING (auth.uid() = user_id);
+
+-- Create policies for messages
+CREATE POLICY "Users can view their messages" ON messages
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM conversation_participants 
+      WHERE conversation_id = messages.conversation_id 
+      AND user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can send messages" ON messages
+  FOR INSERT WITH CHECK (
+    auth.uid() = sender_id AND
+    EXISTS (
+      SELECT 1 FROM conversation_participants 
+      WHERE conversation_id = messages.conversation_id 
+      AND user_id = auth.uid()
+    )
+  );
+
 -- Drop existing function and trigger if they exist
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 DROP FUNCTION IF EXISTS handle_new_user();
 DROP TRIGGER IF EXISTS on_follow_created ON followers;
 DROP FUNCTION IF EXISTS handle_new_follow();
+DROP TRIGGER IF EXISTS on_message_created ON messages;
+DROP FUNCTION IF EXISTS handle_new_message();
 
 -- Create function to handle profile creation
 CREATE OR REPLACE FUNCTION handle_new_user()
@@ -206,6 +286,26 @@ EXCEPTION
 END;
 $$;
 
+-- Create function to handle new messages and update conversation
+CREATE OR REPLACE FUNCTION handle_new_message()
+RETURNS TRIGGER
+SECURITY DEFINER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  -- Update conversation's last_message_at
+  UPDATE conversations 
+  SET last_message_at = NEW.created_at, updated_at = NEW.created_at
+  WHERE id = NEW.conversation_id;
+
+  RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE WARNING 'Failed to update conversation timestamp: %', SQLERRM;
+    RETURN NEW;
+END;
+$$;
+
 -- Create trigger for new user registration
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
@@ -216,6 +316,11 @@ CREATE TRIGGER on_follow_created
   AFTER INSERT ON followers
   FOR EACH ROW EXECUTE FUNCTION handle_new_follow();
 
+-- Create trigger for new messages
+CREATE TRIGGER on_message_created
+  AFTER INSERT ON messages
+  FOR EACH ROW EXECUTE FUNCTION handle_new_message();
+
 -- Grant necessary permissions
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT ALL ON public.profiles TO anon, authenticated;
@@ -223,6 +328,9 @@ GRANT ALL ON public.recipes TO anon, authenticated;
 GRANT ALL ON public.favorites TO anon, authenticated;
 GRANT ALL ON public.followers TO anon, authenticated;
 GRANT ALL ON public.notifications TO anon, authenticated;
+GRANT ALL ON public.conversations TO anon, authenticated;
+GRANT ALL ON public.conversation_participants TO anon, authenticated;
+GRANT ALL ON public.messages TO anon, authenticated;
 
 -- Additional policy to allow service role to create profiles
 CREATE POLICY "Service role can manage profiles" ON profiles
@@ -240,6 +348,12 @@ CREATE INDEX IF NOT EXISTS idx_followers_following_id ON followers(following_id)
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
+CREATE INDEX IF NOT EXISTS idx_conversation_participants_conversation_id ON conversation_participants(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_conversation_participants_user_id ON conversation_participants(user_id);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
+CREATE INDEX IF NOT EXISTS idx_conversations_last_message_at ON conversations(last_message_at);
 
 -- Set up realtime subscriptions safely
 DO $$
@@ -279,6 +393,22 @@ BEGIN
   -- Add notifications table to realtime publication
   BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+  
+  -- Add conversations table to realtime publication
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE conversations;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+  
+  -- Add messages table to realtime publication
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE messages;
   EXCEPTION
     WHEN duplicate_object THEN
       NULL;

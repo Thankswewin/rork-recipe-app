@@ -44,7 +44,7 @@ export default function UserProfileScreen() {
   const [isFollowLoading, setIsFollowLoading] = useState(false);
   const [avatarKey, setAvatarKey] = useState(0); // Force re-render of avatar
   const { colors } = useTheme();
-  const { user: currentUser } = useAuthStore();
+  const { user: currentUser, createOrGetConversation } = useAuthStore();
 
   useEffect(() => {
     if (id) {
@@ -209,6 +209,25 @@ export default function UserProfileScreen() {
     }
   };
 
+  const handleMessagePress = async () => {
+    if (!id) return;
+    
+    try {
+      const { conversationId, error } = await createOrGetConversation(id);
+      
+      if (error) {
+        console.error('Error creating conversation:', error);
+        return;
+      }
+
+      if (conversationId) {
+        router.push(`/messages/${conversationId}`);
+      }
+    } catch (error) {
+      console.error('Error navigating to conversation:', error);
+    }
+  };
+
   const handleRecipePress = (recipeId: string) => {
     // Navigate to recipe details
     console.log(`Recipe ${recipeId} pressed`);
@@ -329,7 +348,10 @@ export default function UserProfileScreen() {
                 </Text>
               </TouchableOpacity>
               
-              <TouchableOpacity style={[styles.messageButton, { borderColor: colors.border }]}>
+              <TouchableOpacity 
+                style={[styles.messageButton, { borderColor: colors.border }]}
+                onPress={handleMessagePress}
+              >
                 <MessageCircle size={18} color={colors.text} />
                 <Text style={[styles.messageButtonText, { color: colors.text }]}>Message</Text>
               </TouchableOpacity>

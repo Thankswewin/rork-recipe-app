@@ -63,6 +63,7 @@ function RootLayoutNav() {
               <Stack.Screen name="notifications" options={{ headerShown: false }} />
               <Stack.Screen name="user/[id]" options={{ headerShown: false }} />
               <Stack.Screen name="followers/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="messages" options={{ headerShown: false }} />
               <Stack.Screen name="modal" options={{ presentation: "modal" }} />
             </Stack>
           </AuthProvider>

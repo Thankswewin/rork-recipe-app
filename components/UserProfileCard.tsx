@@ -3,6 +3,7 @@ import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { UserPlus, UserCheck, MessageCircle } from 'lucide-react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { router } from 'expo-router';
+import { useAuthStore } from '@/stores/authStore';
 
 interface UserProfile {
   id: string;
@@ -30,6 +31,7 @@ export default function UserProfileCard({
   const { colors } = useTheme();
   const [imageError, setImageError] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
+  const { createOrGetConversation } = useAuthStore();
 
   const handleUserPress = () => {
     router.push(`/user/${user.id}`);
@@ -43,6 +45,23 @@ export default function UserProfileCard({
       } finally {
         setIsFollowLoading(false);
       }
+    }
+  };
+
+  const handleMessagePress = async () => {
+    try {
+      const { conversationId, error } = await createOrGetConversation(user.id);
+      
+      if (error) {
+        console.error('Error creating conversation:', error);
+        return;
+      }
+
+      if (conversationId) {
+        router.push(`/messages/${conversationId}`);
+      }
+    } catch (error) {
+      console.error('Error navigating to conversation:', error);
     }
   };
 
@@ -157,7 +176,10 @@ export default function UserProfileCard({
             )}
           </TouchableOpacity>
           
-          <TouchableOpacity style={[styles.messageButton, { borderColor: colors.border }]}>
+          <TouchableOpacity 
+            style={[styles.messageButton, { borderColor: colors.border }]}
+            onPress={handleMessagePress}
+          >
             <MessageCircle size={16} color={colors.text} />
           </TouchableOpacity>
         </View>
