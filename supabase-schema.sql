@@ -96,7 +96,10 @@ DROP FUNCTION IF EXISTS handle_new_user();
 
 -- Create function to handle profile creation
 CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SECURITY DEFINER
+LANGUAGE plpgsql
+AS $
 BEGIN
   -- Insert profile with security definer to bypass RLS
   INSERT INTO public.profiles (id, email, full_name)
@@ -117,7 +120,7 @@ EXCEPTION
     RAISE WARNING 'Failed to create profile for user %: %', NEW.id, SQLERRM;
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$;
 
 -- Create trigger for new user registration
 CREATE TRIGGER on_auth_user_created
@@ -129,3 +132,17 @@ GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT ALL ON public.profiles TO anon, authenticated;
 GRANT ALL ON public.recipes TO anon, authenticated;
 GRANT ALL ON public.favorites TO anon, authenticated;
+
+-- Additional policy to allow service role to create profiles
+CREATE POLICY "Service role can manage profiles" ON profiles
+  FOR ALL USING (true)
+  WITH CHECK (true);
+
+-- Allow authenticated users to read all profiles (for social features)
+CREATE POLICY "Authenticated users can view all profiles" ON profiles
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+-- Set up realtime subscriptions (optional)
+ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
+ALTER PUBLICATION supabase_realtime ADD TABLE recipes;
+ALTER PUBLICATION supabase_realtime ADD TABLE favorites;

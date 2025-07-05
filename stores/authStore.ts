@@ -122,17 +122,20 @@ export const useAuthStore = create<AuthState>()(
               user: data.user,
               session: data.session,
               isAuthenticated: !!data.session,
-              isLoading: false,
             });
 
-            // Wait a bit for the trigger to create the profile, then try to fetch it
-            setTimeout(async () => {
-              try {
-                await get().fetchProfile(data.user!.id);
-              } catch (error) {
-                console.log('Profile fetch after signup failed, will retry on next app launch');
-              }
-            }, 1000);
+            // The database trigger should create the profile automatically
+            // But let's also try to fetch/create it manually as a fallback
+            if (data.session) {
+              // Wait a moment for the trigger to complete
+              setTimeout(async () => {
+                try {
+                  await get().fetchProfile(data.user!.id);
+                } catch (error) {
+                  console.log('Profile fetch after signup failed, will retry on next app launch');
+                }
+              }, 2000);
+            }
           }
           
           set({ isLoading: false });
@@ -148,26 +151,10 @@ export const useAuthStore = create<AuthState>()(
         try {
           const supabase = await getSupabase();
           
-          // Check if profile already exists
-          const { data: existingProfile, error: fetchError } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('id', userId)
-            .maybeSingle();
-
-          if (existingProfile) {
-            console.log('Profile already exists');
-            return {};
-          }
-
-          // Only try to create if we're sure it doesn't exist
-          if (fetchError && fetchError.code !== 'PGRST116') {
-            console.error('Error checking existing profile:', fetchError);
-            return { error: fetchError.message };
-          }
-
-          // Create new profile using upsert to handle race conditions
-          const { error } = await supabase
+          console.log('Creating profile for user:', userId);
+          
+          // Use upsert with ignore_duplicates to handle race conditions
+          const { data, error } = await supabase
             .from('profiles')
             .upsert({
               id: userId,
@@ -176,15 +163,25 @@ export const useAuthStore = create<AuthState>()(
               bio: null,
               avatar_url: null,
             }, {
-              onConflict: 'id'
-            });
+              onConflict: 'id',
+              ignoreDuplicates: false
+            })
+            .select()
+            .single();
 
           if (error) {
             console.error('Error creating profile:', error);
+            // If it's a duplicate key error, that's actually fine
+            if (error.code === '23505') {
+              console.log('Profile already exists, fetching existing profile');
+              await get().fetchProfile(userId);
+              return {};
+            }
             return { error: error.message };
           }
 
-          console.log('Profile created successfully');
+          console.log('Profile created successfully:', data);
+          set({ profile: data });
           return {};
         } catch (error: any) {
           console.error('Error in createProfile:', error);
@@ -269,20 +266,31 @@ export const useAuthStore = create<AuthState>()(
             .from('profiles')
             .select('*')
             .eq('id', userId)
-            .single();
+            .maybeSingle();
 
-          if (error) {
+          if (error && error.code !== 'PGRST116') {
             console.error('Error fetching profile:', error);
+            return;
+          }
+
+          if (!data) {
+            console.log('Profile not found, attempting to create one');
             // If profile doesn't exist, try to create it
-            if (error.code === 'PGRST116') {
-              const { user } = get();
-              if (user) {
-                await get().createProfile(userId, user.email || '', user.user_metadata?.full_name);
+            const { user } = get();
+            if (user) {
+              const createResult = await get().createProfile(
+                userId, 
+                user.email || '', 
+                user.user_metadata?.full_name
+              );
+              if (createResult.error) {
+                console.error('Failed to create profile:', createResult.error);
               }
             }
             return;
           }
 
+          console.log('Profile fetched successfully:', data);
           set({ profile: data });
         } catch (error) {
           console.error('Error fetching profile:', error);
