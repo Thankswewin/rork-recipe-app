@@ -56,6 +56,7 @@ DROP POLICY IF EXISTS "Users can delete their own recipes" ON recipes;
 DROP POLICY IF EXISTS "Users can view their own favorites" ON favorites;
 DROP POLICY IF EXISTS "Users can create their own favorites" ON favorites;
 DROP POLICY IF EXISTS "Users can delete their own favorites" ON favorites;
+DROP POLICY IF EXISTS "Authenticated users can view all profiles" ON profiles;
 
 -- Create policies for profiles
 CREATE POLICY "Users can view their own profile" ON profiles
@@ -99,7 +100,7 @@ CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER
 SECURITY DEFINER
 LANGUAGE plpgsql
-AS $
+AS $$
 BEGIN
   -- Insert profile with security definer to bypass RLS
   INSERT INTO public.profiles (id, email, full_name)
@@ -120,7 +121,7 @@ EXCEPTION
     RAISE WARNING 'Failed to create profile for user %: %', NEW.id, SQLERRM;
     RETURN NEW;
 END;
-$;
+$$;
 
 -- Create trigger for new user registration
 CREATE TRIGGER on_auth_user_created
