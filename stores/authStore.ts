@@ -24,10 +24,30 @@ interface Profile {
   updated_at: string;
 }
 
+interface Notification {
+  id: string;
+  user_id: string;
+  actor_id: string;
+  type: 'follow' | 'like' | 'comment' | 'recipe_created';
+  title: string;
+  message: string;
+  data: any;
+  read: boolean;
+  created_at: string;
+  actor?: {
+    id: string;
+    username: string | null;
+    full_name: string | null;
+    avatar_url: string | null;
+  };
+}
+
 interface AuthState {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
+  notifications: Notification[];
+  unreadNotificationsCount: number;
   isLoading: boolean;
   isAuthenticated: boolean;
   
@@ -48,6 +68,14 @@ interface AuthState {
   fetchProfile: (userId: string) => Promise<void>;
   createProfile: (userId: string, email: string, fullName?: string) => Promise<{ error?: string }>;
   refreshProfile: () => Promise<void>;
+  
+  // Notification actions
+  fetchNotifications: () => Promise<void>;
+  markNotificationAsRead: (notificationId: string) => Promise<void>;
+  markAllNotificationsAsRead: () => Promise<void>;
+  clearNotifications: () => void;
+  addNotification: (notification: Notification) => void;
+  setupRealtimeSubscriptions: () => Promise<() => void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -56,6 +84,8 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       session: null,
       profile: null,
+      notifications: [],
+      unreadNotificationsCount: 0,
       isLoading: true,
       isAuthenticated: false,
 
@@ -82,8 +112,9 @@ export const useAuthStore = create<AuthState>()(
               isLoading: false,
             });
 
-            // Fetch user profile
+            // Fetch user profile and notifications
             await get().fetchProfile(data.user.id);
+            await get().fetchNotifications();
           }
 
           return {};
@@ -134,6 +165,7 @@ export const useAuthStore = create<AuthState>()(
               setTimeout(async () => {
                 try {
                   await get().fetchProfile(data.user!.id);
+                  await get().fetchNotifications();
                 } catch (error) {
                   console.log('Profile fetch after signup failed, will retry on next app launch');
                 }
@@ -201,6 +233,8 @@ export const useAuthStore = create<AuthState>()(
             user: null,
             session: null,
             profile: null,
+            notifications: [],
+            unreadNotificationsCount: 0,
             isAuthenticated: false,
             isLoading: false,
           });
@@ -452,6 +486,182 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      fetchNotifications: async () => {
+        const { user } = get();
+        if (!user) return;
+
+        try {
+          const supabase = await getSupabase();
+          const { data, error } = await supabase
+            .from('notifications')
+            .select(`
+              *,
+              actor:actor_id (
+                id,
+                username,
+                full_name,
+                avatar_url
+              )
+            `)
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(50);
+
+          if (error) {
+            console.error('Error fetching notifications:', error);
+            return;
+          }
+
+          const notifications = data || [];
+          const unreadCount = notifications.filter(n => !n.read).length;
+
+          set({ 
+            notifications,
+            unreadNotificationsCount: unreadCount
+          });
+        } catch (error) {
+          console.error('Error fetching notifications:', error);
+        }
+      },
+
+      markNotificationAsRead: async (notificationId: string) => {
+        const { user } = get();
+        if (!user) return;
+
+        try {
+          const supabase = await getSupabase();
+          const { error } = await supabase
+            .from('notifications')
+            .update({ read: true })
+            .eq('id', notificationId)
+            .eq('user_id', user.id);
+
+          if (error) {
+            console.error('Error marking notification as read:', error);
+            return;
+          }
+
+          // Update local state
+          set(state => ({
+            notifications: state.notifications.map(n => 
+              n.id === notificationId ? { ...n, read: true } : n
+            ),
+            unreadNotificationsCount: Math.max(0, state.unreadNotificationsCount - 1)
+          }));
+        } catch (error) {
+          console.error('Error marking notification as read:', error);
+        }
+      },
+
+      markAllNotificationsAsRead: async () => {
+        const { user } = get();
+        if (!user) return;
+
+        try {
+          const supabase = await getSupabase();
+          const { error } = await supabase
+            .from('notifications')
+            .update({ read: true })
+            .eq('user_id', user.id)
+            .eq('read', false);
+
+          if (error) {
+            console.error('Error marking all notifications as read:', error);
+            return;
+          }
+
+          // Update local state
+          set(state => ({
+            notifications: state.notifications.map(n => ({ ...n, read: true })),
+            unreadNotificationsCount: 0
+          }));
+        } catch (error) {
+          console.error('Error marking all notifications as read:', error);
+        }
+      },
+
+      clearNotifications: () => {
+        set({ notifications: [], unreadNotificationsCount: 0 });
+      },
+
+      addNotification: (notification: Notification) => {
+        set(state => ({
+          notifications: [notification, ...state.notifications],
+          unreadNotificationsCount: state.unreadNotificationsCount + 1
+        }));
+      },
+
+      setupRealtimeSubscriptions: async () => {
+        const { user } = get();
+        if (!user) return () => {};
+
+        try {
+          const supabase = await getSupabase();
+          
+          // Subscribe to notifications for the current user
+          const notificationsSubscription = supabase
+            .channel('notifications')
+            .on(
+              'postgres_changes',
+              {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'notifications',
+                filter: `user_id=eq.${user.id}`,
+              },
+              async (payload) => {
+                console.log('New notification received:', payload);
+                
+                // Fetch the complete notification with actor data
+                const { data } = await supabase
+                  .from('notifications')
+                  .select(`
+                    *,
+                    actor:actor_id (
+                      id,
+                      username,
+                      full_name,
+                      avatar_url
+                    )
+                  `)
+                  .eq('id', payload.new.id)
+                  .single();
+
+                if (data) {
+                  get().addNotification(data);
+                }
+              }
+            )
+            .subscribe();
+
+          // Subscribe to followers table to update UI when someone follows/unfollows
+          const followersSubscription = supabase
+            .channel('followers')
+            .on(
+              'postgres_changes',
+              {
+                event: '*',
+                schema: 'public',
+                table: 'followers',
+              },
+              (payload) => {
+                console.log('Followers table changed:', payload);
+                // This will help refresh follower counts and states in real-time
+                // Components can listen to this via custom events or state updates
+              }
+            )
+            .subscribe();
+
+          return () => {
+            notificationsSubscription.unsubscribe();
+            followersSubscription.unsubscribe();
+          };
+        } catch (error) {
+          console.error('Error setting up realtime subscriptions:', error);
+          return () => {};
+        }
+      },
+
       setSession: (session: Session | null) => {
         set({ 
           session,
@@ -495,6 +705,7 @@ export const useAuthStore = create<AuthState>()(
             });
 
             await get().fetchProfile(session.user.id);
+            await get().fetchNotifications();
           }
 
           set({ isLoading: false });
@@ -512,6 +723,7 @@ export const useAuthStore = create<AuthState>()(
         session: state.session,
         profile: state.profile,
         isAuthenticated: state.isAuthenticated,
+        // Don't persist notifications as they should be fresh on each session
       }),
     }
   )

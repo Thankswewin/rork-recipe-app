@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { StyleSheet, View, Text, Image, ScrollView, TouchableOpacity, FlatList } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Bell, Settings, Search, Plus } from "lucide-react-native";
@@ -6,6 +6,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { recipes, categories, currentUser } from "@/constants/mockData";
 import { useRouter } from "expo-router";
 import { useTheme } from "@/hooks/useTheme";
+import { useAuthStore } from "@/stores/authStore";
 import ThemeToggle from "@/components/ThemeToggle";
 
 export default function HomeScreen() {
@@ -13,6 +14,12 @@ export default function HomeScreen() {
   const [activeSlide, setActiveSlide] = useState(0);
   const router = useRouter();
   const { colors } = useTheme();
+  const { profile, unreadNotificationsCount, fetchNotifications } = useAuthStore();
+
+  // Fetch notifications when screen loads
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
 
   const handleCreateRecipe = () => {
     console.log("Create recipe pressed");
@@ -38,6 +45,13 @@ export default function HomeScreen() {
     console.log(`Toggle favorite for recipe ${recipeId}`);
   };
 
+  const handleNotificationsPress = () => {
+    router.push("/notifications");
+  };
+
+  const displayName = profile?.full_name || profile?.username || currentUser.name;
+  const avatarUrl = profile?.avatar_url || currentUser.avatar;
+
   return (
     <View style={[styles.container, { backgroundColor: colors.appBackground }]}>
       <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={["top"]}>
@@ -46,20 +60,25 @@ export default function HomeScreen() {
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.userInfo}>
-                <Image source={{ uri: currentUser.avatar }} style={styles.avatar} />
-                <Text style={[styles.greeting, { color: colors.text }]}>Hello {currentUser.name}</Text>
+                <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+                <Text style={[styles.greeting, { color: colors.text }]}>Hello {displayName}</Text>
               </View>
               <View style={styles.actions}>
-                <TouchableOpacity style={styles.iconButtonContainer}>
+                <TouchableOpacity 
+                  style={styles.iconButtonContainer}
+                  onPress={handleNotificationsPress}
+                >
                   <View style={[styles.iconButton, { backgroundColor: '#FACC15', borderColor: colors.iconBorder }]}>
                     <View style={styles.notificationContainer}>
                       <Bell size={20} color="black" />
-                      {currentUser.notifications > 0 && (
+                      {unreadNotificationsCount > 0 && (
                         <LinearGradient
-                          colors={["#FACC15", "#F59E0B"]}
+                          colors={["#EF4444", "#DC2626"]}
                           style={styles.badge}
                         >
-                          <Text style={styles.badgeText}>{currentUser.notifications}</Text>
+                          <Text style={styles.badgeText}>
+                            {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
+                          </Text>
                         </LinearGradient>
                       )}
                     </View>

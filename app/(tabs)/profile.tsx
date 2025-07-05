@@ -137,7 +137,7 @@ export default function ProfileScreen() {
     if (profile?.avatar_url) {
       options.push({
         text: 'Remove Photo',
-        onPress: handleRemoveAvatar,
+        onPress: () => handleRemoveAvatar(),
         style: 'destructive',
       });
     }

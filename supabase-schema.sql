@@ -47,11 +47,25 @@ CREATE TABLE IF NOT EXISTS followers (
   UNIQUE(follower_id, following_id)
 );
 
+-- Create notifications table
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  actor_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('follow', 'like', 'comment', 'recipe_created')),
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  data JSONB DEFAULT '{}',
+  read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Enable Row Level Security
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE recipes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE followers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if they exist
 DROP POLICY IF EXISTS "Users can view their own profile" ON profiles;
@@ -70,6 +84,8 @@ DROP POLICY IF EXISTS "Users can delete their own favorites" ON favorites;
 DROP POLICY IF EXISTS "Authenticated users can view all profiles" ON profiles;
 DROP POLICY IF EXISTS "Users can view followers" ON followers;
 DROP POLICY IF EXISTS "Users can manage their own follows" ON followers;
+DROP POLICY IF EXISTS "Users can view their own notifications" ON notifications;
+DROP POLICY IF EXISTS "Users can update their own notifications" ON notifications;
 
 -- Create policies for profiles
 CREATE POLICY "Users can view their own profile" ON profiles
@@ -114,9 +130,18 @@ CREATE POLICY "Users can view followers" ON followers
 CREATE POLICY "Users can manage their own follows" ON followers
   FOR ALL USING (auth.uid() = follower_id);
 
+-- Create policies for notifications
+CREATE POLICY "Users can view their own notifications" ON notifications
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own notifications" ON notifications
+  FOR UPDATE USING (auth.uid() = user_id);
+
 -- Drop existing function and trigger if they exist
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 DROP FUNCTION IF EXISTS handle_new_user();
+DROP TRIGGER IF EXISTS on_follow_created ON followers;
+DROP FUNCTION IF EXISTS handle_new_follow();
 
 -- Create function to handle profile creation
 CREATE OR REPLACE FUNCTION handle_new_user()
@@ -147,10 +172,49 @@ EXCEPTION
 END;
 $$;
 
+-- Create function to handle new follows and create notifications
+CREATE OR REPLACE FUNCTION handle_new_follow()
+RETURNS TRIGGER
+SECURITY DEFINER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  follower_name TEXT;
+BEGIN
+  -- Get the follower's name for the notification
+  SELECT COALESCE(full_name, username, 'Someone') INTO follower_name
+  FROM profiles
+  WHERE id = NEW.follower_id;
+
+  -- Create notification for the user being followed
+  INSERT INTO notifications (user_id, actor_id, type, title, message, data)
+  VALUES (
+    NEW.following_id,
+    NEW.follower_id,
+    'follow',
+    'New Follower',
+    follower_name || ' started following you',
+    jsonb_build_object('follower_id', NEW.follower_id)
+  );
+
+  RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN
+    -- Log the error but don't fail the follow action
+    RAISE WARNING 'Failed to create follow notification: %', SQLERRM;
+    RETURN NEW;
+END;
+$$;
+
 -- Create trigger for new user registration
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+
+-- Create trigger for new follows
+CREATE TRIGGER on_follow_created
+  AFTER INSERT ON followers
+  FOR EACH ROW EXECUTE FUNCTION handle_new_follow();
 
 -- Grant necessary permissions
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
@@ -158,6 +222,7 @@ GRANT ALL ON public.profiles TO anon, authenticated;
 GRANT ALL ON public.recipes TO anon, authenticated;
 GRANT ALL ON public.favorites TO anon, authenticated;
 GRANT ALL ON public.followers TO anon, authenticated;
+GRANT ALL ON public.notifications TO anon, authenticated;
 
 -- Additional policy to allow service role to create profiles
 CREATE POLICY "Service role can manage profiles" ON profiles
@@ -172,12 +237,16 @@ CREATE INDEX IF NOT EXISTS idx_recipes_category ON recipes(category);
 CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id);
 CREATE INDEX IF NOT EXISTS idx_followers_follower_id ON followers(follower_id);
 CREATE INDEX IF NOT EXISTS idx_followers_following_id ON followers(following_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
 
 -- Set up realtime subscriptions (optional)
 ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
 ALTER PUBLICATION supabase_realtime ADD TABLE recipes;
 ALTER PUBLICATION supabase_realtime ADD TABLE favorites;
 ALTER PUBLICATION supabase_realtime ADD TABLE followers;
+ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
 
 -- Create storage buckets
 -- Note: These need to be created manually in Supabase dashboard or via SQL

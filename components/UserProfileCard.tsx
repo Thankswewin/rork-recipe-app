@@ -16,7 +16,7 @@ interface UserProfile {
 
 interface UserProfileCardProps {
   user: UserProfile;
-  onFollowToggle?: (userId: string, isFollowing: boolean) => void;
+  onFollowToggle?: (userId: string, isFollowing: boolean) => Promise<void>;
   showFollowButton?: boolean;
   compact?: boolean;
 }

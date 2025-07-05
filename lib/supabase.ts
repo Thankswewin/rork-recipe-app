@@ -189,6 +189,41 @@ export type Database = {
           created_at?: string;
         };
       };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          actor_id: string;
+          type: 'follow' | 'like' | 'comment' | 'recipe_created';
+          title: string;
+          message: string;
+          data: any;
+          read: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          actor_id: string;
+          type: 'follow' | 'like' | 'comment' | 'recipe_created';
+          title: string;
+          message: string;
+          data?: any;
+          read?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          actor_id?: string;
+          type?: 'follow' | 'like' | 'comment' | 'recipe_created';
+          title?: string;
+          message?: string;
+          data?: any;
+          read?: boolean;
+          created_at?: string;
+        };
+      };
     };
   };
 };

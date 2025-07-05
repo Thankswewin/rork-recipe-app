@@ -7,12 +7,13 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const { setSession, setUser, initialize, fetchProfile } = useAuthStore();
+  const { setSession, setUser, initialize, fetchProfile, setupRealtimeSubscriptions } = useAuthStore();
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let subscription: any;
+    let unsubscribeRealtime: (() => void) | null = null;
     
     const initializeAuth = async () => {
       try {
@@ -21,6 +22,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         
         // Initialize auth state
         await initialize();
+
+        // Set up realtime subscriptions
+        unsubscribeRealtime = await setupRealtimeSubscriptions();
 
         // Listen for auth changes
         const { data } = supabase.auth.onAuthStateChange(
@@ -33,6 +37,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
             if (session?.user) {
               // Fetch user profile when signed in
               await fetchProfile(session.user.id);
+              
+              // Set up realtime subscriptions for the new user
+              if (unsubscribeRealtime) {
+                unsubscribeRealtime();
+              }
+              unsubscribeRealtime = await setupRealtimeSubscriptions();
+            } else {
+              // Clean up subscriptions when signed out
+              if (unsubscribeRealtime) {
+                unsubscribeRealtime();
+                unsubscribeRealtime = null;
+              }
             }
           }
         );
@@ -51,6 +67,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => {
       if (subscription) {
         subscription.unsubscribe();
+      }
+      if (unsubscribeRealtime) {
+        unsubscribeRealtime();
       }
     };
   }, []);

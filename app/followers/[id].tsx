@@ -156,7 +156,7 @@ export default function FollowersScreen() {
     }
   };
 
-  const handleFollowToggle = async (userId: string, isCurrentlyFollowing: boolean) => {
+  const handleFollowToggle = async (userId: string, isCurrentlyFollowing: boolean): Promise<void> => {
     if (!currentUser) return;
 
     try {

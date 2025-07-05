@@ -106,7 +106,7 @@ export default function SearchScreen() {
     }
   }, [searchQuery, searchType]);
 
-  const handleFollowToggle = async (userId: string, isCurrentlyFollowing: boolean) => {
+  const handleFollowToggle = async (userId: string, isCurrentlyFollowing: boolean): Promise<void> => {
     if (!currentUser) {
       console.error('No current user found');
       return;
