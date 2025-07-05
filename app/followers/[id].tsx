@@ -59,9 +59,9 @@ export default function FollowersScreen() {
 
       if (!followersError && followersData) {
         followersProfiles = followersData
-          .map(f => f.profiles)
-          .filter((profile): profile is UserProfile => profile !== null)
-          .map(profile => ({
+          .map((f: any) => f.profiles)
+          .filter((profile: any): profile is any => profile !== null)
+          .map((profile: any) => ({
             id: profile.id,
             username: profile.username,
             full_name: profile.full_name,
@@ -88,9 +88,9 @@ export default function FollowersScreen() {
 
       if (!followingError && followingData) {
         followingProfiles = followingData
-          .map(f => f.profiles)
-          .filter((profile): profile is UserProfile => profile !== null)
-          .map(profile => ({
+          .map((f: any) => f.profiles)
+          .filter((profile: any): profile is any => profile !== null)
+          .map((profile: any) => ({
             id: profile.id,
             username: profile.username,
             full_name: profile.full_name,
