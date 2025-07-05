@@ -241,12 +241,49 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
 
--- Set up realtime subscriptions (optional)
-ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
-ALTER PUBLICATION supabase_realtime ADD TABLE recipes;
-ALTER PUBLICATION supabase_realtime ADD TABLE favorites;
-ALTER PUBLICATION supabase_realtime ADD TABLE followers;
-ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+-- Set up realtime subscriptions safely
+DO $$
+BEGIN
+  -- Add profiles table to realtime publication
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+  
+  -- Add recipes table to realtime publication
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE recipes;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+  
+  -- Add favorites table to realtime publication
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE favorites;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+  
+  -- Add followers table to realtime publication
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE followers;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+  
+  -- Add notifications table to realtime publication
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
 -- Create storage buckets
 -- Note: These need to be created manually in Supabase dashboard or via SQL

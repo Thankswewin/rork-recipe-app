@@ -39,8 +39,18 @@ CREATE POLICY "Users can delete their own follows" ON public.followers
 -- Grant necessary permissions
 GRANT ALL ON public.followers TO authenticated;
 
--- Add realtime subscription
-ALTER PUBLICATION supabase_realtime ADD TABLE public.followers;
+-- Add realtime subscription safely (only if not already added)
+DO $$
+BEGIN
+  -- Try to add followers table to realtime publication
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.followers;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      -- Table already in publication, ignore
+      NULL;
+  END;
+END $$;
 
 -- Create helper functions for follower counts
 CREATE OR REPLACE FUNCTION get_follower_count(user_id UUID)
