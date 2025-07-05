@@ -502,19 +502,20 @@ export const useAuthStore = create<AuthState>()(
           console.log('Fetching notifications for user:', user.id);
           const supabase = await getSupabase();
           
-          // First try a simple query to test the table
-          const { data: testData, error: testError } = await supabase
+          // First check if notifications table exists
+          const { data: tableCheck, error: tableError } = await supabase
             .from('notifications')
-            .select('*')
-            .eq('user_id', user.id)
+            .select('id')
             .limit(1);
 
-          if (testError) {
-            console.error('Error testing notifications table:', testError);
+          if (tableError) {
+            console.error('Notifications table not accessible:', tableError);
+            // If table doesn't exist, just return empty notifications
+            set({ notifications: [], unreadNotificationsCount: 0 });
             return;
           }
 
-          // Now try the full query with join
+          // Try the full query with join
           const { data, error } = await supabase
             .from('notifications')
             .select(`
@@ -531,7 +532,7 @@ export const useAuthStore = create<AuthState>()(
             .limit(50);
 
           if (error) {
-            console.error('Error fetching notifications:', error);
+            console.error('Error fetching notifications with join:', error);
             // Fallback to simple query without join
             const { data: fallbackData, error: fallbackError } = await supabase
               .from('notifications')
@@ -561,7 +562,7 @@ export const useAuthStore = create<AuthState>()(
               })
             );
 
-            const unreadCount = notificationsWithActors.filter((n: any) => !n.read).length;
+            const unreadCount = notificationsWithActors.filter((n: Notification) => !n.read).length;
             set({ 
               notifications: notificationsWithActors,
               unreadNotificationsCount: unreadCount
@@ -570,7 +571,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const notifications = data || [];
-          const unreadCount = notifications.filter((n: any) => !n.read).length;
+          const unreadCount = notifications.filter((n: Notification) => !n.read).length;
 
           console.log(`Fetched ${notifications.length} notifications, ${unreadCount} unread`);
           set({ 
@@ -579,6 +580,8 @@ export const useAuthStore = create<AuthState>()(
           });
         } catch (error) {
           console.error('Error fetching notifications:', error);
+          // Set empty notifications on error
+          set({ notifications: [], unreadNotificationsCount: 0 });
         }
       },
 
