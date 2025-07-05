@@ -118,14 +118,18 @@ export default function ProfileScreen() {
       return;
     }
 
-    const options = [
+    const options: Array<{
+      text: string;
+      onPress: () => void | Promise<void>;
+      style?: 'default' | 'cancel' | 'destructive';
+    }> = [
       {
         text: 'Camera',
-        onPress: () => openCamera(),
+        onPress: openCamera,
       },
       {
         text: 'Photo Library',
-        onPress: () => openImagePicker(),
+        onPress: openImagePicker,
       }
     ];
 
@@ -133,46 +137,51 @@ export default function ProfileScreen() {
     if (profile?.avatar_url) {
       options.push({
         text: 'Remove Photo',
-        onPress: () => handleRemoveAvatar(),
-        style: 'destructive' as const,
+        onPress: handleRemoveAvatar,
+        style: 'destructive',
       });
     }
 
     options.push({
       text: 'Cancel',
-      style: 'cancel' as const,
+      style: 'cancel',
+      onPress: () => {},
     });
 
     Alert.alert('Change Avatar', 'Choose an option', options);
   };
 
-  const handleRemoveAvatar = () => {
-    Alert.alert(
-      'Remove Avatar',
-      'Are you sure you want to remove your profile photo?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            setIsUploadingAvatar(true);
-            const { error } = await removeAvatar();
-            setIsUploadingAvatar(false);
-
-            if (error) {
-              Alert.alert('Error', error);
-            } else {
-              Alert.alert('Success', 'Profile photo removed successfully');
-              await refreshProfile();
-            }
+  const handleRemoveAvatar = async (): Promise<void> => {
+    return new Promise((resolve) => {
+      Alert.alert(
+        'Remove Avatar',
+        'Are you sure you want to remove your profile photo?',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+            onPress: () => resolve(),
           },
-        },
-      ]
-    );
+          {
+            text: 'Remove',
+            style: 'destructive',
+            onPress: async () => {
+              setIsUploadingAvatar(true);
+              const { error } = await removeAvatar();
+              setIsUploadingAvatar(false);
+
+              if (error) {
+                Alert.alert('Error', error);
+              } else {
+                Alert.alert('Success', 'Profile photo removed successfully');
+                await refreshProfile();
+              }
+              resolve();
+            },
+          },
+        ]
+      );
+    });
   };
 
   const openCamera = async () => {
