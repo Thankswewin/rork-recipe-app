@@ -551,7 +551,7 @@ export const useAuthStore = create<AuthState>()(
 
             // For each notification, fetch the actor profile separately
             const notificationsWithActors = await Promise.all(
-              (fallbackData || []).map(async (notification: any) => {
+              (fallbackData || []).map(async (notification: Notification) => {
                 const { data: actorData } = await supabase
                   .from('profiles')
                   .select('id, username, full_name, avatar_url')
@@ -673,7 +673,7 @@ export const useAuthStore = create<AuthState>()(
                 table: 'notifications',
                 filter: `user_id=eq.${user.id}`,
               },
-              async (payload: RealtimePayload) => {
+              async (payload: any) => {
                 console.log('New notification received:', payload);
                 
                 // Fetch the complete notification with actor data
@@ -708,7 +708,7 @@ export const useAuthStore = create<AuthState>()(
                 schema: 'public',
                 table: 'followers',
               },
-              (payload: RealtimePayload) => {
+              (payload: any) => {
                 console.log('Followers table changed:', payload);
                 // This will help refresh follower counts and states in real-time
                 // Components can listen to this via custom events or state updates
