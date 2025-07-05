@@ -42,6 +42,14 @@ interface Notification {
   };
 }
 
+interface RealtimePayload {
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+  new: any;
+  old: any;
+  schema: string;
+  table: string;
+}
+
 interface AuthState {
   user: User | null;
   session: Session | null;
@@ -513,7 +521,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const notifications = data || [];
-          const unreadCount = notifications.filter(n => !n.read).length;
+          const unreadCount = notifications.filter((n: Notification) => !n.read).length;
 
           set({ 
             notifications,
@@ -543,7 +551,7 @@ export const useAuthStore = create<AuthState>()(
 
           // Update local state
           set(state => ({
-            notifications: state.notifications.map(n => 
+            notifications: state.notifications.map((n: Notification) => 
               n.id === notificationId ? { ...n, read: true } : n
             ),
             unreadNotificationsCount: Math.max(0, state.unreadNotificationsCount - 1)
@@ -572,7 +580,7 @@ export const useAuthStore = create<AuthState>()(
 
           // Update local state
           set(state => ({
-            notifications: state.notifications.map(n => ({ ...n, read: true })),
+            notifications: state.notifications.map((n: Notification) => ({ ...n, read: true })),
             unreadNotificationsCount: 0
           }));
         } catch (error) {
@@ -609,7 +617,7 @@ export const useAuthStore = create<AuthState>()(
                 table: 'notifications',
                 filter: `user_id=eq.${user.id}`,
               },
-              async (payload) => {
+              async (payload: RealtimePayload) => {
                 console.log('New notification received:', payload);
                 
                 // Fetch the complete notification with actor data
@@ -644,7 +652,7 @@ export const useAuthStore = create<AuthState>()(
                 schema: 'public',
                 table: 'followers',
               },
-              (payload) => {
+              (payload: RealtimePayload) => {
                 console.log('Followers table changed:', payload);
                 // This will help refresh follower counts and states in real-time
                 // Components can listen to this via custom events or state updates
