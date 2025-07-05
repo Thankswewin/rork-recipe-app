@@ -499,12 +499,27 @@ export const useAuthStore = create<AuthState>()(
         if (!user) return;
 
         try {
+          console.log('Fetching notifications for user:', user.id);
           const supabase = await getSupabase();
+          
+          // First try a simple query to test the table
+          const { data: testData, error: testError } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', user.id)
+            .limit(1);
+
+          if (testError) {
+            console.error('Error testing notifications table:', testError);
+            return;
+          }
+
+          // Now try the full query with join
           const { data, error } = await supabase
             .from('notifications')
             .select(`
               *,
-              actor:actor_id (
+              actor:profiles!notifications_actor_id_fkey (
                 id,
                 username,
                 full_name,
@@ -517,12 +532,47 @@ export const useAuthStore = create<AuthState>()(
 
           if (error) {
             console.error('Error fetching notifications:', error);
+            // Fallback to simple query without join
+            const { data: fallbackData, error: fallbackError } = await supabase
+              .from('notifications')
+              .select('*')
+              .eq('user_id', user.id)
+              .order('created_at', { ascending: false })
+              .limit(50);
+
+            if (fallbackError) {
+              console.error('Error with fallback notifications query:', fallbackError);
+              return;
+            }
+
+            // For each notification, fetch the actor profile separately
+            const notificationsWithActors = await Promise.all(
+              (fallbackData || []).map(async (notification: any) => {
+                const { data: actorData } = await supabase
+                  .from('profiles')
+                  .select('id, username, full_name, avatar_url')
+                  .eq('id', notification.actor_id)
+                  .single();
+
+                return {
+                  ...notification,
+                  actor: actorData
+                };
+              })
+            );
+
+            const unreadCount = notificationsWithActors.filter((n: any) => !n.read).length;
+            set({ 
+              notifications: notificationsWithActors,
+              unreadNotificationsCount: unreadCount
+            });
             return;
           }
 
           const notifications = data || [];
           const unreadCount = notifications.filter((n: any) => !n.read).length;
 
+          console.log(`Fetched ${notifications.length} notifications, ${unreadCount} unread`);
           set({ 
             notifications,
             unreadNotificationsCount: unreadCount
@@ -551,7 +601,7 @@ export const useAuthStore = create<AuthState>()(
 
           // Update local state
           set(state => ({
-            notifications: state.notifications.map((n: any) => 
+            notifications: state.notifications.map((n: Notification) => 
               n.id === notificationId ? { ...n, read: true } : n
             ),
             unreadNotificationsCount: Math.max(0, state.unreadNotificationsCount - 1)
@@ -580,7 +630,7 @@ export const useAuthStore = create<AuthState>()(
 
           // Update local state
           set(state => ({
-            notifications: state.notifications.map((n: any) => ({ ...n, read: true })),
+            notifications: state.notifications.map((n: Notification) => ({ ...n, read: true })),
             unreadNotificationsCount: 0
           }));
         } catch (error) {
@@ -617,7 +667,7 @@ export const useAuthStore = create<AuthState>()(
                 table: 'notifications',
                 filter: `user_id=eq.${user.id}`,
               },
-              async (payload: any) => {
+              async (payload: RealtimePayload) => {
                 console.log('New notification received:', payload);
                 
                 // Fetch the complete notification with actor data
@@ -625,7 +675,7 @@ export const useAuthStore = create<AuthState>()(
                   .from('notifications')
                   .select(`
                     *,
-                    actor:actor_id (
+                    actor:profiles!notifications_actor_id_fkey (
                       id,
                       username,
                       full_name,
@@ -652,7 +702,7 @@ export const useAuthStore = create<AuthState>()(
                 schema: 'public',
                 table: 'followers',
               },
-              (payload: any) => {
+              (payload: RealtimePayload) => {
                 console.log('Followers table changed:', payload);
                 // This will help refresh follower counts and states in real-time
                 // Components can listen to this via custom events or state updates

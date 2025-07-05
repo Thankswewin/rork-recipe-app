@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS followers (
 CREATE TABLE IF NOT EXISTS notifications (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  actor_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  actor_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('follow', 'like', 'comment', 'recipe_created')),
   title TEXT NOT NULL,
   message TEXT NOT NULL,
