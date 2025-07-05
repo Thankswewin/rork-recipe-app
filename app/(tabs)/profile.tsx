@@ -19,7 +19,6 @@ export default function ProfileScreen() {
   });
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   
-  // For demo purposes, let's say the user has created 2 recipes
   const userRecipes = recipes.slice(0, 2);
   const { colors } = useTheme();
   const { user, profile, signOut, updateProfile, uploadAvatar, checkUsernameAvailability } = useAuthStore();
@@ -54,6 +53,18 @@ export default function ProfileScreen() {
   const handleSaveProfile = async () => {
     // Validate username if changed
     if (editForm.username && editForm.username !== profile?.username) {
+      // Check if username is valid (alphanumeric and underscores only)
+      const usernameRegex = /^[a-zA-Z0-9_]+$/;
+      if (!usernameRegex.test(editForm.username)) {
+        Alert.alert('Invalid Username', 'Username can only contain letters, numbers, and underscores.');
+        return;
+      }
+
+      if (editForm.username.length < 3) {
+        Alert.alert('Username Too Short', 'Username must be at least 3 characters long.');
+        return;
+      }
+
       const { available, error } = await checkUsernameAvailability(editForm.username);
       if (error) {
         Alert.alert('Error', 'Failed to check username availability');
@@ -94,9 +105,49 @@ export default function ProfileScreen() {
       return;
     }
 
+    Alert.alert(
+      'Change Avatar',
+      'Choose an option',
+      [
+        {
+          text: 'Camera',
+          onPress: () => openCamera(),
+        },
+        {
+          text: 'Photo Library',
+          onPress: () => openImagePicker(),
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
+  };
+
+  const openCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please grant camera permissions to take a photo');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      uploadAvatarImage(result.assets[0].uri);
+    }
+  };
+
+  const openImagePicker = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please grant camera roll permissions to change your avatar');
+      Alert.alert('Permission Required', 'Please grant photo library permissions to choose an image');
       return;
     }
 
@@ -108,15 +159,19 @@ export default function ProfileScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setIsUploadingAvatar(true);
-      const { error } = await uploadAvatar(result.assets[0].uri);
-      setIsUploadingAvatar(false);
+      uploadAvatarImage(result.assets[0].uri);
+    }
+  };
 
-      if (error) {
-        Alert.alert('Upload Failed', error);
-      } else {
-        Alert.alert('Success', 'Avatar updated successfully');
-      }
+  const uploadAvatarImage = async (imageUri: string) => {
+    setIsUploadingAvatar(true);
+    const { error } = await uploadAvatar(imageUri);
+    setIsUploadingAvatar(false);
+
+    if (error) {
+      Alert.alert('Upload Failed', error);
+    } else {
+      Alert.alert('Success', 'Avatar updated successfully');
     }
   };
 
@@ -148,6 +203,11 @@ export default function ProfileScreen() {
             >
               <Camera size={16} color="white" />
             </TouchableOpacity>
+            {isUploadingAvatar && (
+              <View style={styles.uploadingOverlay}>
+                <Text style={[styles.uploadingText, { color: colors.text }]}>Uploading...</Text>
+              </View>
+            )}
           </View>
           
           {isEditingProfile ? (
@@ -157,11 +217,15 @@ export default function ProfileScreen() {
                 <TextInput
                   style={[styles.textInput, { backgroundColor: colors.inputBackground, color: colors.text, borderColor: colors.border }]}
                   value={editForm.username}
-                  onChangeText={(text) => setEditForm(prev => ({ ...prev, username: text }))}
+                  onChangeText={(text) => setEditForm(prev => ({ ...prev, username: text.toLowerCase().replace(/[^a-zA-Z0-9_]/g, '') }))}
                   placeholder="Enter username"
                   placeholderTextColor={colors.muted}
                   autoCapitalize="none"
+                  maxLength={20}
                 />
+                <Text style={[styles.inputHint, { color: colors.muted }]}>
+                  Only letters, numbers, and underscores allowed
+                </Text>
               </View>
               
               <View style={styles.inputContainer}>
@@ -185,6 +249,7 @@ export default function ProfileScreen() {
                   placeholderTextColor={colors.muted}
                   multiline
                   numberOfLines={3}
+                  maxLength={150}
                 />
               </View>
               
@@ -212,6 +277,7 @@ export default function ProfileScreen() {
               {profile?.username && (
                 <Text style={[styles.username, { color: colors.muted }]}>@{profile.username}</Text>
               )}
+              <Text style={[styles.profileEmail, { color: colors.muted }]}>{displayEmail}</Text>
               <Text style={[styles.profileBio, { color: colors.muted }]}>
                 {profile?.bio || 'Food enthusiast & home chef'}
               </Text>
@@ -360,6 +426,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
   },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploadingText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
   profileInfo: {
     alignItems: "center",
   },
@@ -370,6 +451,10 @@ const styles = StyleSheet.create({
   },
   username: {
     fontSize: 16,
+    marginBottom: 4,
+  },
+  profileEmail: {
+    fontSize: 14,
     marginBottom: 8,
   },
   profileBio: {
@@ -416,6 +501,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
+  },
+  inputHint: {
+    fontSize: 12,
+    marginTop: 4,
   },
   bioInput: {
     height: 80,
@@ -553,7 +642,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 16,
     marginHorizontal: 16,
-    marginBottom: 100, // Extra padding for tab bar
+    marginBottom: 100,
     borderRadius: 12,
     borderWidth: 1,
     gap: 8,

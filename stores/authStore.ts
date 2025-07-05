@@ -127,10 +127,8 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: !!data.session,
             });
 
-            // The database trigger should create the profile automatically
-            // But let's also try to fetch/create it manually as a fallback
+            // Wait for the trigger to create the profile, then fetch it
             if (data.session) {
-              // Wait a moment for the trigger to complete
               setTimeout(async () => {
                 try {
                   await get().fetchProfile(data.user!.id);
@@ -156,7 +154,6 @@ export const useAuthStore = create<AuthState>()(
           
           console.log('Creating profile for user:', userId);
           
-          // Use upsert with ignore_duplicates to handle race conditions
           const { data, error } = await supabase
             .from('profiles')
             .upsert({
@@ -175,7 +172,6 @@ export const useAuthStore = create<AuthState>()(
 
           if (error) {
             console.error('Error creating profile:', error);
-            // If it's a duplicate key error, that's actually fine
             if (error.code === '23505') {
               console.log('Profile already exists, fetching existing profile');
               await get().fetchProfile(userId);
@@ -283,7 +279,7 @@ export const useAuthStore = create<AuthState>()(
           
           const fileExt = imageUri.split('.').pop() || 'jpg';
           const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-          const filePath = `${user.id}/${fileName}`; // Organize by user ID
+          const filePath = `${user.id}/${fileName}`;
 
           console.log('Uploading to path:', filePath);
 
@@ -291,13 +287,12 @@ export const useAuthStore = create<AuthState>()(
             .from('avatars')
             .upload(filePath, blob, {
               cacheControl: '3600',
-              upsert: true // Replace existing file if it exists
+              upsert: true
             });
 
           if (uploadError) {
             console.error('Upload error:', uploadError);
             
-            // Provide more specific error messages
             if (uploadError.message.includes('Bucket not found')) {
               return { error: 'Storage bucket not configured. Please contact support.' };
             } else if (uploadError.message.includes('not allowed')) {
@@ -343,14 +338,8 @@ export const useAuthStore = create<AuthState>()(
             .eq('username', username)
             .maybeSingle();
 
-          if (error && error.code !== 'PGRST116' && !error.message.includes('column "username" does not exist')) {
+          if (error && error.code !== 'PGRST116') {
             return { available: false, error: error.message };
-          }
-
-          // If username column doesn't exist, consider username available for now
-          if (error && error.message.includes('column "username" does not exist')) {
-            console.warn('Username column does not exist in database');
-            return { available: true };
           }
 
           return { available: !data };
@@ -376,7 +365,6 @@ export const useAuthStore = create<AuthState>()(
 
           if (!data) {
             console.log('Profile not found, attempting to create one');
-            // If profile doesn't exist, try to create it
             const { user } = get();
             if (user) {
               const createResult = await get().createProfile(
@@ -424,7 +412,6 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
         
         try {
-          // Get initial session
           const supabase = await getSupabase();
           const { data: { session }, error } = await supabase.auth.getSession();
           
@@ -441,7 +428,6 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: true,
             });
 
-            // Fetch profile
             await get().fetchProfile(session.user.id);
           }
 
@@ -456,7 +442,6 @@ export const useAuthStore = create<AuthState>()(
       name: 'auth-storage',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
-        // Only persist essential data
         user: state.user,
         session: state.session,
         profile: state.profile,

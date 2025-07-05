@@ -46,8 +46,7 @@ export default function SearchScreen() {
           username,
           full_name,
           avatar_url,
-          bio,
-          recipes:recipes(count)
+          bio
         `)
         .or(`username.ilike.%${query}%,full_name.ilike.%${query}%`)
         .neq('id', currentUser?.id || '')
@@ -71,13 +70,13 @@ export default function SearchScreen() {
 
         const usersWithFollowStatus = data.map(user => ({
           ...user,
-          recipe_count: user.recipes?.[0]?.count || 0,
+          recipe_count: 0, // We'll implement recipe count later
           is_following: followingIds.has(user.id),
         }));
 
         setUsers(usersWithFollowStatus);
       } else {
-        setUsers(data || []);
+        setUsers(data?.map(user => ({ ...user, recipe_count: 0, is_following: false })) || []);
       }
     } catch (error) {
       console.error('Error searching users:', error);
@@ -87,12 +86,14 @@ export default function SearchScreen() {
   };
 
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      searchUsers(searchQuery);
-    }, 300);
+    if (searchType === 'users') {
+      const timeoutId = setTimeout(() => {
+        searchUsers(searchQuery);
+      }, 300);
 
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [searchQuery, searchType]);
 
   const handleFollowToggle = async (userId: string, isCurrentlyFollowing: boolean) => {
     if (!currentUser) return;
@@ -242,7 +243,9 @@ export default function SearchScreen() {
                   <View style={[styles.trendingIcon, { backgroundColor: '#EF4444', borderColor: colors.iconBorder }]}>
                     <TrendingUp size={16} color="black" />
                   </View>
-                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Trending Recipes</Text>
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                    {searchQuery || selectedCategory ? 'Search Results' : 'Trending Recipes'}
+                  </Text>
                 </View>
               </View>
               
@@ -251,6 +254,18 @@ export default function SearchScreen() {
                   <RecipeCard key={recipe.id} recipe={recipe} />
                 ))}
               </View>
+              
+              {filteredRecipes.length === 0 && (searchQuery || selectedCategory) && (
+                <View style={styles.emptyContainer}>
+                  <BookOpen size={48} color={colors.muted} />
+                  <Text style={[styles.emptyText, { color: colors.text }]}>
+                    No recipes found
+                  </Text>
+                  <Text style={[styles.emptySubtext, { color: colors.muted }]}>
+                    Try adjusting your search or category filter
+                  </Text>
+                </View>
+              )}
             </View>
           </>
         ) : (
@@ -404,7 +419,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 100,
   },
-
   emptyContainer: {
     flex: 1,
     justifyContent: "center",

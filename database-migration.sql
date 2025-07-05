@@ -1,4 +1,4 @@
--- Migration script to ensure username column exists and is properly configured
+-- Migration script to fix username column and RLS policies
 -- Run this in your Supabase SQL editor
 
 -- First, check if username column exists, if not add it
@@ -12,9 +12,6 @@ BEGIN
         AND table_schema = 'public'
     ) THEN
         ALTER TABLE public.profiles ADD COLUMN username TEXT UNIQUE;
-        RAISE NOTICE 'Added username column to profiles table';
-    ELSE
-        RAISE NOTICE 'Username column already exists';
     END IF;
 END $$;
 
@@ -32,23 +29,44 @@ BEGIN
         AND tc.table_schema = 'public'
     ) THEN
         ALTER TABLE public.profiles ADD CONSTRAINT profiles_username_unique UNIQUE (username);
-        RAISE NOTICE 'Added unique constraint to username column';
-    ELSE
-        RAISE NOTICE 'Username unique constraint already exists';
     END IF;
 END $$;
 
 -- Create index for better performance if it doesn't exist
 CREATE INDEX IF NOT EXISTS idx_profiles_username ON public.profiles(username);
 
--- Update the handle_new_user function to include username
+-- Drop existing policies to recreate them properly
+DROP POLICY IF EXISTS "Users can view their own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
+DROP POLICY IF EXISTS "Service role can insert profiles" ON profiles;
+DROP POLICY IF EXISTS "Allow profile creation" ON profiles;
+DROP POLICY IF EXISTS "Service role can manage profiles" ON profiles;
+DROP POLICY IF EXISTS "Authenticated users can view all profiles" ON profiles;
+
+-- Create proper RLS policies for profiles
+CREATE POLICY "Allow profile creation" ON profiles
+  FOR INSERT WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "Users can view their own profile" ON profiles
+  FOR SELECT USING (auth.uid() = id);
+
+CREATE POLICY "Users can update their own profile" ON profiles
+  FOR UPDATE USING (auth.uid() = id);
+
+CREATE POLICY "Authenticated users can view all profiles" ON profiles
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Service role can manage profiles" ON profiles
+  FOR ALL USING (auth.role() = 'service_role');
+
+-- Update the handle_new_user function with proper syntax
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER
 SECURITY DEFINER
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  -- Insert profile with security definer to bypass RLS
   INSERT INTO public.profiles (id, email, full_name, username)
   VALUES (
     NEW.id, 
@@ -64,8 +82,6 @@ BEGIN
   RETURN NEW;
 EXCEPTION
   WHEN OTHERS THEN
-    -- Log the error but don't fail the user creation
-    RAISE WARNING 'Failed to create profile for user %: %', NEW.id, SQLERRM;
     RETURN NEW;
 END;
 $$;
@@ -76,8 +92,39 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
--- Final success message
-DO $$
-BEGIN
-    RAISE NOTICE 'Database migration completed successfully';
-END $$;
+-- Create storage buckets if they don't exist
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'avatars',
+  'avatars', 
+  true,
+  5242880,
+  ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+) ON CONFLICT (id) DO NOTHING;
+
+-- Storage policies for avatars bucket
+DROP POLICY IF EXISTS "Avatar images are publicly accessible" ON storage.objects;
+DROP POLICY IF EXISTS "Users can upload their own avatar" ON storage.objects;
+DROP POLICY IF EXISTS "Users can update their own avatar" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete their own avatar" ON storage.objects;
+
+CREATE POLICY "Avatar images are publicly accessible" ON storage.objects
+  FOR SELECT USING (bucket_id = 'avatars');
+
+CREATE POLICY "Users can upload their own avatar" ON storage.objects
+  FOR INSERT WITH CHECK (
+    bucket_id = 'avatars' AND 
+    auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+CREATE POLICY "Users can update their own avatar" ON storage.objects
+  FOR UPDATE USING (
+    bucket_id = 'avatars' AND 
+    auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+CREATE POLICY "Users can delete their own avatar" ON storage.objects
+  FOR DELETE USING (
+    bucket_id = 'avatars' AND 
+    auth.uid()::text = (storage.foldername(name))[1]
+  );
