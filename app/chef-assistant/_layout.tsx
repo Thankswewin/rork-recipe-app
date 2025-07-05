@@ -1,13 +1,15 @@
-import { Stack } from "expo-router";
+import { Stack } from 'expo-router';
 
 export default function ChefAssistantLayout() {
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <Stack.Screen name="chat" options={{ headerShown: false }} />
+    <Stack>
+      <Stack.Screen 
+        name="chat" 
+        options={{ 
+          headerShown: false,
+          presentation: 'card',
+        }} 
+      />
     </Stack>
   );
 }

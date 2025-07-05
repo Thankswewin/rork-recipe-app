@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from "react";
-import { StyleSheet, View, ScrollView } from "react-native";
+import { StyleSheet, View, ScrollView, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack } from "expo-router";
 import { useTheme } from "@/hooks/useTheme";
@@ -64,13 +64,25 @@ export default function ChefAssistantChatScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.messagesContent}
         >
-          {messages.map((message) => (
-            <ChatMessage
-              key={message.id}
-              message={message}
-              onImagePress={(imageUri) => console.log('Image pressed:', imageUri)}
-            />
-          ))}
+          {messages.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyEmoji}>💬</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                Start the conversation!
+              </Text>
+              <Text style={[styles.emptyDescription, { color: colors.muted }]}>
+                Ask me anything about cooking, show me your ingredients, or get step-by-step guidance.
+              </Text>
+            </View>
+          ) : (
+            messages.map((message) => (
+              <ChatMessage
+                key={message.id}
+                message={message}
+                onImagePress={(imageUri) => console.log('Image pressed:', imageUri)}
+              />
+            ))
+          )}
           
           {isTyping && (
             <View style={styles.typingContainer}>
@@ -137,6 +149,28 @@ const styles = StyleSheet.create({
   },
   messagesContent: {
     paddingBottom: 16,
+    flexGrow: 1,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  emptyEmoji: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyDescription: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   typingContainer: {
     paddingHorizontal: 16,

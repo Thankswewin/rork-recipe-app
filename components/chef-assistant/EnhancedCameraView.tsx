@@ -16,8 +16,9 @@ export default function EnhancedCameraView({ onClose, onCapture }: EnhancedCamer
   const [facing, setFacing] = useState<CameraType>('back');
   const [flash, setFlash] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
+  const [isCapturing, setIsCapturing] = useState(false);
   const cameraRef = useRef<CameraView>(null);
-  const { isAnalyzing, analyzeImage } = useChefAssistantStore();
+  const { isAnalyzing } = useChefAssistantStore();
 
   if (!permission) {
     return <View style={styles.container} />;
@@ -50,25 +51,29 @@ export default function EnhancedCameraView({ onClose, onCapture }: EnhancedCamer
   };
 
   const takePicture = async () => {
-    if (!cameraRef.current) return;
+    if (!cameraRef.current || isCapturing) return;
 
     try {
+      setIsCapturing(true);
+      console.log('Taking picture...');
+
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
         base64: false,
+        skipProcessing: false,
       });
 
       if (photo?.uri) {
+        console.log('Picture taken successfully:', photo.uri);
         onCapture(photo.uri);
-        
-        // Auto-analyze the image
-        if (Platform.OS !== 'web') {
-          analyzeImage(photo.uri);
-        }
+      } else {
+        throw new Error('No photo URI returned');
       }
     } catch (error) {
       console.error('Camera capture error:', error);
-      Alert.alert('Error', 'Failed to take picture');
+      Alert.alert('Error', 'Failed to take picture. Please try again.');
+    } finally {
+      setIsCapturing(false);
     }
   };
 
@@ -100,13 +105,15 @@ export default function EnhancedCameraView({ onClose, onCapture }: EnhancedCamer
         </View>
 
         {/* Analysis Overlay */}
-        {isAnalyzing && (
+        {(isAnalyzing || isCapturing) && (
           <View style={styles.analysisOverlay}>
             <LinearGradient
               colors={["rgba(16, 185, 129, 0.9)", "rgba(5, 150, 105, 0.9)"]}
               style={styles.analysisContainer}
             >
-              <Text style={styles.analysisText}>🧠 Analyzing your cooking...</Text>
+              <Text style={styles.analysisText}>
+                {isCapturing ? '📸 Capturing image...' : '🧠 Analyzing your cooking...'}
+              </Text>
             </LinearGradient>
           </View>
         )}
@@ -122,10 +129,10 @@ export default function EnhancedCameraView({ onClose, onCapture }: EnhancedCamer
           <TouchableOpacity 
             style={styles.captureButtonContainer} 
             onPress={takePicture}
-            disabled={isAnalyzing}
+            disabled={isAnalyzing || isCapturing}
           >
             <LinearGradient
-              colors={isAnalyzing ? ["#9CA3AF", "#6B7280"] : ["#EF4444", "#DC2626"]}
+              colors={isAnalyzing || isCapturing ? ["#9CA3AF", "#6B7280"] : ["#EF4444", "#DC2626"]}
               style={styles.captureButton}
             >
               <Camera size={24} color="white" />

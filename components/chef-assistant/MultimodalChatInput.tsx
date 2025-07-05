@@ -17,14 +17,19 @@ export default function MultimodalChatInput({ onSendMessage, disabled }: Multimo
   const { isRecording, setRecording, processVoiceCommand } = useChefAssistantStore();
 
   const handleSend = () => {
-    if (message.trim()) {
+    if (message.trim() && !disabled) {
+      console.log('Sending message:', message.trim());
       onSendMessage(message.trim());
       setMessage('');
     }
   };
 
   const handleCamera = async () => {
+    if (disabled) return;
+
     try {
+      console.log('Opening camera for image picker...');
+      
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission needed', 'Camera permission is required to take photos');
@@ -40,6 +45,7 @@ export default function MultimodalChatInput({ onSendMessage, disabled }: Multimo
 
       if (!result.canceled && result.assets[0]) {
         const imageUri = result.assets[0].uri;
+        console.log('Image captured:', imageUri);
         onSendMessage(message.trim() || 'Please analyze this image', imageUri);
         setMessage('');
       }
@@ -50,6 +56,8 @@ export default function MultimodalChatInput({ onSendMessage, disabled }: Multimo
   };
 
   const handleVoiceRecord = async () => {
+    if (disabled) return;
+
     if (Platform.OS === 'web') {
       Alert.alert('Not supported', 'Voice recording is not available on web');
       return;
@@ -57,20 +65,18 @@ export default function MultimodalChatInput({ onSendMessage, disabled }: Multimo
 
     try {
       if (isRecording) {
-        // Stop recording
+        console.log('Stopping voice recording...');
         setRecording(false);
         // In a real implementation, you'd stop the audio recording here
         // and process the audio file
-        console.log('Stopping voice recording...');
       } else {
-        // Start recording
-        setRecording(true);
-        // In a real implementation, you'd start audio recording here
         console.log('Starting voice recording...');
+        setRecording(true);
         
         // Simulate recording for demo
         setTimeout(() => {
           setRecording(false);
+          console.log('Processing voice command...');
           // Simulate processing voice command
           processVoiceCommand('dummy-audio-uri');
         }, 3000);
@@ -94,6 +100,8 @@ export default function MultimodalChatInput({ onSendMessage, disabled }: Multimo
           multiline
           maxLength={500}
           editable={!disabled}
+          returnKeyType="send"
+          onSubmitEditing={handleSend}
         />
         
         <View style={styles.actionButtons}>

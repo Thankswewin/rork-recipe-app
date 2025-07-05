@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, FlatList, Alert } from "react-native";
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Camera, Mic, Brain, MessageCircle, Settings, Play, Square, ChefHat } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -24,15 +24,19 @@ export default function AssistantScreen() {
     isSessionActive,
     messages,
     isTyping,
-    isCameraActive,
     selectedAgent,
     availableAgents,
     startSession,
     endSession,
     sendMessage,
     selectAgent,
-    setCameraActive,
+    initializeStore,
   } = useChefAssistantStore();
+
+  // Initialize store on mount
+  useEffect(() => {
+    initializeStore();
+  }, []);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -74,14 +78,20 @@ export default function AssistantScreen() {
     );
   };
 
-  const handleCameraCapture = (imageUri: string) => {
+  const handleCameraCapture = async (imageUri: string) => {
     setShowCamera(false);
-    sendMessage("Please analyze this cooking image", imageUri);
+    await sendMessage("Please analyze this cooking image", imageUri);
   };
 
   const handleAgentSelect = (agent: any) => {
     selectAgent(agent);
     setShowAgentSelector(false);
+  };
+
+  const handleGoToChat = () => {
+    if (isSessionActive) {
+      router.push('/chef-assistant/chat');
+    }
   };
 
   if (showCamera) {
@@ -186,41 +196,64 @@ export default function AssistantScreen() {
                   <Camera size={20} color="black" />
                 </View>
               </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.chatButtonContainer}
+                onPress={handleGoToChat}
+              >
+                <View style={[styles.chatButton, { backgroundColor: '#10B981', borderColor: colors.iconBorder }]}>
+                  <MessageCircle size={20} color="black" />
+                </View>
+              </TouchableOpacity>
             </View>
           )}
         </View>
 
-        {/* Chat Messages */}
-        {isSessionActive && (
-          <ScrollView
-            ref={scrollViewRef}
-            style={styles.messagesContainer}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.messagesContent}
-          >
-            {messages.map((message) => (
-              <ChatMessage
-                key={message.id}
-                message={message}
-                onImagePress={(imageUri) => console.log('Image pressed:', imageUri)}
-              />
-            ))}
-            
-            {isTyping && (
-              <View style={styles.typingContainer}>
-                <View style={[styles.typingBubble, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-                  <Text style={[styles.typingText, { color: colors.muted }]}>
-                    {selectedAgent?.name} is thinking...
-                  </Text>
-                  <View style={styles.typingDots}>
-                    <View style={[styles.dot, { backgroundColor: colors.muted }]} />
-                    <View style={[styles.dot, { backgroundColor: colors.muted }]} />
-                    <View style={[styles.dot, { backgroundColor: colors.muted }]} />
+        {/* Quick Chat Preview */}
+        {isSessionActive && messages.length > 0 && (
+          <View style={styles.quickChatPreview}>
+            <TouchableOpacity 
+              style={[styles.chatPreviewContainer, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+              onPress={handleGoToChat}
+            >
+              <Text style={[styles.chatPreviewTitle, { color: colors.text }]}>Recent Messages</Text>
+              <ScrollView
+                ref={scrollViewRef}
+                style={styles.previewMessages}
+                showsVerticalScrollIndicator={false}
+              >
+                {messages.slice(-3).map((message) => (
+                  <ChatMessage
+                    key={message.id}
+                    message={message}
+                    onImagePress={(imageUri) => console.log('Image pressed:', imageUri)}
+                  />
+                ))}
+                
+                {isTyping && (
+                  <View style={styles.typingContainer}>
+                    <View style={[styles.typingBubble, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+                      <Text style={[styles.typingText, { color: colors.muted }]}>
+                        {selectedAgent?.name} is thinking...
+                      </Text>
+                      <View style={styles.typingDots}>
+                        <View style={[styles.dot, { backgroundColor: colors.muted }]} />
+                        <View style={[styles.dot, { backgroundColor: colors.muted }]} />
+                        <View style={[styles.dot, { backgroundColor: colors.muted }]} />
+                      </View>
+                    </View>
                   </View>
-                </View>
+                )}
+              </ScrollView>
+              
+              <View style={styles.chatPreviewFooter}>
+                <Text style={[styles.tapToContinue, { color: colors.muted }]}>
+                  Tap to open full chat
+                </Text>
+                <MessageCircle size={16} color={colors.muted} />
               </View>
-            )}
-          </ScrollView>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Welcome Screen */}
@@ -286,7 +319,7 @@ export default function AssistantScreen() {
           </ScrollView>
         )}
 
-        {/* Chat Input */}
+        {/* Quick Chat Input */}
         {isSessionActive && (
           <MultimodalChatInput
             onSendMessage={sendMessage}
@@ -388,6 +421,7 @@ const styles = StyleSheet.create({
   },
   sessionButtonContainer: {
     borderRadius: 16,
+    flex: 1,
   },
   sessionButton: {
     flexDirection: 'row',
@@ -427,14 +461,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
   },
-  messagesContainer: {
-    flex: 1,
+  chatButtonContainer: {
+    borderRadius: 16,
   },
-  messagesContent: {
-    paddingBottom: 16,
+  chatButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  quickChatPreview: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  chatPreviewContainer: {
+    flex: 1,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+  },
+  chatPreviewTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  previewMessages: {
+    flex: 1,
+    maxHeight: 200,
+  },
+  chatPreviewFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 12,
+    gap: 8,
+  },
+  tapToContinue: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   typingContainer: {
-    paddingHorizontal: 16,
     paddingVertical: 8,
   },
   typingBubble: {

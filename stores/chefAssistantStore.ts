@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 export interface ChatMessage {
   id: string;
@@ -65,6 +66,7 @@ interface ChefAssistantState {
   cameraAnalysisEnabled: boolean;
   
   // Actions
+  initializeStore: () => void;
   startSession: (recipeName: string) => void;
   endSession: () => void;
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
@@ -88,7 +90,7 @@ const defaultAgents: ChefAgent[] = [
     specialty: 'Nigerian Cuisine',
     personality: 'Warm, encouraging, traditional',
     avatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?ixlib=rb-1.2.1&auto=format&fit=crop&w=387&q=80',
-    description: 'Expert in traditional Nigerian dishes with modern techniques',
+    description: 'Expert in traditional Nigerian dishes with modern techniques. I will guide you through authentic recipes with love and patience.',
     isCustom: false,
   },
   {
@@ -97,7 +99,7 @@ const defaultAgents: ChefAgent[] = [
     specialty: 'International Fusion',
     personality: 'Creative, experimental, detailed',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-1.2.1&auto=format&fit=crop&w=387&q=80',
-    description: 'Specializes in fusion cuisine and innovative cooking techniques',
+    description: 'Specializes in fusion cuisine and innovative cooking techniques. Let me help you explore flavors from around the world.',
     isCustom: false,
   },
   {
@@ -106,7 +108,7 @@ const defaultAgents: ChefAgent[] = [
     specialty: 'Healthy & Nutritious',
     personality: 'Health-focused, informative, supportive',
     avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-1.2.1&auto=format&fit=crop&w=387&q=80',
-    description: 'Expert in healthy cooking and nutritional guidance',
+    description: 'Expert in healthy cooking and nutritional guidance. I will help you create delicious, nutritious meals for your wellbeing.',
     isCustom: false,
   },
 ];
@@ -131,7 +133,17 @@ export const useChefAssistantStore = create<ChefAssistantState>()(
       cameraAnalysisEnabled: true,
 
       // Actions
+      initializeStore: () => {
+        console.log('Chef Assistant Store initialized');
+        const state = get();
+        if (!state.selectedAgent) {
+          set({ selectedAgent: defaultAgents[0] });
+        }
+      },
+
       startSession: (recipeName: string) => {
+        console.log('Starting cooking session for:', recipeName);
+        
         const session: CookingSession = {
           id: Date.now().toString(),
           recipeName,
@@ -149,16 +161,29 @@ export const useChefAssistantStore = create<ChefAssistantState>()(
         });
 
         // Add welcome message
-        get().addMessage({
-          type: 'assistant',
-          content: `Hello! I'm ${get().selectedAgent?.name}. I'm here to help you cook ${recipeName}. Let's start by showing me your ingredients or tell me what step you'd like to begin with.`,
-        });
+        setTimeout(() => {
+          get().addMessage({
+            type: 'assistant',
+            content: `Hello! I'm ${get().selectedAgent?.name}. I'm excited to help you cook ${recipeName}! 
+
+Let's start by showing me your ingredients or tell me what step you'd like to begin with. You can:
+
+🍅 Take a photo of your ingredients
+🎤 Ask me questions with voice
+💬 Type your questions
+📸 Show me your cooking progress
+
+What would you like to do first?`,
+          });
+        }, 500);
       },
 
       endSession: () => {
+        console.log('Ending cooking session');
         set({
           currentSession: null,
           isSessionActive: false,
+          messages: [],
           isCameraActive: false,
           isAnalyzing: false,
           isListening: false,
@@ -173,6 +198,8 @@ export const useChefAssistantStore = create<ChefAssistantState>()(
           timestamp: new Date(),
         };
 
+        console.log('Adding message:', newMessage.type, newMessage.content.substring(0, 50));
+
         set(state => ({
           messages: [...state.messages, newMessage],
           currentSession: state.currentSession ? {
@@ -182,19 +209,27 @@ export const useChefAssistantStore = create<ChefAssistantState>()(
         }));
       },
 
-      setTyping: (isTyping) => set({ isTyping }),
+      setTyping: (isTyping) => {
+        console.log('Setting typing:', isTyping);
+        set({ isTyping });
+      },
+      
       setCameraActive: (isActive) => set({ isCameraActive: isActive }),
       setAnalyzing: (isAnalyzing) => set({ isAnalyzing }),
       setListening: (isListening) => set({ isListening }),
       setRecording: (isRecording) => set({ isRecording }),
 
-      selectAgent: (agent) => set({ selectedAgent: agent }),
+      selectAgent: (agent) => {
+        console.log('Selecting agent:', agent.name);
+        set({ selectedAgent: agent });
+      },
 
       updateSettings: (settings) => set(settings),
 
       clearMessages: () => set({ messages: [] }),
 
       analyzeImage: async (imageUri: string) => {
+        console.log('Starting image analysis for:', imageUri);
         set({ isAnalyzing: true });
         
         try {
@@ -209,6 +244,8 @@ export const useChefAssistantStore = create<ChefAssistantState>()(
             };
             reader.readAsDataURL(blob);
           });
+
+          console.log('Image converted to base64, sending to AI...');
 
           // Send to AI for analysis
           const aiResponse = await fetch('https://toolkit.rork.com/text/llm/', {
@@ -227,7 +264,7 @@ export const useChefAssistantStore = create<ChefAssistantState>()(
                   4. Safety considerations
                   5. Nigerian cuisine expertise when relevant
                   
-                  Respond in a warm, encouraging tone with specific, actionable advice.`,
+                  Respond in a warm, encouraging tone with specific, actionable advice. Keep responses concise but helpful.`,
                 },
                 {
                   role: 'user',
@@ -247,6 +284,8 @@ export const useChefAssistantStore = create<ChefAssistantState>()(
           });
 
           const result = await aiResponse.json();
+          console.log('AI analysis completed');
+
           const analysis = {
             confidence: 0.9,
             detectedIngredients: [], // Would be populated by more sophisticated AI
@@ -278,12 +317,15 @@ export const useChefAssistantStore = create<ChefAssistantState>()(
       },
 
       processVoiceCommand: async (audioUri: string) => {
+        console.log('Processing voice command:', audioUri);
         set({ isListening: true });
         
         try {
           // In a real implementation, you'd use speech-to-text
           // For now, we'll simulate with a placeholder
-          const transcription = "Show me how to cut onions properly";
+          const transcription = "How do I properly season my jollof rice?";
+          
+          console.log('Voice transcribed:', transcription);
           
           // Add user message
           get().addMessage({
@@ -296,12 +338,18 @@ export const useChefAssistantStore = create<ChefAssistantState>()(
           await get().sendMessage(transcription);
         } catch (error) {
           console.error('Voice processing error:', error);
+          get().addMessage({
+            type: 'assistant',
+            content: "I couldn't process your voice message. Please try typing your question instead.",
+          });
         } finally {
           set({ isListening: false });
         }
       },
 
       sendMessage: async (content: string, imageUri?: string) => {
+        console.log('Sending message:', content, imageUri ? 'with image' : 'text only');
+        
         // Add user message
         get().addMessage({
           type: 'user',
@@ -312,12 +360,15 @@ export const useChefAssistantStore = create<ChefAssistantState>()(
         set({ isTyping: true });
 
         try {
-          const messages = [
+          const currentSession = get().currentSession;
+          const selectedAgent = get().selectedAgent;
+
+          let messages: any[] = [
             {
               role: 'system' as const,
-              content: `You are ${get().selectedAgent?.name}, a professional chef assistant specializing in ${get().selectedAgent?.specialty}. 
+              content: `You are ${selectedAgent?.name}, a professional chef assistant specializing in ${selectedAgent?.specialty}. 
               
-              Your personality: ${get().selectedAgent?.personality}
+              Your personality: ${selectedAgent?.personality}
               
               You are helping with cooking in real-time. Provide:
               1. Clear, step-by-step guidance
@@ -326,18 +377,25 @@ export const useChefAssistantStore = create<ChefAssistantState>()(
               4. Cooking techniques and tips
               5. Encouragement and support
               
-              Keep responses concise but helpful. If the user is cooking Nigerian food, incorporate traditional techniques and cultural context.
+              Keep responses concise but helpful (2-3 paragraphs max). If the user is cooking Nigerian food, incorporate traditional techniques and cultural context.
               
-              Current session: ${get().currentSession?.recipeName || 'General cooking assistance'}`,
-            },
-            {
-              role: 'user' as const,
-              content: imageUri ? [
-                { type: 'text' as const, text: content },
-                { type: 'image' as const, image: imageUri },
-              ] : content,
+              Current session: ${currentSession?.recipeName || 'General cooking assistance'}
+              Current step: ${currentSession?.currentStep || 1} of ${currentSession?.totalSteps || 10}`,
             },
           ];
+
+          if (imageUri) {
+            // If there's an image, analyze it
+            await get().analyzeImage(imageUri);
+            return; // analyzeImage already adds the response
+          } else {
+            messages.push({
+              role: 'user' as const,
+              content: content,
+            });
+          }
+
+          console.log('Sending request to AI...');
 
           const response = await fetch('https://toolkit.rork.com/text/llm/', {
             method: 'POST',
@@ -347,18 +405,34 @@ export const useChefAssistantStore = create<ChefAssistantState>()(
             body: JSON.stringify({ messages }),
           });
 
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
           const result = await response.json();
+          console.log('AI response received');
 
           // Add AI response
           get().addMessage({
             type: 'assistant',
             content: result.completion,
           });
+
+          // Update session step if applicable
+          if (currentSession && content.toLowerCase().includes('next step')) {
+            set(state => ({
+              currentSession: state.currentSession ? {
+                ...state.currentSession,
+                currentStep: Math.min(state.currentSession.currentStep + 1, state.currentSession.totalSteps)
+              } : null
+            }));
+          }
+
         } catch (error) {
           console.error('Send message error:', error);
           get().addMessage({
             type: 'assistant',
-            content: "I'm having trouble responding right now. Please try again in a moment.",
+            content: "I'm having trouble responding right now. Please check your internet connection and try again.",
           });
         } finally {
           set({ isTyping: false });
@@ -374,7 +448,7 @@ export const useChefAssistantStore = create<ChefAssistantState>()(
         language: state.language,
         voiceEnabled: state.voiceEnabled,
         cameraAnalysisEnabled: state.cameraAnalysisEnabled,
-        // Don't persist active session state
+        // Don't persist active session state to avoid stale sessions
       }),
     }
   )
