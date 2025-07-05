@@ -739,7 +739,7 @@ export const useAuthStore = create<AuthState>()(
           
           console.log('Creating/getting conversation between:', user.id, 'and', otherUserId);
           
-          // First check if tables exist by trying a simple query
+          // First check if conversations table exists
           const { error: tableCheckError } = await supabase
             .from('conversations')
             .select('id')
@@ -747,18 +747,35 @@ export const useAuthStore = create<AuthState>()(
 
           if (tableCheckError) {
             console.error('Conversations table not accessible:', tableCheckError);
-            return { error: 'Messaging system not set up. Please contact support.' };
+            if (tableCheckError.code === '42P01') {
+              return { error: 'Messaging system is not set up yet. Please contact support to enable messaging.' };
+            }
+            return { error: 'Unable to access messaging system. Please try again later.' };
+          }
+
+          // Check if conversation_participants table exists
+          const { error: participantsTableError } = await supabase
+            .from('conversation_participants')
+            .select('id')
+            .limit(1);
+
+          if (participantsTableError) {
+            console.error('Conversation participants table not accessible:', participantsTableError);
+            if (participantsTableError.code === '42P01') {
+              return { error: 'Messaging system is not set up yet. Please contact support to enable messaging.' };
+            }
+            return { error: 'Unable to access messaging system. Please try again later.' };
           }
           
-          // Use a more efficient query to find existing conversation
-          const { data: existingConversation, error: existingError } = await supabase
+          // Try to use RPC function to find existing conversation
+          const { data: existingConversation, error: rpcError } = await supabase
             .rpc('find_conversation_between_users', {
               user1_id: user.id,
               user2_id: otherUserId
             });
 
           // If RPC doesn't exist, fall back to manual check
-          if (existingError && existingError.code === '42883') {
+          if (rpcError && rpcError.code === '42883') {
             console.log('RPC not available, using manual check');
             
             // Get all conversations for current user
@@ -788,9 +805,12 @@ export const useAuthStore = create<AuthState>()(
                 }
               }
             }
-          } else if (!existingError && existingConversation) {
+          } else if (!rpcError && existingConversation) {
             console.log('Found existing conversation via RPC:', existingConversation);
             return { conversationId: existingConversation };
+          } else if (rpcError) {
+            console.error('RPC error:', rpcError);
+            // Continue with manual creation
           }
 
           console.log('No existing conversation found, creating new one');
@@ -798,7 +818,9 @@ export const useAuthStore = create<AuthState>()(
           // Create new conversation
           const { data: newConversation, error: conversationError } = await supabase
             .from('conversations')
-            .insert({})
+            .insert({
+              last_message_at: new Date().toISOString()
+            })
             .select()
             .single();
 

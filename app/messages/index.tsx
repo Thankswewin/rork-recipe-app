@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { StyleSheet, View, Text, FlatList, TouchableOpacity, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, router } from "expo-router";
-import { MessageCircle, Search } from "lucide-react-native";
+import { MessageCircle, Search, AlertCircle } from "lucide-react-native";
 import BackButton from "@/components/BackButton";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthStore } from "@/stores/authStore";
@@ -12,6 +12,7 @@ import type { Conversation } from "@/types";
 export default function MessagesScreen() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { colors } = useTheme();
   const { user } = useAuthStore();
 
@@ -26,6 +27,39 @@ export default function MessagesScreen() {
 
     try {
       setIsLoading(true);
+      setError(null);
+      
+      // First check if conversations table exists
+      const { error: tableCheckError } = await supabase
+        .from('conversations')
+        .select('id')
+        .limit(1);
+
+      if (tableCheckError) {
+        console.error('Conversations table not accessible:', tableCheckError);
+        if (tableCheckError.code === '42P01') {
+          setError('Messaging system is not set up yet. Please contact support to enable messaging.');
+        } else {
+          setError('Unable to access messaging system. Please try again later.');
+        }
+        return;
+      }
+
+      // Check if conversation_participants table exists
+      const { error: participantsTableError } = await supabase
+        .from('conversation_participants')
+        .select('id')
+        .limit(1);
+
+      if (participantsTableError) {
+        console.error('Conversation participants table not accessible:', participantsTableError);
+        if (participantsTableError.code === '42P01') {
+          setError('Messaging system is not set up yet. Please contact support to enable messaging.');
+        } else {
+          setError('Unable to access messaging system. Please try again later.');
+        }
+        return;
+      }
       
       // Get conversations where user is a participant
       const { data: conversationData, error } = await supabase
@@ -44,6 +78,7 @@ export default function MessagesScreen() {
 
       if (error) {
         console.error('Error fetching conversations:', error);
+        setError('Failed to load conversations. Please try again.');
         return;
       }
 
@@ -92,8 +127,9 @@ export default function MessagesScreen() {
       );
 
       setConversations(conversationsWithDetails);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching conversations:', error);
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -156,6 +192,22 @@ export default function MessagesScreen() {
     );
   };
 
+  const renderError = () => (
+    <View style={styles.errorContainer}>
+      <AlertCircle size={64} color={colors.muted} />
+      <Text style={[styles.errorTitle, { color: colors.text }]}>Unable to Load Messages</Text>
+      <Text style={[styles.errorSubtitle, { color: colors.muted }]}>
+        {error}
+      </Text>
+      <TouchableOpacity
+        style={[styles.retryButton, { backgroundColor: colors.tint }]}
+        onPress={fetchConversations}
+      >
+        <Text style={styles.retryButtonText}>Try Again</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -168,7 +220,9 @@ export default function MessagesScreen() {
         </TouchableOpacity>
       </View>
 
-      {isLoading ? (
+      {error ? (
+        renderError()
+      ) : isLoading ? (
         <View style={styles.loadingContainer}>
           <Text style={[styles.loadingText, { color: colors.text }]}>Loading conversations...</Text>
         </View>
@@ -223,6 +277,34 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 32,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  errorSubtitle: {
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   emptyContainer: {
     flex: 1,

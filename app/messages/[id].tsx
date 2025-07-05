@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { StyleSheet, View, Text, FlatList, TextInput, TouchableOpacity, Image, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, router } from "expo-router";
-import { Send, Phone, Video } from "lucide-react-native";
+import { Send, Phone, Video, AlertCircle } from "lucide-react-native";
 import BackButton from "@/components/BackButton";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthStore } from "@/stores/authStore";
@@ -16,6 +16,7 @@ export default function ConversationScreen() {
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const { colors } = useTheme();
   const { user } = useAuthStore();
@@ -32,6 +33,22 @@ export default function ConversationScreen() {
     if (!id || !user) return;
 
     try {
+      // Check if conversations table exists
+      const { error: tableCheckError } = await supabase
+        .from('conversations')
+        .select('id')
+        .limit(1);
+
+      if (tableCheckError) {
+        console.error('Conversations table not accessible:', tableCheckError);
+        if (tableCheckError.code === '42P01') {
+          setError('Messaging system is not set up yet. Please contact support to enable messaging.');
+        } else {
+          setError('Unable to access messaging system. Please try again later.');
+        }
+        return;
+      }
+
       const { data: conversationData, error } = await supabase
         .from('conversations')
         .select('*')
@@ -40,11 +57,12 @@ export default function ConversationScreen() {
 
       if (error) {
         console.error('Error fetching conversation:', error);
+        setError('Conversation not found or no longer accessible.');
         return;
       }
 
       // Get participants
-      const { data: participants } = await supabase
+      const { data: participants, error: participantsError } = await supabase
         .from('conversation_participants')
         .select(`
           *,
@@ -57,12 +75,19 @@ export default function ConversationScreen() {
         `)
         .eq('conversation_id', id);
 
+      if (participantsError) {
+        console.error('Error fetching participants:', participantsError);
+        setError('Unable to load conversation details.');
+        return;
+      }
+
       setConversation({
         ...conversationData,
         participants: participants || [],
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching conversation:', error);
+      setError('An unexpected error occurred while loading the conversation.');
     }
   };
 
@@ -71,6 +96,23 @@ export default function ConversationScreen() {
 
     try {
       setIsLoading(true);
+      setError(null);
+      
+      // Check if messages table exists
+      const { error: tableCheckError } = await supabase
+        .from('messages')
+        .select('id')
+        .limit(1);
+
+      if (tableCheckError) {
+        console.error('Messages table not accessible:', tableCheckError);
+        if (tableCheckError.code === '42P01') {
+          setError('Messaging system is not set up yet. Please contact support to enable messaging.');
+        } else {
+          setError('Unable to access messaging system. Please try again later.');
+        }
+        return;
+      }
       
       const { data, error } = await supabase
         .from('messages')
@@ -88,6 +130,7 @@ export default function ConversationScreen() {
 
       if (error) {
         console.error('Error fetching messages:', error);
+        setError('Failed to load messages. Please try again.');
         return;
       }
 
@@ -95,8 +138,9 @@ export default function ConversationScreen() {
       
       // Mark messages as read
       await markMessagesAsRead();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching messages:', error);
+      setError('An unexpected error occurred while loading messages.');
     } finally {
       setIsLoading(false);
     }
@@ -182,10 +226,18 @@ export default function ConversationScreen() {
       if (error) {
         console.error('Error sending message:', error);
         setNewMessage(messageContent); // Restore message on error
+        setError('Failed to send message. Please try again.');
+      } else {
+        // Update conversation's last_message_at
+        await supabase
+          .from('conversations')
+          .update({ last_message_at: new Date().toISOString() })
+          .eq('id', id);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending message:', error);
       setNewMessage(messageContent); // Restore message on error
+      setError('An unexpected error occurred while sending the message.');
     } finally {
       setIsSending(false);
     }
@@ -244,8 +296,41 @@ export default function ConversationScreen() {
     );
   };
 
+  const renderError = () => (
+    <View style={styles.errorContainer}>
+      <AlertCircle size={64} color={colors.muted} />
+      <Text style={[styles.errorTitle, { color: colors.text }]}>Unable to Load Conversation</Text>
+      <Text style={[styles.errorSubtitle, { color: colors.muted }]}>
+        {error}
+      </Text>
+      <TouchableOpacity
+        style={[styles.retryButton, { backgroundColor: colors.tint }]}
+        onPress={() => {
+          fetchConversation();
+          fetchMessages();
+        }}
+      >
+        <Text style={styles.retryButtonText}>Try Again</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   const otherUser = getOtherParticipant();
   const displayName = otherUser?.full_name || otherUser?.username || 'Unknown User';
+
+  if (error) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.header}>
+          <BackButton />
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Messages</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        {renderError()}
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
@@ -381,6 +466,34 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 32,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  errorSubtitle: {
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   messagesList: {
     paddingHorizontal: 16,
