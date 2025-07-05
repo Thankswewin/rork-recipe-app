@@ -25,6 +25,36 @@ export default function ProfileScreen() {
   const { colors } = useTheme();
   const { user, profile, signOut, updateProfile, uploadAvatar, removeAvatar, checkUsernameAvailability, refreshProfile } = useAuthStore();
 
+  // Test notification function
+  const createTestNotification = async () => {
+    if (!user) return;
+    
+    try {
+      const { supabase } = await import('@/lib/supabase');
+      const { error } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: user.id,
+          actor_id: user.id, // Self notification for testing
+          type: 'follow',
+          title: 'Test Notification',
+          message: 'This is a test notification to verify the system is working.',
+          data: {},
+          read: false
+        });
+
+      if (error) {
+        console.error('Error creating test notification:', error);
+        Alert.alert('Error', 'Failed to create test notification');
+      } else {
+        Alert.alert('Success', 'Test notification created!');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      Alert.alert('Error', 'Failed to create test notification');
+    }
+  };
+
   // Refresh profile when screen comes into focus
   useEffect(() => {
     refreshProfile();

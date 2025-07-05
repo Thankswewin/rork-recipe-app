@@ -49,6 +49,10 @@ export default function HomeScreen() {
     router.push("/notifications");
   };
 
+  const handleProfilePress = () => {
+    router.push("/profile");
+  };
+
   const displayName = profile?.full_name || profile?.username || currentUser.name;
   const avatarUrl = profile?.avatar_url || currentUser.avatar;
 
@@ -59,10 +63,13 @@ export default function HomeScreen() {
           <View style={styles.content}>
             {/* Header */}
             <View style={styles.header}>
-              <View style={styles.userInfo}>
-                <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-                <Text style={[styles.greeting, { color: colors.text }]}>Hello {displayName}</Text>
-              </View>
+              <TouchableOpacity 
+                style={styles.userInfo}
+                onPress={handleProfilePress}
+                activeOpacity={0.8}
+              >
+                <Image source={{ uri: avatarUrl }} style={[styles.avatar, { borderColor: colors.iconBorder }]} />
+              </TouchableOpacity>
               <View style={styles.actions}>
                 <TouchableOpacity 
                   style={styles.iconButtonContainer}
@@ -278,14 +285,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   userInfo: {
-    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
   },
   avatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    marginRight: 16,
+    borderWidth: 2,
   },
   greeting: {
     fontSize: 20,

@@ -521,7 +521,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const notifications = data || [];
-          const unreadCount = notifications.filter((n: Notification) => !n.read).length;
+          const unreadCount = notifications.filter((n: any) => !n.read).length;
 
           set({ 
             notifications,
@@ -551,7 +551,7 @@ export const useAuthStore = create<AuthState>()(
 
           // Update local state
           set(state => ({
-            notifications: state.notifications.map((n: Notification) => 
+            notifications: state.notifications.map((n: any) => 
               n.id === notificationId ? { ...n, read: true } : n
             ),
             unreadNotificationsCount: Math.max(0, state.unreadNotificationsCount - 1)
@@ -580,7 +580,7 @@ export const useAuthStore = create<AuthState>()(
 
           // Update local state
           set(state => ({
-            notifications: state.notifications.map((n: Notification) => ({ ...n, read: true })),
+            notifications: state.notifications.map((n: any) => ({ ...n, read: true })),
             unreadNotificationsCount: 0
           }));
         } catch (error) {
@@ -617,7 +617,7 @@ export const useAuthStore = create<AuthState>()(
                 table: 'notifications',
                 filter: `user_id=eq.${user.id}`,
               },
-              async (payload: RealtimePayload) => {
+              async (payload: any) => {
                 console.log('New notification received:', payload);
                 
                 // Fetch the complete notification with actor data
@@ -652,7 +652,7 @@ export const useAuthStore = create<AuthState>()(
                 schema: 'public',
                 table: 'followers',
               },
-              (payload: RealtimePayload) => {
+              (payload: any) => {
                 console.log('Followers table changed:', payload);
                 // This will help refresh follower counts and states in real-time
                 // Components can listen to this via custom events or state updates
