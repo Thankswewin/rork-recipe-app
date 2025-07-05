@@ -156,7 +156,7 @@ export default function FollowersScreen() {
   const currentData = activeTab === 'followers' ? followers : following;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={[\"top\"]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
       
       <View style={styles.header}>
@@ -220,7 +220,7 @@ export default function FollowersScreen() {
             <Text style={[styles.emptySubtext, { color: colors.muted }]}>
               {activeTab === 'followers' 
                 ? 'No one is following this user yet'
-                : 'This user isn\'t following anyone yet'
+                : "This user isn't following anyone yet"
               }
             </Text>
           </View>
