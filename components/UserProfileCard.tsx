@@ -71,9 +71,9 @@ export default function UserProfileCard({
             onPress={handleFollowPress}
           >
             {user.is_following ? (
-              <UserCheck size={14} color=\"white\" />
+              <UserCheck size={14} color="white" />
             ) : (
-              <UserPlus size={14} color=\"white\" />
+              <UserPlus size={14} color="white" />
             )}
           </TouchableOpacity>
         )}
@@ -121,9 +121,9 @@ export default function UserProfileCard({
             onPress={handleFollowPress}
           >
             {user.is_following ? (
-              <UserCheck size={16} color=\"white\" />
+              <UserCheck size={16} color="white" />
             ) : (
-              <UserPlus size={16} color=\"white\" />
+              <UserPlus size={16} color="white" />
             )}
           </TouchableOpacity>
           
@@ -138,4 +138,101 @@ export default function UserProfileCard({
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: \"row\",\n    alignItems: \"center\",\n    justifyContent: \"space-between\",\n    padding: 16,\n    borderRadius: 16,\n    borderWidth: 1,\n    marginBottom: 12,\n    shadowColor: \"#000\",\n    shadowOffset: { width: 0, height: 2 },\n    shadowOpacity: 0.05,\n    shadowRadius: 4,\n    elevation: 2,\n  },\n  compactCard: {\n    flexDirection: \"row\",\n    alignItems: \"center\",\n    padding: 12,\n    borderRadius: 12,\n    borderWidth: 1,\n    marginBottom: 8,\n  },\n  userInfo: {\n    flexDirection: \"row\",\n    alignItems: \"center\",\n    flex: 1,\n  },\n  avatar: {\n    width: 60,\n    height: 60,\n    borderRadius: 30,\n    marginRight: 16,\n    borderWidth: 2,\n  },\n  compactAvatar: {\n    width: 40,\n    height: 40,\n    borderRadius: 20,\n    marginRight: 12,\n    borderWidth: 1,\n  },\n  userDetails: {\n    flex: 1,\n  },\n  compactInfo: {\n    flex: 1,\n  },\n  displayName: {\n    fontSize: 16,\n    fontWeight: \"600\",\n    marginBottom: 2,\n  },\n  compactName: {\n    fontSize: 14,\n    fontWeight: \"600\",\n    marginBottom: 2,\n  },\n  username: {\n    fontSize: 14,\n    marginBottom: 4,\n  },\n  compactUsername: {\n    fontSize: 12,\n  },\n  bio: {\n    fontSize: 12,\n    lineHeight: 16,\n    marginBottom: 4,\n  },\n  recipeCount: {\n    fontSize: 12,\n  },\n  actions: {\n    flexDirection: 'row',\n    gap: 8,\n  },\n  followButton: {\n    width: 40,\n    height: 40,\n    borderRadius: 20,\n    justifyContent: \"center\",\n    alignItems: \"center\",\n  },\n  compactFollowButton: {\n    width: 32,\n    height: 32,\n    borderRadius: 16,\n    justifyContent: \"center\",\n    alignItems: \"center\",\n  },\n  messageButton: {\n    width: 40,\n    height: 40,\n    borderRadius: 20,\n    justifyContent: \"center\",\n    alignItems: \"center\",\n    borderWidth: 1,\n  },\n});
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  compactCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  userInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  avatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginRight: 16,
+    borderWidth: 2,
+  },
+  compactAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+    borderWidth: 1,
+  },
+  userDetails: {
+    flex: 1,
+  },
+  compactInfo: {
+    flex: 1,
+  },
+  displayName: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  compactName: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  username: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  compactUsername: {
+    fontSize: 12,
+  },
+  bio: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 4,
+  },
+  recipeCount: {
+    fontSize: 12,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  followButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  compactFollowButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  messageButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+  },
+});
