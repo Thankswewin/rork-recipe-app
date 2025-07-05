@@ -48,6 +48,9 @@ export default function FollowersScreen() {
 
     setIsLoading(true);
     try {
+      let followersProfiles: UserProfile[] = [];
+      let followingProfiles: UserProfile[] = [];
+
       // Fetch followers
       const { data: followersData, error: followersError } = await supabase
         .from('followers')
@@ -64,7 +67,7 @@ export default function FollowersScreen() {
         .eq('following_id', id);
 
       if (!followersError && followersData) {
-        const followersProfiles = followersData
+        followersProfiles = followersData
           .map((f: any) => f.profiles)
           .filter((profile: any) => profile !== null)
           .map((profile: any) => ({
@@ -95,7 +98,7 @@ export default function FollowersScreen() {
         .eq('follower_id', id);
 
       if (!followingError && followingData) {
-        const followingProfiles = followingData
+        followingProfiles = followingData
           .map((f: any) => f.profiles)
           .filter((profile: any) => profile !== null)
           .map((profile: any) => ({
