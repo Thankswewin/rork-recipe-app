@@ -118,19 +118,21 @@ export const useAuthStore = create<AuthState>()(
           }
 
           if (data.user) {
-            // Try to create profile manually if trigger doesn't work
-            const profileResult = await get().createProfile(data.user.id, email, fullName);
-            if (profileResult.error) {
-              console.warn('Profile creation failed, but user was created:', profileResult.error);
-              // Don't return error here, user creation was successful
-            }
-
             set({
               user: data.user,
               session: data.session,
               isAuthenticated: !!data.session,
               isLoading: false,
             });
+
+            // Wait a bit for the trigger to create the profile, then try to fetch it
+            setTimeout(async () => {
+              try {
+                await get().fetchProfile(data.user!.id);
+              } catch (error) {
+                console.log('Profile fetch after signup failed, will retry on next app launch');
+              }
+            }, 1000);
           }
           
           set({ isLoading: false });
@@ -147,26 +149,34 @@ export const useAuthStore = create<AuthState>()(
           const supabase = await getSupabase();
           
           // Check if profile already exists
-          const { data: existingProfile } = await supabase
+          const { data: existingProfile, error: fetchError } = await supabase
             .from('profiles')
             .select('id')
             .eq('id', userId)
-            .single();
+            .maybeSingle();
 
           if (existingProfile) {
             console.log('Profile already exists');
             return {};
           }
 
-          // Create new profile
+          // Only try to create if we're sure it doesn't exist
+          if (fetchError && fetchError.code !== 'PGRST116') {
+            console.error('Error checking existing profile:', fetchError);
+            return { error: fetchError.message };
+          }
+
+          // Create new profile using upsert to handle race conditions
           const { error } = await supabase
             .from('profiles')
-            .insert({
+            .upsert({
               id: userId,
               email: email,
               full_name: fullName || null,
               bio: null,
               avatar_url: null,
+            }, {
+              onConflict: 'id'
             });
 
           if (error) {
