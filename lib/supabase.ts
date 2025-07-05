@@ -68,6 +68,7 @@ export type Database = {
         Row: {
           id: string;
           email: string;
+          username: string | null;
           full_name: string | null;
           avatar_url: string | null;
           bio: string | null;
@@ -77,6 +78,7 @@ export type Database = {
         Insert: {
           id: string;
           email: string;
+          username?: string | null;
           full_name?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
@@ -86,6 +88,7 @@ export type Database = {
         Update: {
           id?: string;
           email?: string;
+          username?: string | null;
           full_name?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
@@ -163,6 +166,26 @@ export type Database = {
           id?: string;
           user_id?: string;
           recipe_id?: string;
+          created_at?: string;
+        };
+      };
+      followers: {
+        Row: {
+          id: string;
+          follower_id: string;
+          following_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          follower_id: string;
+          following_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          follower_id?: string;
+          following_id?: string;
           created_at?: string;
         };
       };

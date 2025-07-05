@@ -2,6 +2,7 @@
 CREATE TABLE IF NOT EXISTS profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   email TEXT NOT NULL,
+  username TEXT UNIQUE,
   full_name TEXT,
   avatar_url TEXT,
   bio TEXT,
@@ -37,10 +38,20 @@ CREATE TABLE IF NOT EXISTS favorites (
   UNIQUE(user_id, recipe_id)
 );
 
+-- Create followers table for social features
+CREATE TABLE IF NOT EXISTS followers (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  follower_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  following_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(follower_id, following_id)
+);
+
 -- Enable Row Level Security
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE recipes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
+ALTER TABLE followers ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if they exist
 DROP POLICY IF EXISTS "Users can view their own profile" ON profiles;
@@ -57,6 +68,8 @@ DROP POLICY IF EXISTS "Users can view their own favorites" ON favorites;
 DROP POLICY IF EXISTS "Users can create their own favorites" ON favorites;
 DROP POLICY IF EXISTS "Users can delete their own favorites" ON favorites;
 DROP POLICY IF EXISTS "Authenticated users can view all profiles" ON profiles;
+DROP POLICY IF EXISTS "Users can view followers" ON followers;
+DROP POLICY IF EXISTS "Users can manage their own follows" ON followers;
 
 -- Create policies for profiles
 CREATE POLICY "Users can view their own profile" ON profiles
@@ -67,6 +80,9 @@ CREATE POLICY "Users can update their own profile" ON profiles
 
 CREATE POLICY "Allow profile creation" ON profiles
   FOR INSERT WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "Authenticated users can view all profiles" ON profiles
+  FOR SELECT USING (auth.role() = 'authenticated');
 
 -- Create policies for recipes
 CREATE POLICY "Anyone can view recipes" ON recipes
@@ -90,6 +106,13 @@ CREATE POLICY "Users can create their own favorites" ON favorites
 
 CREATE POLICY "Users can delete their own favorites" ON favorites
   FOR DELETE USING (auth.uid() = user_id);
+
+-- Create policies for followers
+CREATE POLICY "Users can view followers" ON followers
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Users can manage their own follows" ON followers
+  FOR ALL USING (auth.uid() = follower_id);
 
 -- Drop existing function and trigger if they exist
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -133,17 +156,24 @@ GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT ALL ON public.profiles TO anon, authenticated;
 GRANT ALL ON public.recipes TO anon, authenticated;
 GRANT ALL ON public.favorites TO anon, authenticated;
+GRANT ALL ON public.followers TO anon, authenticated;
 
 -- Additional policy to allow service role to create profiles
 CREATE POLICY "Service role can manage profiles" ON profiles
   FOR ALL USING (true)
   WITH CHECK (true);
 
--- Allow authenticated users to read all profiles (for social features)
-CREATE POLICY "Authenticated users can view all profiles" ON profiles
-  FOR SELECT USING (auth.role() = 'authenticated');
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_profiles_username ON profiles(username);
+CREATE INDEX IF NOT EXISTS idx_profiles_full_name ON profiles(full_name);
+CREATE INDEX IF NOT EXISTS idx_recipes_user_id ON recipes(user_id);
+CREATE INDEX IF NOT EXISTS idx_recipes_category ON recipes(category);
+CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id);
+CREATE INDEX IF NOT EXISTS idx_followers_follower_id ON followers(follower_id);
+CREATE INDEX IF NOT EXISTS idx_followers_following_id ON followers(following_id);
 
 -- Set up realtime subscriptions (optional)
 ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
 ALTER PUBLICATION supabase_realtime ADD TABLE recipes;
 ALTER PUBLICATION supabase_realtime ADD TABLE favorites;
+ALTER PUBLICATION supabase_realtime ADD TABLE followers;

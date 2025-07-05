@@ -1,18 +1,28 @@
-import React from "react";
-import { StyleSheet, View, Text, Image, TouchableOpacity, ScrollView, Alert } from "react-native";
+import React, { useState } from "react";
+import { StyleSheet, View, Text, Image, TouchableOpacity, ScrollView, Alert, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { recipes } from "@/constants/mockData";
-import { Settings, Edit, LogOut, BookOpen, Award, Clock } from "lucide-react-native";
+import { Settings, Edit, LogOut, BookOpen, Award, Clock, Camera, Check, X } from "lucide-react-native";
 import BackButton from "@/components/BackButton";
 import { Stack } from "expo-router";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthStore } from "@/stores/authStore";
+import * as ImagePicker from 'expo-image-picker';
+import { Platform } from 'react-native';
 
 export default function ProfileScreen() {
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editForm, setEditForm] = useState({
+    username: '',
+    full_name: '',
+    bio: '',
+  });
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  
   // For demo purposes, let's say the user has created 2 recipes
   const userRecipes = recipes.slice(0, 2);
   const { colors } = useTheme();
-  const { user, profile, signOut } = useAuthStore();
+  const { user, profile, signOut, updateProfile, uploadAvatar, checkUsernameAvailability } = useAuthStore();
 
   const handleSignOut = () => {
     Alert.alert(
@@ -30,6 +40,84 @@ export default function ProfileScreen() {
         },
       ]
     );
+  };
+
+  const handleEditProfile = () => {
+    setEditForm({
+      username: profile?.username || '',
+      full_name: profile?.full_name || '',
+      bio: profile?.bio || '',
+    });
+    setIsEditingProfile(true);
+  };
+
+  const handleSaveProfile = async () => {
+    // Validate username if changed
+    if (editForm.username && editForm.username !== profile?.username) {
+      const { available, error } = await checkUsernameAvailability(editForm.username);
+      if (error) {
+        Alert.alert('Error', 'Failed to check username availability');
+        return;
+      }
+      if (!available) {
+        Alert.alert('Username Taken', 'This username is already taken. Please choose another one.');
+        return;
+      }
+    }
+
+    const { error } = await updateProfile({
+      username: editForm.username || null,
+      full_name: editForm.full_name || null,
+      bio: editForm.bio || null,
+    });
+
+    if (error) {
+      Alert.alert('Error', 'Failed to update profile');
+    } else {
+      setIsEditingProfile(false);
+      Alert.alert('Success', 'Profile updated successfully');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingProfile(false);
+    setEditForm({
+      username: '',
+      full_name: '',
+      bio: '',
+    });
+  };
+
+  const handleChangeAvatar = async () => {
+    if (Platform.OS === 'web') {
+      Alert.alert('Not Available', 'Avatar upload is not available on web');
+      return;
+    }
+
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please grant camera roll permissions to change your avatar');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setIsUploadingAvatar(true);
+      const { error } = await uploadAvatar(result.assets[0].uri);
+      setIsUploadingAvatar(false);
+
+      if (error) {
+        Alert.alert('Upload Failed', error);
+      } else {
+        Alert.alert('Success', 'Avatar updated successfully');
+      }
+    }
   };
 
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'User';
@@ -51,17 +139,93 @@ export default function ProfileScreen() {
         </View>
         
         <View style={styles.profileSection}>
-          <Image source={{ uri: avatarUrl }} style={styles.profileImage} />
-          <View style={styles.profileInfo}>
-            <Text style={[styles.profileName, { color: colors.text }]}>{displayName}</Text>
-            <Text style={[styles.profileBio, { color: colors.muted }]}>{profile?.bio || 'Food enthusiast & home chef'}</Text>
+          <View style={styles.avatarContainer}>
+            <Image source={{ uri: avatarUrl }} style={styles.profileImage} />
+            <TouchableOpacity 
+              style={[styles.cameraButton, { backgroundColor: colors.tint, borderColor: colors.iconBorder }]}
+              onPress={handleChangeAvatar}
+              disabled={isUploadingAvatar}
+            >
+              <Camera size={16} color="white" />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity style={[styles.editProfileButton, { borderColor: colors.muted }]}>
-            <View style={[styles.editIconContainer, { backgroundColor: '#10B981', borderColor: colors.iconBorder }]}>
-              <Edit size={14} color="black" />
+          
+          {isEditingProfile ? (
+            <View style={styles.editForm}>
+              <View style={styles.inputContainer}>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>Username</Text>
+                <TextInput
+                  style={[styles.textInput, { backgroundColor: colors.inputBackground, color: colors.text, borderColor: colors.border }]}
+                  value={editForm.username}
+                  onChangeText={(text) => setEditForm(prev => ({ ...prev, username: text }))}
+                  placeholder="Enter username"
+                  placeholderTextColor={colors.muted}
+                  autoCapitalize="none"
+                />
+              </View>
+              
+              <View style={styles.inputContainer}>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>Full Name</Text>
+                <TextInput
+                  style={[styles.textInput, { backgroundColor: colors.inputBackground, color: colors.text, borderColor: colors.border }]}
+                  value={editForm.full_name}
+                  onChangeText={(text) => setEditForm(prev => ({ ...prev, full_name: text }))}
+                  placeholder="Enter full name"
+                  placeholderTextColor={colors.muted}
+                />
+              </View>
+              
+              <View style={styles.inputContainer}>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>Bio</Text>
+                <TextInput
+                  style={[styles.textInput, styles.bioInput, { backgroundColor: colors.inputBackground, color: colors.text, borderColor: colors.border }]}
+                  value={editForm.bio}
+                  onChangeText={(text) => setEditForm(prev => ({ ...prev, bio: text }))}
+                  placeholder="Tell us about yourself"
+                  placeholderTextColor={colors.muted}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+              
+              <View style={styles.editActions}>
+                <TouchableOpacity 
+                  style={[styles.editActionButton, { backgroundColor: colors.muted }]}
+                  onPress={handleCancelEdit}
+                >
+                  <X size={16} color="white" />
+                  <Text style={styles.editActionText}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.editActionButton, { backgroundColor: colors.tint }]}
+                  onPress={handleSaveProfile}
+                >
+                  <Check size={16} color="white" />
+                  <Text style={styles.editActionText}>Save</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-            <Text style={[styles.editProfileText, { color: colors.text }]}>Edit Profile</Text>
-          </TouchableOpacity>
+          ) : (
+            <View style={styles.profileInfo}>
+              <Text style={[styles.profileName, { color: colors.text }]}>{displayName}</Text>
+              {profile?.username && (
+                <Text style={[styles.username, { color: colors.muted }]}>@{profile.username}</Text>
+              )}
+              <Text style={[styles.profileBio, { color: colors.muted }]}>
+                {profile?.bio || 'Food enthusiast & home chef'}
+              </Text>
+              <TouchableOpacity 
+                style={[styles.editProfileButton, { borderColor: colors.muted }]}
+                onPress={handleEditProfile}
+              >
+                <View style={[styles.editIconContainer, { backgroundColor: '#10B981', borderColor: colors.iconBorder }]}>
+                  <Edit size={14} color="black" />
+                </View>
+                <Text style={[styles.editProfileText, { color: colors.text }]}>Edit Profile</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
         
         <View style={[styles.statsSection, { borderColor: colors.border }]}>
@@ -170,23 +334,42 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 24,
   },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 16,
+  },
   profileImage: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    marginBottom: 16,
+  },
+  cameraButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
   },
   profileInfo: {
     alignItems: "center",
-    marginBottom: 16,
   },
   profileName: {
     fontSize: 24,
     fontWeight: "700",
     marginBottom: 4,
   },
+  username: {
+    fontSize: 16,
+    marginBottom: 8,
+  },
   profileBio: {
     fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 16,
   },
   editProfileButton: {
     flexDirection: "row",
@@ -208,6 +391,48 @@ const styles = StyleSheet.create({
   editProfileText: {
     fontSize: 14,
     fontWeight: "500",
+  },
+  editForm: {
+    width: '100%',
+    paddingHorizontal: 16,
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
+  bioInput: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  editActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  editActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  editActionText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
   statsSection: {
     flexDirection: "row",

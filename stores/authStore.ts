@@ -16,6 +16,7 @@ const getSupabase = async () => {
 interface Profile {
   id: string;
   email: string;
+  username: string | null;
   full_name: string | null;
   avatar_url: string | null;
   bio: string | null;
@@ -36,6 +37,8 @@ interface AuthState {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error?: string }>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ error?: string }>;
+  uploadAvatar: (imageUri: string) => Promise<{ error?: string; url?: string }>;
+  checkUsernameAvailability: (username: string) => Promise<{ available: boolean; error?: string }>;
   setSession: (session: Session | null) => void;
   setUser: (user: User | null) => void;
   setProfile: (profile: Profile | null) => void;
@@ -162,6 +165,7 @@ export const useAuthStore = create<AuthState>()(
               full_name: fullName || null,
               bio: null,
               avatar_url: null,
+              username: null,
             }, {
               onConflict: 'id',
               ignoreDuplicates: false
@@ -256,6 +260,67 @@ export const useAuthStore = create<AuthState>()(
           return {};
         } catch (error) {
           return { error: 'An unexpected error occurred' };
+        }
+      },
+
+      uploadAvatar: async (imageUri: string) => {
+        const { user } = get();
+        if (!user) return { error: 'Not authenticated' };
+
+        try {
+          const supabase = await getSupabase();
+          
+          // Convert image to blob for upload
+          const response = await fetch(imageUri);
+          const blob = await response.blob();
+          
+          const fileExt = imageUri.split('.').pop();
+          const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+          const filePath = `avatars/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(filePath, blob);
+
+          if (uploadError) {
+            return { error: uploadError.message };
+          }
+
+          const { data } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(filePath);
+
+          const avatarUrl = data.publicUrl;
+
+          // Update profile with new avatar URL
+          const { error: updateError } = await get().updateProfile({ avatar_url: avatarUrl });
+          
+          if (updateError) {
+            return { error: updateError };
+          }
+
+          return { url: avatarUrl };
+        } catch (error: any) {
+          return { error: error.message || 'Failed to upload avatar' };
+        }
+      },
+
+      checkUsernameAvailability: async (username: string) => {
+        try {
+          const supabase = await getSupabase();
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('username', username)
+            .maybeSingle();
+
+          if (error && error.code !== 'PGRST116') {
+            return { available: false, error: error.message };
+          }
+
+          return { available: !data };
+        } catch (error: any) {
+          return { available: false, error: error.message };
         }
       },
 
