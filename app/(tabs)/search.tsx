@@ -101,27 +101,42 @@ export default function SearchScreen() {
     try {
       if (isCurrentlyFollowing) {
         // Unfollow
-        await supabase
+        const { error } = await supabase
           .from('followers')
           .delete()
           .eq('follower_id', currentUser.id)
           .eq('following_id', userId);
+
+        if (error) {
+          console.error('Error unfollowing user:', error);
+          return;
+        }
       } else {
         // Follow
-        await supabase
+        const { error } = await supabase
           .from('followers')
           .insert({
             follower_id: currentUser.id,
             following_id: userId,
           });
+
+        if (error) {
+          console.error('Error following user:', error);
+          return;
+        }
       }
 
-      // Update local state
+      // Update local state immediately for better UX
       setUsers(prev => prev.map(user => 
         user.id === userId 
           ? { ...user, is_following: !isCurrentlyFollowing }
           : user
       ));
+
+      // Force refresh of user data when navigating to profile
+      // This ensures the profile screen shows the correct follow state
+      console.log(`Follow state updated for user ${userId}: ${!isCurrentlyFollowing}`);
+      
     } catch (error) {
       console.error('Error toggling follow:', error);
     }

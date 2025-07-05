@@ -18,6 +18,7 @@ export default function ProfileScreen() {
     bio: '',
   });
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [imageError, setImageError] = useState(false);
   
   const userRecipes = recipes.slice(0, 2);
   const { colors } = useTheme();
@@ -172,12 +173,20 @@ export default function ProfileScreen() {
       Alert.alert('Upload Failed', error);
     } else {
       Alert.alert('Success', 'Avatar updated successfully');
+      setImageError(false); // Reset image error state after successful upload
     }
   };
 
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'User';
   const displayEmail = user?.email || 'user@example.com';
-  const avatarUrl = profile?.avatar_url || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face';
+  
+  // Better avatar URL handling with proper fallback
+  const getAvatarSource = () => {
+    if (imageError || !profile?.avatar_url) {
+      return { uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face' };
+    }
+    return { uri: profile.avatar_url };
+  };
   
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
@@ -195,7 +204,12 @@ export default function ProfileScreen() {
         
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
-            <Image source={{ uri: avatarUrl }} style={styles.profileImage} />
+            <Image 
+              source={getAvatarSource()} 
+              style={styles.profileImage}
+              onError={() => setImageError(true)}
+              onLoad={() => setImageError(false)}
+            />
             <TouchableOpacity 
               style={[styles.cameraButton, { backgroundColor: colors.tint, borderColor: colors.iconBorder }]}
               onPress={handleChangeAvatar}

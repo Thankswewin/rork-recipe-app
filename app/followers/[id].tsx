@@ -39,9 +39,6 @@ export default function FollowersScreen() {
 
     setIsLoading(true);
     try {
-      let followersProfiles: UserProfile[] = [];
-      let followingProfiles: UserProfile[] = [];
-
       // Fetch followers
       const { data: followersData, error: followersError } = await supabase
         .from('followers')
@@ -58,15 +55,17 @@ export default function FollowersScreen() {
         .eq('following_id', id);
 
       if (!followersError && followersData) {
-        followersProfiles = followersData
+        const followersProfiles = followersData
           .map((f: any) => f.profiles)
-          .filter((profile: any): profile is any => profile !== null)
+          .filter((profile: any) => profile !== null)
           .map((profile: any) => ({
             id: profile.id,
             username: profile.username,
             full_name: profile.full_name,
             avatar_url: profile.avatar_url,
             bio: profile.bio,
+            recipe_count: 0,
+            is_following: false,
           }));
         setFollowers(followersProfiles);
       }
@@ -87,15 +86,17 @@ export default function FollowersScreen() {
         .eq('follower_id', id);
 
       if (!followingError && followingData) {
-        followingProfiles = followingData
+        const followingProfiles = followingData
           .map((f: any) => f.profiles)
-          .filter((profile: any): profile is any => profile !== null)
+          .filter((profile: any) => profile !== null)
           .map((profile: any) => ({
             id: profile.id,
             username: profile.username,
             full_name: profile.full_name,
             avatar_url: profile.avatar_url,
             bio: profile.bio,
+            recipe_count: 0,
+            is_following: false,
           }));
         setFollowing(followingProfiles);
       }
@@ -103,8 +104,8 @@ export default function FollowersScreen() {
       // Check which users the current user is following
       if (currentUser) {
         const allUserIds = [
-          ...followersProfiles.map((u: UserProfile) => u.id),
-          ...followingProfiles.map((u: UserProfile) => u.id)
+          ...followers.map((u: UserProfile) => u.id),
+          ...following.map((u: UserProfile) => u.id)
         ].filter((id, index, arr) => arr.indexOf(id) === index);
 
         if (allUserIds.length > 0) {
@@ -140,19 +141,29 @@ export default function FollowersScreen() {
     try {
       if (isCurrentlyFollowing) {
         // Unfollow
-        await supabase
+        const { error } = await supabase
           .from('followers')
           .delete()
           .eq('follower_id', currentUser.id)
           .eq('following_id', userId);
+
+        if (error) {
+          console.error('Error unfollowing user:', error);
+          return;
+        }
       } else {
         // Follow
-        await supabase
+        const { error } = await supabase
           .from('followers')
           .insert({
             follower_id: currentUser.id,
             following_id: userId,
           });
+
+        if (error) {
+          console.error('Error following user:', error);
+          return;
+        }
       }
 
       // Update local state

@@ -40,6 +40,8 @@ export default function UserProfileScreen() {
   const [userStats, setUserStats] = useState<UserStats>({ recipes_count: 0, followers_count: 0, following_count: 0 });
   const [isFollowing, setIsFollowing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
   const { colors } = useTheme();
   const { user: currentUser } = useAuthStore();
 
@@ -47,6 +49,17 @@ export default function UserProfileScreen() {
     if (id) {
       fetchUserData();
     }
+  }, [id]);
+
+  // Refetch data when screen comes into focus to ensure latest follow state
+  useEffect(() => {
+    const unsubscribe = router.addListener('focus', () => {
+      if (id) {
+        fetchUserData();
+      }
+    });
+
+    return unsubscribe;
   }, [id]);
 
   const fetchUserData = async () => {
@@ -112,33 +125,46 @@ export default function UserProfileScreen() {
   };
 
   const handleFollowToggle = async () => {
-    if (!currentUser || !id) return;
+    if (!currentUser || !id || isFollowLoading) return;
 
+    setIsFollowLoading(true);
     try {
       if (isFollowing) {
         // Unfollow
-        await supabase
+        const { error } = await supabase
           .from('followers')
           .delete()
           .eq('follower_id', currentUser.id)
           .eq('following_id', id);
         
+        if (error) {
+          console.error('Error unfollowing user:', error);
+          return;
+        }
+        
         setIsFollowing(false);
-        setUserStats(prev => ({ ...prev, followers_count: prev.followers_count - 1 }));
+        setUserStats(prev => ({ ...prev, followers_count: Math.max(0, prev.followers_count - 1) }));
       } else {
         // Follow
-        await supabase
+        const { error } = await supabase
           .from('followers')
           .insert({
             follower_id: currentUser.id,
             following_id: id,
           });
         
+        if (error) {
+          console.error('Error following user:', error);
+          return;
+        }
+        
         setIsFollowing(true);
         setUserStats(prev => ({ ...prev, followers_count: prev.followers_count + 1 }));
       }
     } catch (error) {
       console.error('Error toggling follow:', error);
+    } finally {
+      setIsFollowLoading(false);
     }
   };
 
@@ -195,8 +221,15 @@ export default function UserProfileScreen() {
     );
   }
 
-  const displayName = userProfile.full_name || 'Unknown User';
-  const avatarUrl = userProfile.avatar_url || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face';
+  const displayName = userProfile.full_name || userProfile.username || 'Unknown User';
+  
+  // Better avatar URL handling with proper fallback
+  const getAvatarSource = () => {
+    if (imageError || !userProfile.avatar_url) {
+      return { uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face' };
+    }
+    return { uri: userProfile.avatar_url };
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
@@ -213,7 +246,12 @@ export default function UserProfileScreen() {
         </View>
         
         <View style={styles.profileSection}>
-          <Image source={{ uri: avatarUrl }} style={styles.profileImage} />
+          <Image 
+            source={getAvatarSource()} 
+            style={styles.profileImage}
+            onError={() => setImageError(true)}
+            onLoad={() => setImageError(false)}
+          />
           <View style={styles.profileInfo}>
             <Text style={[styles.profileName, { color: colors.text }]}>{displayName}</Text>
             {userProfile.username && (
@@ -231,9 +269,11 @@ export default function UserProfileScreen() {
                   styles.followButton,
                   isFollowing 
                     ? { backgroundColor: colors.muted }
-                    : { backgroundColor: colors.tint }
+                    : { backgroundColor: colors.tint },
+                  isFollowLoading && { opacity: 0.6 }
                 ]}
                 onPress={handleFollowToggle}
+                disabled={isFollowLoading}
               >
                 {isFollowing ? (
                   <UserCheck size={18} color="white" />
@@ -241,7 +281,7 @@ export default function UserProfileScreen() {
                   <UserPlus size={18} color="white" />
                 )}
                 <Text style={styles.followButtonText}>
-                  {isFollowing ? 'Following' : 'Follow'}
+                  {isFollowLoading ? 'Loading...' : (isFollowing ? 'Following' : 'Follow')}
                 </Text>
               </TouchableOpacity>
               

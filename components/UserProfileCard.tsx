@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { UserPlus, UserCheck, MessageCircle } from 'lucide-react-native';
 import { useTheme } from '@/hooks/useTheme';
@@ -28,19 +28,33 @@ export default function UserProfileCard({
   compact = false 
 }: UserProfileCardProps) {
   const { colors } = useTheme();
+  const [imageError, setImageError] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
 
   const handleUserPress = () => {
     router.push(`/user/${user.id}`);
   };
 
-  const handleFollowPress = () => {
-    if (onFollowToggle) {
-      onFollowToggle(user.id, user.is_following || false);
+  const handleFollowPress = async () => {
+    if (onFollowToggle && !isFollowLoading) {
+      setIsFollowLoading(true);
+      try {
+        await onFollowToggle(user.id, user.is_following || false);
+      } finally {
+        setIsFollowLoading(false);
+      }
     }
   };
 
-  const displayName = user.full_name || 'Unknown User';
-  const avatarUrl = user.avatar_url || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face';
+  const displayName = user.full_name || user.username || 'Unknown User';
+  
+  // Better avatar URL handling with proper fallback
+  const getAvatarSource = () => {
+    if (imageError || !user.avatar_url) {
+      return { uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face' };
+    }
+    return { uri: user.avatar_url };
+  };
 
   if (compact) {
     return (
@@ -49,7 +63,12 @@ export default function UserProfileCard({
         onPress={handleUserPress}
         activeOpacity={0.8}
       >
-        <Image source={{ uri: avatarUrl }} style={[styles.compactAvatar, { borderColor: colors.iconBorder }]} />
+        <Image 
+          source={getAvatarSource()}
+          style={[styles.compactAvatar, { borderColor: colors.iconBorder }]} 
+          onError={() => setImageError(true)}
+          onLoad={() => setImageError(false)}
+        />
         <View style={styles.compactInfo}>
           <Text style={[styles.compactName, { color: colors.text }]} numberOfLines={1}>
             {displayName}
@@ -66,9 +85,11 @@ export default function UserProfileCard({
               styles.compactFollowButton,
               user.is_following 
                 ? { backgroundColor: colors.muted }
-                : { backgroundColor: colors.tint }
+                : { backgroundColor: colors.tint },
+              isFollowLoading && { opacity: 0.6 }
             ]}
             onPress={handleFollowPress}
+            disabled={isFollowLoading}
           >
             {user.is_following ? (
               <UserCheck size={14} color="white" />
@@ -88,7 +109,12 @@ export default function UserProfileCard({
       activeOpacity={0.8}
     >
       <View style={styles.userInfo}>
-        <Image source={{ uri: avatarUrl }} style={[styles.avatar, { borderColor: colors.iconBorder }]} />
+        <Image 
+          source={getAvatarSource()}
+          style={[styles.avatar, { borderColor: colors.iconBorder }]} 
+          onError={() => setImageError(true)}
+          onLoad={() => setImageError(false)}
+        />
         <View style={styles.userDetails}>
           <Text style={[styles.displayName, { color: colors.text }]}>
             {displayName}
@@ -116,9 +142,11 @@ export default function UserProfileCard({
               styles.followButton,
               user.is_following 
                 ? { backgroundColor: colors.muted }
-                : { backgroundColor: colors.tint }
+                : { backgroundColor: colors.tint },
+              isFollowLoading && { opacity: 0.6 }
             ]}
             onPress={handleFollowPress}
+            disabled={isFollowLoading}
           >
             {user.is_following ? (
               <UserCheck size={16} color="white" />
