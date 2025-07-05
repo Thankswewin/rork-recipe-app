@@ -1,1 +1,168 @@
-import React, { useState } from 'react';\nimport { View, Text, TouchableOpacity, StyleSheet } from 'react-native';\nimport { supabase } from '@/lib/supabase';\nimport { useAuthStore } from '@/stores/authStore';\nimport { useTheme } from '@/hooks/useTheme';\n\nexport default function DebugSupabase() {\n  const [testResults, setTestResults] = useState<string[]>([]);\n  const { user } = useAuthStore();\n  const { colors } = useTheme();\n\n  const addResult = (message: string) => {\n    setTestResults(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);\n  };\n\n  const testConnection = async () => {\n    addResult('Testing Supabase connection...');\n    \n    try {\n      // Test basic connection\n      const { data, error } = await supabase.from('profiles').select('count').limit(1);\n      if (error) {\n        addResult(`Connection test failed: ${error.message}`);\n      } else {\n        addResult('Connection test successful');\n      }\n\n      // Test authentication\n      const { data: { session } } = await supabase.auth.getSession();\n      if (session) {\n        addResult(`User authenticated: ${session.user.id}`);\n      } else {\n        addResult('No active session');\n      }\n\n      // Test followers table access\n      const { data: followersData, error: followersError } = await supabase\n        .from('followers')\n        .select('*')\n        .limit(1);\n      \n      if (followersError) {\n        addResult(`Followers table error: ${followersError.message}`);\n      } else {\n        addResult('Followers table accessible');\n      }\n\n    } catch (error: any) {\n      addResult(`Test error: ${error.message}`);\n    }\n  };\n\n  const testFollowInsert = async () => {\n    if (!user) {\n      addResult('No user logged in');\n      return;\n    }\n\n    addResult('Testing follow insert...');\n    \n    try {\n      // Try to insert a test follow relationship (will fail if user tries to follow themselves)\n      const testUserId = '00000000-0000-0000-0000-000000000000'; // Dummy UUID\n      \n      const { data, error } = await supabase\n        .from('followers')\n        .insert({\n          follower_id: user.id,\n          following_id: testUserId,\n        })\n        .select();\n\n      if (error) {\n        addResult(`Follow insert error: ${error.message} (Code: ${error.code})`);\n      } else {\n        addResult('Follow insert successful (cleaning up...)');\n        // Clean up the test record\n        await supabase\n          .from('followers')\n          .delete()\n          .eq('follower_id', user.id)\n          .eq('following_id', testUserId);\n      }\n    } catch (error: any) {\n      addResult(`Follow test error: ${error.message}`);\n    }\n  };\n\n  const clearResults = () => {\n    setTestResults([]);\n  };\n\n  return (\n    <View style={[styles.container, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>\n      <Text style={[styles.title, { color: colors.text }]}>Supabase Debug</Text>\n      \n      <View style={styles.buttons}>\n        <TouchableOpacity \n          style={[styles.button, { backgroundColor: colors.tint }]} \n          onPress={testConnection}\n        >\n          <Text style={styles.buttonText}>Test Connection</Text>\n        </TouchableOpacity>\n        \n        <TouchableOpacity \n          style={[styles.button, { backgroundColor: colors.tint }]} \n          onPress={testFollowInsert}\n        >\n          <Text style={styles.buttonText}>Test Follow</Text>\n        </TouchableOpacity>\n        \n        <TouchableOpacity \n          style={[styles.button, { backgroundColor: colors.muted }]} \n          onPress={clearResults}\n        >\n          <Text style={styles.buttonText}>Clear</Text>\n        </TouchableOpacity>\n      </View>\n      \n      <View style={styles.results}>\n        {testResults.map((result, index) => (\n          <Text key={index} style={[styles.resultText, { color: colors.text }]}>\n            {result}\n          </Text>\n        ))}\n      </View>\n    </View>\n  );\n}\n\nconst styles = StyleSheet.create({\n  container: {\n    margin: 16,\n    padding: 16,\n    borderRadius: 12,\n    borderWidth: 1,\n  },\n  title: {\n    fontSize: 18,\n    fontWeight: '600',\n    marginBottom: 12,\n  },\n  buttons: {\n    flexDirection: 'row',\n    gap: 8,\n    marginBottom: 12,\n  },\n  button: {\n    flex: 1,\n    paddingVertical: 8,\n    paddingHorizontal: 12,\n    borderRadius: 8,\n    alignItems: 'center',\n  },\n  buttonText: {\n    color: 'white',\n    fontSize: 12,\n    fontWeight: '600',\n  },\n  results: {\n    maxHeight: 200,\n  },\n  resultText: {\n    fontSize: 10,\n    marginBottom: 4,\n    fontFamily: 'monospace',\n  },\n});
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/stores/authStore';
+import { useTheme } from '@/hooks/useTheme';
+
+export default function DebugSupabase() {
+  const [testResults, setTestResults] = useState<string[]>([]);
+  const { user } = useAuthStore();
+  const { colors } = useTheme();
+
+  const addResult = (message: string) => {
+    setTestResults(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
+  };
+
+  const testConnection = async () => {
+    addResult('Testing Supabase connection...');
+    
+    try {
+      // Test basic connection
+      const { data, error } = await supabase.from('profiles').select('count').limit(1);
+      if (error) {
+        addResult(`Connection test failed: ${error.message}`);
+      } else {
+        addResult('Connection test successful');
+      }
+
+      // Test authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        addResult(`User authenticated: ${session.user.id}`);
+      } else {
+        addResult('No active session');
+      }
+
+      // Test followers table access
+      const { data: followersData, error: followersError } = await supabase
+        .from('followers')
+        .select('*')
+        .limit(1);
+      
+      if (followersError) {
+        addResult(`Followers table error: ${followersError.message}`);
+      } else {
+        addResult('Followers table accessible');
+      }
+
+    } catch (error: any) {
+      addResult(`Test error: ${error.message}`);
+    }
+  };
+
+  const testFollowInsert = async () => {
+    if (!user) {
+      addResult('No user logged in');
+      return;
+    }
+
+    addResult('Testing follow insert...');
+    
+    try {
+      // Try to insert a test follow relationship (will fail if user tries to follow themselves)
+      const testUserId = '00000000-0000-0000-0000-000000000000'; // Dummy UUID
+      
+      const { data, error } = await supabase
+        .from('followers')
+        .insert({
+          follower_id: user.id,
+          following_id: testUserId,
+        })
+        .select();
+
+      if (error) {
+        addResult(`Follow insert error: ${error.message} (Code: ${error.code})`);
+      } else {
+        addResult('Follow insert successful (cleaning up...)');
+        // Clean up the test record
+        await supabase
+          .from('followers')
+          .delete()
+          .eq('follower_id', user.id)
+          .eq('following_id', testUserId);
+      }
+    } catch (error: any) {
+      addResult(`Follow test error: ${error.message}`);
+    }
+  };
+
+  const clearResults = () => {
+    setTestResults([]);
+  };
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+      <Text style={[styles.title, { color: colors.text }]}>Supabase Debug</Text>
+      
+      <View style={styles.buttons}>
+        <TouchableOpacity 
+          style={[styles.button, { backgroundColor: colors.tint }]} 
+          onPress={testConnection}
+        >
+          <Text style={styles.buttonText}>Test Connection</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.button, { backgroundColor: colors.tint }]} 
+          onPress={testFollowInsert}
+        >
+          <Text style={styles.buttonText}>Test Follow</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.button, { backgroundColor: colors.muted }]} 
+          onPress={clearResults}
+        >
+          <Text style={styles.buttonText}>Clear</Text>
+        </TouchableOpacity>
+      </View>
+      
+      <View style={styles.results}>
+        {testResults.map((result, index) => (
+          <Text key={index} style={[styles.resultText, { color: colors.text }]}>
+            {result}
+          </Text>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    margin: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  buttons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  button: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  results: {
+    maxHeight: 200,
+  },
+  resultText: {
+    fontSize: 10,
+    marginBottom: 4,
+    fontFamily: 'monospace',
+  },
+});
