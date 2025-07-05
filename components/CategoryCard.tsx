@@ -6,14 +6,22 @@ import { useTheme } from "@/hooks/useTheme";
 interface CategoryCardProps {
   category: Category;
   onPress?: () => void;
+  isSelected?: boolean;
 }
 
-export default function CategoryCard({ category, onPress }: CategoryCardProps) {
+export default function CategoryCard({ category, onPress, isSelected = false }: CategoryCardProps) {
   const { colors } = useTheme();
 
   return (
     <TouchableOpacity 
-      style={[styles.container, { backgroundColor: colors.cardBackground }]} 
+      style={[
+        styles.container, 
+        { 
+          backgroundColor: isSelected ? colors.tint : colors.cardBackground,
+          borderColor: isSelected ? colors.tint : colors.border,
+          borderWidth: isSelected ? 2 : 1
+        }
+      ]} 
       onPress={onPress}
       activeOpacity={0.8}
     >
@@ -21,8 +29,8 @@ export default function CategoryCard({ category, onPress }: CategoryCardProps) {
         <Text style={styles.icon}>{category.icon}</Text>
       </View>
       <View style={styles.textContainer}>
-        <Text style={[styles.title, { color: colors.text }]}>{category.name}</Text>
-        <Text style={[styles.description, { color: colors.muted }]} numberOfLines={1}>{category.description}</Text>
+        <Text style={[styles.title, { color: isSelected ? 'white' : colors.text }]}>{category.name}</Text>
+        <Text style={[styles.description, { color: isSelected ? 'rgba(255,255,255,0.8)' : colors.muted }]} numberOfLines={1}>{category.description}</Text>
       </View>
     </TouchableOpacity>
   );

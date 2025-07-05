@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { StyleSheet, View, Text, Image, TouchableOpacity, ScrollView, FlatList } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Stack, useLocalSearchParams, router } from "expo-router";
+import { Stack, useLocalSearchParams, router, useFocusEffect } from "expo-router";
 import { UserPlus, UserCheck, MessageCircle, Share } from "lucide-react-native";
 import BackButton from "@/components/BackButton";
 import { useTheme } from "@/hooks/useTheme";
@@ -52,15 +52,13 @@ export default function UserProfileScreen() {
   }, [id]);
 
   // Refetch data when screen comes into focus to ensure latest follow state
-  useEffect(() => {
-    const unsubscribe = router.addListener('focus', () => {
+  useFocusEffect(
+    React.useCallback(() => {
       if (id) {
         fetchUserData();
       }
-    });
-
-    return unsubscribe;
-  }, [id]);
+    }, [id])
+  );
 
   const fetchUserData = async () => {
     if (!id) return;
