@@ -123,14 +123,15 @@ CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER
 SECURITY DEFINER
 LANGUAGE plpgsql
-AS $$
+AS $
 BEGIN
   -- Insert profile with security definer to bypass RLS
-  INSERT INTO public.profiles (id, email, full_name)
+  INSERT INTO public.profiles (id, email, full_name, username)
   VALUES (
     NEW.id, 
     COALESCE(NEW.email, ''), 
-    COALESCE(NEW.raw_user_meta_data->>'full_name', '')
+    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+    NULL
   )
   ON CONFLICT (id) DO UPDATE SET
     email = EXCLUDED.email,
@@ -144,7 +145,7 @@ EXCEPTION
     RAISE WARNING 'Failed to create profile for user %: %', NEW.id, SQLERRM;
     RETURN NEW;
 END;
-$$;
+$;
 
 -- Create trigger for new user registration
 CREATE TRIGGER on_auth_user_created

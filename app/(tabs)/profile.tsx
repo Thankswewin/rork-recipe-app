@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { recipes } from "@/constants/mockData";
 import { Settings, Edit, LogOut, BookOpen, Award, Clock, Camera, Check, X } from "lucide-react-native";
 import BackButton from "@/components/BackButton";
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthStore } from "@/stores/authStore";
 import * as ImagePicker from 'expo-image-picker';
@@ -229,20 +229,26 @@ export default function ProfileScreen() {
         </View>
         
         <View style={[styles.statsSection, { borderColor: colors.border }]}>
-          <View style={styles.statItem}>
+          <TouchableOpacity style={styles.statItem}>
             <Text style={[styles.statValue, { color: colors.text }]}>12</Text>
             <Text style={[styles.statLabel, { color: colors.muted }]}>Recipes</Text>
-          </View>
+          </TouchableOpacity>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.statItem}>
+          <TouchableOpacity 
+            style={styles.statItem}
+            onPress={() => user?.id && router.push(`/followers/${user.id}`)}
+          >
             <Text style={[styles.statValue, { color: colors.text }]}>48</Text>
             <Text style={[styles.statLabel, { color: colors.muted }]}>Followers</Text>
-          </View>
+          </TouchableOpacity>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.statItem}>
+          <TouchableOpacity 
+            style={styles.statItem}
+            onPress={() => user?.id && router.push(`/followers/${user.id}`)}
+          >
             <Text style={[styles.statValue, { color: colors.text }]}>65</Text>
             <Text style={[styles.statLabel, { color: colors.muted }]}>Following</Text>
-          </View>
+          </TouchableOpacity>
         </View>
         
         <View style={styles.menuSection}>

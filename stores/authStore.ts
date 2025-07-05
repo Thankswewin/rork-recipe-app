@@ -343,12 +343,19 @@ export const useAuthStore = create<AuthState>()(
             .eq('username', username)
             .maybeSingle();
 
-          if (error && error.code !== 'PGRST116') {
+          if (error && error.code !== 'PGRST116' && !error.message.includes('column "username" does not exist')) {
             return { available: false, error: error.message };
+          }
+
+          // If username column doesn't exist, consider username available for now
+          if (error && error.message.includes('column "username" does not exist')) {
+            console.warn('Username column does not exist in database');
+            return { available: true };
           }
 
           return { available: !data };
         } catch (error: any) {
+          console.error('Username availability check error:', error);
           return { available: false, error: error.message };
         }
       },

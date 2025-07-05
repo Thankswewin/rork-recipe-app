@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, View, Text, FlatList, TouchableOpacity, Image, TextInput } from "react-native";
+import { StyleSheet, View, Text, FlatList, TouchableOpacity, Image, TextInput, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Search, User, UserPlus, UserCheck } from "lucide-react-native";
+import { Search, User, UserPlus, UserCheck, BookOpen, Filter, TrendingUp } from "lucide-react-native";
 import { Stack, router } from "expo-router";
 import { useTheme } from "@/hooks/useTheme";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/stores/authStore";
+import SearchBar from "@/components/SearchBar";
+import CategoryCard from "@/components/CategoryCard";
+import RecipeCard from "@/components/RecipeCard";
+import UserProfileCard from "@/components/UserProfileCard";
+import { recipes, categories } from "@/constants/mockData";
 
 interface UserProfile {
   id: string;
@@ -19,6 +24,8 @@ interface UserProfile {
 
 export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchType, setSearchType] = useState<'recipes' | 'users'>('recipes');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { colors } = useTheme();
@@ -124,113 +131,164 @@ export default function SearchScreen() {
   };
 
   const renderUserItem = ({ item }: { item: UserProfile }) => (
-    <TouchableOpacity
-      style={[styles.userCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
-      onPress={() => handleUserPress(item.id)}
-      activeOpacity={0.8}
-    >
-      <View style={styles.userInfo}>
-        <Image
-          source={{ 
-            uri: item.avatar_url || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
-          }}
-          style={[styles.avatar, { borderColor: colors.iconBorder }]}
-        />
-        <View style={styles.userDetails}>
-          <Text style={[styles.displayName, { color: colors.text }]}>
-            {item.full_name || 'Unknown User'}
-          </Text>
-          {item.username && (
-            <Text style={[styles.username, { color: colors.muted }]}>
-              @{item.username}
-            </Text>
-          )}
-          {item.bio && (
-            <Text style={[styles.bio, { color: colors.muted }]} numberOfLines={2}>
-              {item.bio}
-            </Text>
-          )}
-          <Text style={[styles.recipeCount, { color: colors.muted }]}>
-            {item.recipe_count || 0} recipes
-          </Text>
-        </View>
-      </View>
-      
-      <TouchableOpacity
-        style={[
-          styles.followButton,
-          item.is_following 
-            ? { backgroundColor: colors.muted }
-            : { backgroundColor: colors.tint }
-        ]}
-        onPress={() => handleFollowToggle(item.id, item.is_following || false)}
-      >
-        {item.is_following ? (
-          <UserCheck size={16} color="white" />
-        ) : (
-          <UserPlus size={16} color="white" />
-        )}
-      </TouchableOpacity>
-    </TouchableOpacity>
+    <UserProfileCard
+      user={item}
+      onFollowToggle={handleFollowToggle}
+      showFollowButton={true}
+    />
   );
+
+  // Filter recipes based on search query and category
+  const filteredRecipes = recipes.filter((recipe) => {
+    const matchesSearch = searchQuery === "" || 
+      recipe.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      recipe.category.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === null || recipe.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
       <Stack.Screen options={{ headerShown: false }} />
       
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Search Users</Text>
-      </View>
-
-      <View style={styles.searchContainer}>
-        <View style={[styles.searchBar, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
-          <View style={[styles.searchIconContainer, { backgroundColor: '#10B981', borderColor: colors.iconBorder }]}>
-            <Search size={16} color="black" />
-          </View>
-          <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Search by username or name..."
-            placeholderTextColor={colors.muted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: colors.text }]}>Search</Text>
+          <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.tint, borderColor: colors.iconBorder }]}>
+            <Filter size={20} color="black" />
+          </TouchableOpacity>
         </View>
-      </View>
+        
+        <View style={styles.searchTypeToggle}>
+          <TouchableOpacity
+            style={[
+              styles.searchTypeButton,
+              searchType === 'recipes' 
+                ? { backgroundColor: colors.tint }
+                : { backgroundColor: colors.inputBackground, borderColor: colors.border }
+            ]}
+            onPress={() => setSearchType('recipes')}
+          >
+            <BookOpen size={16} color={searchType === 'recipes' ? 'white' : colors.text} />
+            <Text style={[
+              styles.searchTypeText,
+              { color: searchType === 'recipes' ? 'white' : colors.text }
+            ]}>Recipes</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[
+              styles.searchTypeButton,
+              searchType === 'users' 
+                ? { backgroundColor: colors.tint }
+                : { backgroundColor: colors.inputBackground, borderColor: colors.border }
+            ]}
+            onPress={() => setSearchType('users')}
+          >
+            <User size={16} color={searchType === 'users' ? 'white' : colors.text} />
+            <Text style={[
+              styles.searchTypeText,
+              { color: searchType === 'users' ? 'white' : colors.text }
+            ]}>Users</Text>
+          </TouchableOpacity>
+        </View>
 
-      <FlatList
-        data={users}
-        keyExtractor={(item) => item.id}
-        renderItem={renderUserItem}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            {searchQuery.trim() ? (
-              <>
-                <User size={48} color={colors.muted} />
-                <Text style={[styles.emptyText, { color: colors.text }]}>
-                  {isLoading ? 'Searching...' : 'No users found'}
-                </Text>
-                <Text style={[styles.emptySubtext, { color: colors.muted }]}>
-                  Try searching with a different username or name
-                </Text>
-              </>
-            ) : (
-              <>
-                <Search size={48} color={colors.muted} />
-                <Text style={[styles.emptyText, { color: colors.text }]}>
-                  Search for users
-                </Text>
-                <Text style={[styles.emptySubtext, { color: colors.muted }]}>
-                  Find other food enthusiasts and discover their recipes
-                </Text>
-              </>
-            )}
+        <View style={styles.searchSection}>
+          {searchType === 'recipes' ? (
+            <SearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search recipes..."
+            />
+          ) : (
+            <View style={[styles.searchBar, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
+              <View style={[styles.searchIconContainer, { backgroundColor: '#10B981', borderColor: colors.iconBorder }]}>
+                <Search size={16} color="black" />
+              </View>
+              <TextInput
+                style={[styles.searchInput, { color: colors.text }]}
+                placeholder="Search by username or name..."
+                placeholderTextColor={colors.muted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+          )}
+        </View>
+
+        {searchType === 'recipes' ? (
+          <>
+            <View style={styles.categoriesSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Categories</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesContainer}>
+                {categories.map((category) => (
+                  <CategoryCard
+                    key={category.id}
+                    category={category}
+                    isSelected={selectedCategory === category.name}
+                    onPress={() => setSelectedCategory(selectedCategory === category.name ? null : category.name)}
+                  />
+                ))}
+              </ScrollView>
+            </View>
+            
+            <View style={styles.trendingSection}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionTitleContainer}>
+                  <View style={[styles.trendingIcon, { backgroundColor: '#EF4444', borderColor: colors.iconBorder }]}>
+                    <TrendingUp size={16} color="black" />
+                  </View>
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Trending Recipes</Text>
+                </View>
+              </View>
+              
+              <View style={styles.recipesGrid}>
+                {filteredRecipes.slice(0, 6).map((recipe) => (
+                  <RecipeCard key={recipe.id} recipe={recipe} />
+                ))}
+              </View>
+            </View>
+          </>
+        ) : (
+          <View style={styles.usersSection}>
+            <FlatList
+              data={users}
+              keyExtractor={(item) => item.id}
+              renderItem={renderUserItem}
+              scrollEnabled={false}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  {searchQuery.trim() ? (
+                    <>
+                      <User size={48} color={colors.muted} />
+                      <Text style={[styles.emptyText, { color: colors.text }]}>
+                        {isLoading ? 'Searching...' : 'No users found'}
+                      </Text>
+                      <Text style={[styles.emptySubtext, { color: colors.muted }]}>
+                        Try searching with a different username or name
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Search size={48} color={colors.muted} />
+                      <Text style={[styles.emptyText, { color: colors.text }]}>
+                        Search for users
+                      </Text>
+                      <Text style={[styles.emptySubtext, { color: colors.muted }]}>
+                        Find other food enthusiasts and discover their recipes
+                      </Text>
+                    </>
+                  )}
+                </View>
+              }
+            />
           </View>
-        }
-      />
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -240,16 +298,49 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 8,
+    marginBottom: 16,
   },
   title: {
     fontSize: 24,
     fontWeight: "700",
   },
-  searchContainer: {
+  filterButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+  },
+  searchTypeToggle: {
+    flexDirection: 'row',
     paddingHorizontal: 16,
     marginBottom: 16,
+    gap: 12,
+  },
+  searchTypeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  searchTypeText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  searchSection: {
+    paddingHorizontal: 16,
+    marginBottom: 24,
   },
   searchBar: {
     flexDirection: "row",
@@ -272,63 +363,48 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
   },
-  listContainer: {
+  categoriesSection: {
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  sectionTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  trendingIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  categoriesContainer: {
+    paddingLeft: 16,
+    gap: 12,
+  },
+  trendingSection: {
+    marginBottom: 24,
+  },
+  recipesGrid: {
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  usersSection: {
     paddingHorizontal: 16,
     paddingBottom: 100,
   },
-  userCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  userInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginRight: 16,
-    borderWidth: 2,
-  },
-  userDetails: {
-    flex: 1,
-  },
-  displayName: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 2,
-  },
-  username: {
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  bio: {
-    fontSize: 12,
-    lineHeight: 16,
-    marginBottom: 4,
-  },
-  recipeCount: {
-    fontSize: 12,
-  },
-  followButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+
   emptyContainer: {
     flex: 1,
     justifyContent: "center",

@@ -254,20 +254,26 @@ export default function UserProfileScreen() {
         </View>
         
         <View style={[styles.statsSection, { borderColor: colors.border }]}>
-          <View style={styles.statItem}>
+          <TouchableOpacity style={styles.statItem}>
             <Text style={[styles.statValue, { color: colors.text }]}>{userStats.recipes_count}</Text>
             <Text style={[styles.statLabel, { color: colors.muted }]}>Recipes</Text>
-          </View>
+          </TouchableOpacity>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.statItem}>
+          <TouchableOpacity 
+            style={styles.statItem}
+            onPress={() => router.push(`/followers/${id}`)}
+          >
             <Text style={[styles.statValue, { color: colors.text }]}>{userStats.followers_count}</Text>
             <Text style={[styles.statLabel, { color: colors.muted }]}>Followers</Text>
-          </View>
+          </TouchableOpacity>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.statItem}>
+          <TouchableOpacity 
+            style={styles.statItem}
+            onPress={() => router.push(`/followers/${id}`)}
+          >
             <Text style={[styles.statValue, { color: colors.text }]}>{userStats.following_count}</Text>
             <Text style={[styles.statLabel, { color: colors.muted }]}>Following</Text>
-          </View>
+          </TouchableOpacity>
         </View>
         
         <View style={styles.recipesSection}>
