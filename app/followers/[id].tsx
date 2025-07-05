@@ -39,6 +39,9 @@ export default function FollowersScreen() {
 
     setIsLoading(true);
     try {
+      let followersProfiles: UserProfile[] = [];
+      let followingProfiles: UserProfile[] = [];
+
       // Fetch followers
       const { data: followersData, error: followersError } = await supabase
         .from('followers')
@@ -55,8 +58,17 @@ export default function FollowersScreen() {
         .eq('following_id', id);
 
       if (!followersError && followersData) {
-        const followersProfiles = followersData.map(f => f.profiles).filter(Boolean);
-        setFollowers(followersProfiles as UserProfile[]);
+        followersProfiles = followersData
+          .map(f => f.profiles)
+          .filter((profile): profile is UserProfile => profile !== null)
+          .map(profile => ({
+            id: profile.id,
+            username: profile.username,
+            full_name: profile.full_name,
+            avatar_url: profile.avatar_url,
+            bio: profile.bio,
+          }));
+        setFollowers(followersProfiles);
       }
 
       // Fetch following
@@ -75,15 +87,24 @@ export default function FollowersScreen() {
         .eq('follower_id', id);
 
       if (!followingError && followingData) {
-        const followingProfiles = followingData.map(f => f.profiles).filter(Boolean);
-        setFollowing(followingProfiles as UserProfile[]);
+        followingProfiles = followingData
+          .map(f => f.profiles)
+          .filter((profile): profile is UserProfile => profile !== null)
+          .map(profile => ({
+            id: profile.id,
+            username: profile.username,
+            full_name: profile.full_name,
+            avatar_url: profile.avatar_url,
+            bio: profile.bio,
+          }));
+        setFollowing(followingProfiles);
       }
 
       // Check which users the current user is following
       if (currentUser) {
         const allUserIds = [
-          ...followersProfiles.map(u => u.id),
-          ...followingProfiles.map(u => u.id)
+          ...followersProfiles.map((u: UserProfile) => u.id),
+          ...followingProfiles.map((u: UserProfile) => u.id)
         ].filter((id, index, arr) => arr.indexOf(id) === index);
 
         if (allUserIds.length > 0) {
