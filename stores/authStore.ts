@@ -551,7 +551,7 @@ export const useAuthStore = create<AuthState>()(
 
             // For each notification, fetch the actor profile separately
             const notificationsWithActors = await Promise.all(
-              (fallbackData || []).map(async (notification: Notification) => {
+              (fallbackData || []).map(async (notification: any) => {
                 const { data: actorData } = await supabase
                   .from('profiles')
                   .select('id, username, full_name, avatar_url')
@@ -673,7 +673,7 @@ export const useAuthStore = create<AuthState>()(
                 table: 'notifications',
                 filter: `user_id=eq.${user.id}`,
               },
-              async (payload: any) => {
+              async (payload: RealtimePayload) => {
                 console.log('New notification received:', payload);
                 
                 // Fetch the complete notification with actor data
@@ -708,7 +708,7 @@ export const useAuthStore = create<AuthState>()(
                 schema: 'public',
                 table: 'followers',
               },
-              (payload: any) => {
+              (payload: RealtimePayload) => {
                 console.log('Followers table changed:', payload);
                 // This will help refresh follower counts and states in real-time
                 // Components can listen to this via custom events or state updates
@@ -739,32 +739,58 @@ export const useAuthStore = create<AuthState>()(
           
           console.log('Creating/getting conversation between:', user.id, 'and', otherUserId);
           
-          // Check if conversation already exists between these two users
-          const { data: userConversations, error: userConversationsError } = await supabase
-            .from('conversation_participants')
-            .select('conversation_id')
-            .eq('user_id', user.id);
+          // First check if tables exist by trying a simple query
+          const { error: tableCheckError } = await supabase
+            .from('conversations')
+            .select('id')
+            .limit(1);
 
-          if (userConversationsError) {
-            console.error('Error fetching user conversations:', userConversationsError);
-            return { error: 'Failed to check existing conversations' };
+          if (tableCheckError) {
+            console.error('Conversations table not accessible:', tableCheckError);
+            return { error: 'Messaging system not set up. Please contact support.' };
           }
+          
+          // Use a more efficient query to find existing conversation
+          const { data: existingConversation, error: existingError } = await supabase
+            .rpc('find_conversation_between_users', {
+              user1_id: user.id,
+              user2_id: otherUserId
+            });
 
-          if (userConversations && userConversations.length > 0) {
-            // Check if any of these conversations also include the other user
-            for (const userConv of userConversations) {
-              const { data: otherParticipant, error: otherParticipantError } = await supabase
-                .from('conversation_participants')
-                .select('id')
-                .eq('conversation_id', userConv.conversation_id)
-                .eq('user_id', otherUserId)
-                .maybeSingle();
+          // If RPC doesn't exist, fall back to manual check
+          if (existingError && existingError.code === '42883') {
+            console.log('RPC not available, using manual check');
+            
+            // Get all conversations for current user
+            const { data: userConversations, error: userConversationsError } = await supabase
+              .from('conversation_participants')
+              .select('conversation_id')
+              .eq('user_id', user.id);
 
-              if (!otherParticipantError && otherParticipant) {
-                console.log('Found existing conversation:', userConv.conversation_id);
-                return { conversationId: userConv.conversation_id };
+            if (userConversationsError) {
+              console.error('Error fetching user conversations:', userConversationsError);
+              return { error: 'Failed to check existing conversations' };
+            }
+
+            if (userConversations && userConversations.length > 0) {
+              // Check if any of these conversations also include the other user
+              for (const userConv of userConversations) {
+                const { data: otherParticipant, error: otherParticipantError } = await supabase
+                  .from('conversation_participants')
+                  .select('id')
+                  .eq('conversation_id', userConv.conversation_id)
+                  .eq('user_id', otherUserId)
+                  .maybeSingle();
+
+                if (!otherParticipantError && otherParticipant) {
+                  console.log('Found existing conversation:', userConv.conversation_id);
+                  return { conversationId: userConv.conversation_id };
+                }
               }
             }
+          } else if (!existingError && existingConversation) {
+            console.log('Found existing conversation via RPC:', existingConversation);
+            return { conversationId: existingConversation };
           }
 
           console.log('No existing conversation found, creating new one');

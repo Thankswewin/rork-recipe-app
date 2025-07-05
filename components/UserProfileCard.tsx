@@ -54,6 +54,8 @@ export default function UserProfileCard({
       
       if (error) {
         console.error('Error creating conversation:', error);
+        // You could show an alert here in a real app
+        // Alert.alert('Error', 'Unable to start conversation. Please try again.');
         return;
       }
 
