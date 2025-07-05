@@ -84,7 +84,16 @@ export default function UserSearch({ onUserSelect, placeholder = "Search users..
 
   const renderUserItem = ({ item }: { item: UserProfile }) => {
     const displayName = item.full_name || 'Unknown User';
-    const avatarUrl = item.avatar_url || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face';
+    
+    // Better avatar URL handling with proper fallback and cache busting
+    const getAvatarSource = () => {
+      if (!item.avatar_url) {
+        return { uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face' };
+      }
+      // Add cache busting parameter to force reload
+      const separator = item.avatar_url.includes('?') ? '&' : '?';
+      return { uri: `${item.avatar_url}${separator}t=${Date.now()}` };
+    };
 
     return (
       <TouchableOpacity
@@ -92,7 +101,7 @@ export default function UserSearch({ onUserSelect, placeholder = "Search users..
         onPress={() => handleUserPress(item)}
         activeOpacity={0.7}
       >
-        <Image source={{ uri: avatarUrl }} style={styles.userAvatar} />
+        <Image source={getAvatarSource()} style={styles.userAvatar} />
         <View style={styles.userInfo}>
           <Text style={[styles.userName, { color: colors.text }]} numberOfLines={1}>
             {displayName}

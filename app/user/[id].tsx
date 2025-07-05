@@ -235,7 +235,7 @@ export default function UserProfileScreen() {
     }
     // Add cache busting parameter to force reload
     const separator = userProfile.avatar_url.includes('?') ? '&' : '?';
-    return { uri: `${userProfile.avatar_url}${separator}t=${avatarKey}` };
+    return { uri: `${userProfile.avatar_url}${separator}t=${Date.now()}` };
   };
 
   return (
@@ -254,7 +254,7 @@ export default function UserProfileScreen() {
         
         <View style={styles.profileSection}>
           <Image 
-            key={avatarKey} // Force re-render when key changes
+            key={`user-avatar-${avatarKey}-${userProfile.avatar_url || 'default'}`} // Better key for re-rendering
             source={getAvatarSource()} 
             style={styles.profileImage}
             onError={() => setImageError(true)}

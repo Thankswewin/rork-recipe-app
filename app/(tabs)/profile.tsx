@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { StyleSheet, View, Text, Image, TouchableOpacity, ScrollView, Alert, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { recipes } from "@/constants/mockData";
-import { Settings, Edit, LogOut, BookOpen, Award, Clock, Camera, Check, X } from "lucide-react-native";
+import { Settings, Edit, LogOut, BookOpen, Award, Clock, Camera, Check, X, Trash2 } from "lucide-react-native";
 import BackButton from "@/components/BackButton";
 import { Stack, router } from "expo-router";
 import { useTheme } from "@/hooks/useTheme";
@@ -23,7 +23,7 @@ export default function ProfileScreen() {
   
   const userRecipes = recipes.slice(0, 2);
   const { colors } = useTheme();
-  const { user, profile, signOut, updateProfile, uploadAvatar, checkUsernameAvailability, refreshProfile } = useAuthStore();
+  const { user, profile, signOut, updateProfile, uploadAvatar, removeAvatar, checkUsernameAvailability, refreshProfile } = useAuthStore();
 
   // Refresh profile when screen comes into focus
   useEffect(() => {
@@ -118,21 +118,58 @@ export default function ProfileScreen() {
       return;
     }
 
+    const options = [
+      {
+        text: 'Camera',
+        onPress: () => openCamera(),
+      },
+      {
+        text: 'Photo Library',
+        onPress: () => openImagePicker(),
+      }
+    ];
+
+    // Add remove option if user has an avatar
+    if (profile?.avatar_url) {
+      options.push({
+        text: 'Remove Photo',
+        onPress: () => handleRemoveAvatar(),
+        style: 'destructive' as const,
+      });
+    }
+
+    options.push({
+      text: 'Cancel',
+      style: 'cancel' as const,
+    });
+
+    Alert.alert('Change Avatar', 'Choose an option', options);
+  };
+
+  const handleRemoveAvatar = () => {
     Alert.alert(
-      'Change Avatar',
-      'Choose an option',
+      'Remove Avatar',
+      'Are you sure you want to remove your profile photo?',
       [
-        {
-          text: 'Camera',
-          onPress: () => openCamera(),
-        },
-        {
-          text: 'Photo Library',
-          onPress: () => openImagePicker(),
-        },
         {
           text: 'Cancel',
           style: 'cancel',
+        },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            setIsUploadingAvatar(true);
+            const { error } = await removeAvatar();
+            setIsUploadingAvatar(false);
+
+            if (error) {
+              Alert.alert('Error', error);
+            } else {
+              Alert.alert('Success', 'Profile photo removed successfully');
+              await refreshProfile();
+            }
+          },
         },
       ]
     );
@@ -200,7 +237,7 @@ export default function ProfileScreen() {
     }
     // Add cache busting parameter to force reload
     const separator = profile.avatar_url.includes('?') ? '&' : '?';
-    return { uri: `${profile.avatar_url}${separator}t=${avatarKey}` };
+    return { uri: `${profile.avatar_url}${separator}t=${Date.now()}` };
   };
   
   return (
@@ -220,7 +257,7 @@ export default function ProfileScreen() {
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
             <Image 
-              key={avatarKey} // Force re-render when key changes
+              key={`avatar-${avatarKey}-${profile?.avatar_url || 'default'}`} // Better key for re-rendering
               source={getAvatarSource()} 
               style={styles.profileImage}
               onError={() => setImageError(true)}
@@ -235,7 +272,9 @@ export default function ProfileScreen() {
             </TouchableOpacity>
             {isUploadingAvatar && (
               <View style={styles.uploadingOverlay}>
-                <Text style={[styles.uploadingText, { color: 'white' }]}>Uploading...</Text>
+                <Text style={[styles.uploadingText, { color: 'white' }]}>
+                  {profile?.avatar_url ? 'Updating...' : 'Uploading...'}
+                </Text>
               </View>
             )}
           </View>

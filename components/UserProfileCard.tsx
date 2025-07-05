@@ -48,12 +48,14 @@ export default function UserProfileCard({
 
   const displayName = user.full_name || user.username || 'Unknown User';
   
-  // Better avatar URL handling with proper fallback
+  // Better avatar URL handling with proper fallback and cache busting
   const getAvatarSource = () => {
     if (imageError || !user.avatar_url) {
       return { uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face' };
     }
-    return { uri: user.avatar_url };
+    // Add cache busting parameter to force reload
+    const separator = user.avatar_url.includes('?') ? '&' : '?';
+    return { uri: `${user.avatar_url}${separator}t=${Date.now()}` };
   };
 
   if (compact) {

@@ -38,6 +38,7 @@ interface AuthState {
   resetPassword: (email: string) => Promise<{ error?: string }>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ error?: string }>;
   uploadAvatar: (imageUri: string) => Promise<{ error?: string; url?: string }>;
+  removeAvatar: () => Promise<{ error?: string }>;
   checkUsernameAvailability: (username: string) => Promise<{ available: boolean; error?: string }>;
   setSession: (session: Session | null) => void;
   setUser: (user: User | null) => void;
@@ -259,7 +260,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       uploadAvatar: async (imageUri: string) => {
-        const { user } = get();
+        const { user, profile } = get();
         if (!user) return { error: 'Not authenticated' };
 
         try {
@@ -276,8 +277,23 @@ export const useAuthStore = create<AuthState>()(
           const blob = await response.blob();
           console.log('Image blob created, size:', blob.size);
           
-          const fileExt = imageUri.split('.').pop() || 'jpg';
-          const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+          // Delete old avatar if exists
+          if (profile?.avatar_url) {
+            try {
+              const oldPath = profile.avatar_url.split('/').pop();
+              if (oldPath && oldPath.includes(user.id)) {
+                await supabase.storage
+                  .from('avatars')
+                  .remove([`${user.id}/${oldPath}`]);
+                console.log('Old avatar deleted');
+              }
+            } catch (error) {
+              console.log('Could not delete old avatar:', error);
+            }
+          }
+          
+          const fileExt = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
+          const fileName = `avatar-${Date.now()}.${fileExt}`;
           const filePath = `${user.id}/${fileName}`;
 
           console.log('Uploading to path:', filePath);
@@ -286,7 +302,7 @@ export const useAuthStore = create<AuthState>()(
             .from('avatars')
             .upload(filePath, blob, {
               cacheControl: '3600',
-              upsert: true
+              upsert: false
             });
 
           if (uploadError) {
@@ -312,8 +328,10 @@ export const useAuthStore = create<AuthState>()(
           const avatarUrl = data.publicUrl;
           console.log('Generated public URL:', avatarUrl);
 
-          // Update profile with new avatar URL and get the updated profile
-          const { error: updateError } = await get().updateProfile({ avatar_url: avatarUrl });
+          // Update profile with new avatar URL
+          const { error: updateError } = await get().updateProfile({ 
+            avatar_url: avatarUrl 
+          });
           
           if (updateError) {
             console.error('Profile update error:', updateError);
@@ -325,6 +343,48 @@ export const useAuthStore = create<AuthState>()(
         } catch (error: any) {
           console.error('Avatar upload error:', error);
           return { error: error.message || 'Failed to upload avatar' };
+        }
+      },
+
+      removeAvatar: async () => {
+        const { user, profile } = get();
+        if (!user) return { error: 'Not authenticated' };
+
+        try {
+          const supabase = await getSupabase();
+          
+          // Delete avatar file from storage if exists
+          if (profile?.avatar_url) {
+            try {
+              const urlParts = profile.avatar_url.split('/');
+              const fileName = urlParts[urlParts.length - 1];
+              const filePath = `${user.id}/${fileName}`;
+              
+              await supabase.storage
+                .from('avatars')
+                .remove([filePath]);
+              
+              console.log('Avatar file deleted from storage');
+            } catch (error) {
+              console.log('Could not delete avatar file:', error);
+            }
+          }
+
+          // Update profile to remove avatar URL
+          const { error: updateError } = await get().updateProfile({ 
+            avatar_url: null 
+          });
+          
+          if (updateError) {
+            console.error('Profile update error:', updateError);
+            return { error: updateError };
+          }
+
+          console.log('Avatar removed successfully');
+          return {};
+        } catch (error: any) {
+          console.error('Remove avatar error:', error);
+          return { error: error.message || 'Failed to remove avatar' };
         }
       },
 
