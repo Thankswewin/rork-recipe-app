@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { StyleSheet, View, Text, Image, TouchableOpacity, ScrollView, FlatList } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, router, useFocusEffect } from "expo-router";
-import { UserPlus, UserCheck, MessageCircle, Share } from "lucide-react-native";
+import { UserPlus, UserCheck, Share } from "lucide-react-native";
 import BackButton from "@/components/BackButton";
 import { useTheme } from "@/hooks/useTheme";
 import { supabase } from "@/lib/supabase";
@@ -42,10 +42,9 @@ export default function UserProfileScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
-  const [isMessageLoading, setIsMessageLoading] = useState(false);
   const [avatarKey, setAvatarKey] = useState(0); // Force re-render of avatar
   const { colors } = useTheme();
-  const { user: currentUser, createOrGetConversation } = useAuthStore();
+  const { user: currentUser } = useAuthStore();
 
   useEffect(() => {
     if (id) {
@@ -210,30 +209,6 @@ export default function UserProfileScreen() {
     }
   };
 
-  const handleMessagePress = async () => {
-    if (!id || isMessageLoading) return;
-    
-    setIsMessageLoading(true);
-    try {
-      const { conversationId, error } = await createOrGetConversation(id);
-      
-      if (error) {
-        console.error('Error creating conversation:', error);
-        // In a real app, you might want to show a toast or alert here
-        // For now, we'll just log the error
-        return;
-      }
-
-      if (conversationId) {
-        router.push(`/messages/${conversationId}`);
-      }
-    } catch (error) {
-      console.error('Error navigating to conversation:', error);
-    } finally {
-      setIsMessageLoading(false);
-    }
-  };
-
   const handleRecipePress = (recipeId: string) => {
     // Navigate to recipe details
     console.log(`Recipe ${recipeId} pressed`);
@@ -351,21 +326,6 @@ export default function UserProfileScreen() {
                 )}
                 <Text style={styles.followButtonText}>
                   {isFollowLoading ? 'Loading...' : (isFollowing ? 'Following' : 'Follow')}
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[
-                  styles.messageButton, 
-                  { borderColor: colors.border },
-                  isMessageLoading && { opacity: 0.6 }
-                ]}
-                onPress={handleMessagePress}
-                disabled={isMessageLoading}
-              >
-                <MessageCircle size={18} color={colors.text} />
-                <Text style={[styles.messageButtonText, { color: colors.text }]}>
-                  {isMessageLoading ? 'Loading...' : 'Message'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -505,20 +465,6 @@ const styles = StyleSheet.create({
   },
   followButtonText: {
     color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  messageButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-  },
-  messageButtonText: {
     fontSize: 14,
     fontWeight: '600',
   },

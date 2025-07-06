@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
-import { UserPlus, UserCheck, MessageCircle } from 'lucide-react-native';
+import { UserPlus, UserCheck } from 'lucide-react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { router } from 'expo-router';
-import { useAuthStore } from '@/stores/authStore';
 
 interface UserProfile {
   id: string;
@@ -18,7 +17,6 @@ interface UserProfile {
 interface UserProfileCardProps {
   user: UserProfile;
   onFollowToggle?: (userId: string, isFollowing: boolean) => Promise<void>;
-  onMessagePress?: () => void;
   showFollowButton?: boolean;
   compact?: boolean;
 }
@@ -26,15 +24,12 @@ interface UserProfileCardProps {
 export default function UserProfileCard({ 
   user, 
   onFollowToggle,
-  onMessagePress, 
   showFollowButton = true,
   compact = false 
 }: UserProfileCardProps) {
   const { colors } = useTheme();
   const [imageError, setImageError] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
-  const [isMessageLoading, setIsMessageLoading] = useState(false);
-  const { createOrGetConversation } = useAuthStore();
 
   const handleUserPress = () => {
     router.push(`/user/${user.id}`);
@@ -48,34 +43,6 @@ export default function UserProfileCard({
       } finally {
         setIsFollowLoading(false);
       }
-    }
-  };
-
-  const handleMessagePress = async () => {
-    if (isMessageLoading) return;
-    
-    setIsMessageLoading(true);
-    try {
-      if (onMessagePress) {
-        // Use the provided callback
-        await onMessagePress();
-      } else {
-        // Fallback to the auth store method
-        const { conversationId, error } = await createOrGetConversation(user.id);
-        
-        if (error) {
-          console.error('Error creating conversation:', error);
-          return;
-        }
-
-        if (conversationId) {
-          router.push(`/messages/${conversationId}`);
-        }
-      }
-    } catch (error) {
-      console.error('Error navigating to conversation:', error);
-    } finally {
-      setIsMessageLoading(false);
     }
   };
 
@@ -189,18 +156,6 @@ export default function UserProfileCard({
               <UserPlus size={16} color="white" />
             )}
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[
-              styles.messageButton, 
-              { borderColor: colors.border },
-              isMessageLoading && { opacity: 0.6 }
-            ]}
-            onPress={handleMessagePress}
-            disabled={isMessageLoading}
-          >
-            <MessageCircle size={16} color={colors.text} />
-          </TouchableOpacity>
         </View>
       )}
     </TouchableOpacity>
@@ -297,13 +252,5 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-  },
-  messageButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
   },
 });
