@@ -21,11 +21,11 @@ export default function RecipeCard({ recipe, onPress, onFavoritePress, style }: 
     }, style]}>
       {/* Recipe Header */}
       <View style={styles.header}>
-        <Image source={{ uri: recipe.image_url }} style={[styles.recipeImage, { borderColor: colors.iconBorder }]} />
+        <Image source={{ uri: recipe.image_url || undefined }} style={[styles.recipeImage, { borderColor: colors.iconBorder }]} />
         <View style={styles.recipeInfo}>
           <Text style={[styles.recipeTitle, { color: colors.text }]}>{recipe.title}</Text>
           <View style={styles.authorContainer}>
-            <Image source={{ uri: recipe.user?.avatar_url }} style={[styles.authorAvatar, { borderColor: colors.iconBorder }]} />
+            <Image source={{ uri: recipe.user?.avatar_url || undefined }} style={[styles.authorAvatar, { borderColor: colors.iconBorder }]} />
             <Text style={[styles.authorName, { color: colors.muted }]}>{recipe.user?.full_name}</Text>
           </View>
           <View style={styles.statsContainer}>
