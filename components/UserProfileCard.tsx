@@ -18,13 +18,15 @@ interface UserProfile {
 interface UserProfileCardProps {
   user: UserProfile;
   onFollowToggle?: (userId: string, isFollowing: boolean) => Promise<void>;
+  onMessagePress?: () => void;
   showFollowButton?: boolean;
   compact?: boolean;
 }
 
 export default function UserProfileCard({ 
   user, 
-  onFollowToggle, 
+  onFollowToggle,
+  onMessagePress, 
   showFollowButton = true,
   compact = false 
 }: UserProfileCardProps) {
@@ -54,17 +56,21 @@ export default function UserProfileCard({
     
     setIsMessageLoading(true);
     try {
-      const { conversationId, error } = await createOrGetConversation(user.id);
-      
-      if (error) {
-        console.error('Error creating conversation:', error);
-        // In a real app, you might want to show a toast or alert here
-        // For now, we'll just log the error
-        return;
-      }
+      if (onMessagePress) {
+        // Use the provided callback
+        await onMessagePress();
+      } else {
+        // Fallback to the auth store method
+        const { conversationId, error } = await createOrGetConversation(user.id);
+        
+        if (error) {
+          console.error('Error creating conversation:', error);
+          return;
+        }
 
-      if (conversationId) {
-        router.push(`/messages/${conversationId}`);
+        if (conversationId) {
+          router.push(`/messages/${conversationId}`);
+        }
       }
     } catch (error) {
       console.error('Error navigating to conversation:', error);

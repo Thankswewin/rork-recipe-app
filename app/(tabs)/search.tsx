@@ -6,6 +6,7 @@ import { Stack, router, useFocusEffect } from "expo-router";
 import { useTheme } from "@/hooks/useTheme";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/stores/authStore";
+import { trpc } from "@/lib/trpc";
 import SearchBar from "@/components/SearchBar";
 import CategoryCard from "@/components/CategoryCard";
 import RecipeCard from "@/components/RecipeCard";
@@ -195,9 +196,22 @@ export default function SearchScreen() {
     router.push("/(tabs)/assistant");
   };
 
-  const handleStartMessage = (userId: string) => {
-    // For now, just navigate to messages - we'll implement conversation creation later
-    router.push("/messages");
+  const createConversationMutation = trpc.conversations.createConversation.useMutation();
+
+  const handleStartMessage = async (userId: string) => {
+    try {
+      const result = await createConversationMutation.mutateAsync({
+        otherUserId: userId
+      });
+      
+      if (result?.id) {
+        router.push(`/messages/${result.id}`);
+      }
+    } catch (error: any) {
+      console.error('Error creating conversation:', error);
+      // For now, just navigate to messages list
+      router.push("/messages");
+    }
   };
 
   const renderUserItem = ({ item }: { item: UserProfile }) => (
@@ -205,6 +219,7 @@ export default function SearchScreen() {
       user={item}
       onFollowToggle={handleFollowToggle}
       showFollowButton={true}
+      onMessagePress={() => handleStartMessage(item.id)}
     />
   );
 

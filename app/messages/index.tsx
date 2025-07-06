@@ -1,153 +1,33 @@
-import React, { useState, useEffect } from "react";
-import { StyleSheet, View, Text, FlatList, TouchableOpacity, Image } from "react-native";
+import React from "react";
+import { StyleSheet, View, Text, FlatList, TouchableOpacity, Image, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, router } from "expo-router";
-import { MessageCircle, Search, AlertCircle } from "lucide-react-native";
+import { MessageCircle, Search, AlertCircle, Users } from "lucide-react-native";
 import BackButton from "@/components/BackButton";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthStore } from "@/stores/authStore";
-import { supabase } from "@/lib/supabase";
+import { trpc } from "@/lib/trpc";
 import type { Conversation } from "@/types";
 
 export default function MessagesScreen() {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { colors } = useTheme();
   const { user } = useAuthStore();
-
-  useEffect(() => {
-    if (user) {
-      fetchConversations();
-    }
-  }, [user]);
-
-  const fetchConversations = async () => {
-    if (!user) return;
-
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      // First check if conversations table exists
-      const { error: tableCheckError } = await supabase
-        .from('conversations')
-        .select('id')
-        .limit(1);
-
-      if (tableCheckError) {
-        console.error('Conversations table not accessible:', tableCheckError);
-        
-        // Check for specific infinite recursion error
-        if (tableCheckError.code === '42P17') {
-          setError('Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.');
-        } else if (tableCheckError.code === '42P01') {
-          setError('Messaging system is not set up yet. Please contact support to enable messaging.');
-        } else {
-          setError('Unable to access messaging system. Please try again later.');
-        }
-        return;
+  
+  const {
+    data: conversations = [],
+    isLoading,
+    error,
+    refetch
+  } = trpc.conversations.getConversations.useQuery(undefined, {
+    enabled: !!user,
+    retry: (failureCount, error: any) => {
+      // Don't retry on infinite recursion errors
+      if (error?.data?.code === '42P17') {
+        return false;
       }
-
-      // Check if conversation_participants table exists
-      const { error: participantsTableError } = await supabase
-        .from('conversation_participants')
-        .select('id')
-        .limit(1);
-
-      if (participantsTableError) {
-        console.error('Conversation participants table not accessible:', participantsTableError);
-        
-        // Check for specific infinite recursion error
-        if (participantsTableError.code === '42P17') {
-          setError('Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.');
-        } else if (participantsTableError.code === '42P01') {
-          setError('Messaging system is not set up yet. Please contact support to enable messaging.');
-        } else {
-          setError('Unable to access messaging system. Please try again later.');
-        }
-        return;
-      }
-      
-      // Get conversations where user is a participant
-      const { data: conversationData, error } = await supabase
-        .from('conversation_participants')
-        .select(`
-          conversation_id,
-          conversations!inner (
-            id,
-            created_at,
-            updated_at,
-            last_message_at
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('conversations(last_message_at)', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching conversations:', error);
-        
-        // Check for specific infinite recursion error
-        if (error.code === '42P17') {
-          setError('Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.');
-        } else {
-          setError('Failed to load conversations. Please try again.');
-        }
-        return;
-      }
-
-      // For each conversation, get participants and last message
-      const conversationsWithDetails = await Promise.all(
-        (conversationData || []).map(async (item: any) => {
-          const conversation = item.conversations;
-          
-          // Get all participants
-          const { data: participants } = await supabase
-            .from('conversation_participants')
-            .select(`
-              *,
-              user:profiles!conversation_participants_user_id_fkey (
-                id,
-                username,
-                full_name,
-                avatar_url
-              )
-            `)
-            .eq('conversation_id', conversation.id);
-
-          // Get last message
-          const { data: lastMessage } = await supabase
-            .from('messages')
-            .select(`
-              *,
-              sender:profiles!messages_sender_id_fkey (
-                id,
-                username,
-                full_name,
-                avatar_url
-              )
-            `)
-            .eq('conversation_id', conversation.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-
-          return {
-            ...conversation,
-            participants: participants || [],
-            last_message: lastMessage || null,
-          };
-        })
-      );
-
-      setConversations(conversationsWithDetails);
-    } catch (error: any) {
-      console.error('Error fetching conversations:', error);
-      setError('An unexpected error occurred. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      return failureCount < 3;
+    },
+  });
 
   const handleConversationPress = (conversationId: string) => {
     router.push(`/messages/${conversationId}`);
@@ -155,6 +35,16 @@ export default function MessagesScreen() {
 
   const getOtherParticipant = (conversation: Conversation) => {
     return conversation.participants.find(p => p.user_id !== user?.id)?.user;
+  };
+
+  const getErrorMessage = (error: any) => {
+    if (error?.data?.code === '42P17') {
+      return 'Messaging system is temporarily unavailable due to a configuration issue. Please run the database fix to resolve this.';
+    }
+    if (error?.data?.code === '42P01') {
+      return 'Messaging system is not set up yet. Please set up the database tables.';
+    }
+    return error?.message || 'Failed to load conversations. Please try again.';
   };
 
   const formatTime = (dateString: string) => {
@@ -211,11 +101,11 @@ export default function MessagesScreen() {
       <AlertCircle size={64} color={colors.muted} />
       <Text style={[styles.errorTitle, { color: colors.text }]}>Unable to Load Messages</Text>
       <Text style={[styles.errorSubtitle, { color: colors.muted }]}>
-        {error}
+        {getErrorMessage(error)}
       </Text>
       <TouchableOpacity
         style={[styles.retryButton, { backgroundColor: colors.tint }]}
-        onPress={fetchConversations}
+        onPress={() => refetch()}
       >
         <Text style={styles.retryButtonText}>Try Again</Text>
       </TouchableOpacity>
@@ -245,13 +135,13 @@ export default function MessagesScreen() {
           <MessageCircle size={64} color={colors.muted} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>No Messages Yet</Text>
           <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
-            Start a conversation by finding users in the Search tab
+            Start a conversation by finding users to message
           </Text>
           <TouchableOpacity
             style={[styles.searchUsersButton, { backgroundColor: colors.tint }]}
             onPress={() => router.push("/(tabs)/search")}
           >
-            <Search size={16} color="white" />
+            <Users size={16} color="white" />
             <Text style={styles.searchUsersButtonText}>Find Users to Message</Text>
           </TouchableOpacity>
         </View>
@@ -262,6 +152,13 @@ export default function MessagesScreen() {
           renderItem={renderConversationItem}
           contentContainerStyle={styles.conversationsList}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isLoading}
+              onRefresh={() => refetch()}
+              tintColor={colors.tint}
+            />
+          }
         />
       )}
     </SafeAreaView>

@@ -75,14 +75,24 @@ export interface Message {
   };
 }
 
-export interface Conversation {
+export interface ConversationParticipant {
   id: string;
-  last_message_at: string;
-  last_message?: string;
-  other_user?: {
+  conversation_id: string;
+  user_id: string;
+  joined_at: string;
+  user?: {
     id: string;
     username: string | null;
     full_name: string | null;
     avatar_url: string | null;
   };
+}
+
+export interface Conversation {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  last_message_at: string;
+  participants: ConversationParticipant[];
+  last_message?: Message | null;
 }
