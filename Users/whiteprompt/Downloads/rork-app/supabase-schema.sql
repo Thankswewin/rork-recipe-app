@@ -1,154 +1,137 @@
--- Drop existing policies and tables with CASCADE to remove dependencies
-DROP POLICY IF EXISTS conversations_select_policy ON conversations;
-DROP POLICY IF EXISTS conversations_update_policy ON conversations;
-DROP POLICY IF EXISTS "Users can update conversations they participate in" ON conversations;
-DROP POLICY IF EXISTS "Users can view conversations they participate in" ON conversations;
-DROP POLICY IF EXISTS "Users can insert participants in conversations they participate in" ON conversation_participants;
-DROP POLICY IF EXISTS "Users can view participants in conversations they participate in" ON conversation_participants;
-
--- Drop tables with CASCADE to handle dependencies
+-- Drop existing tables and policies to start fresh
+DROP POLICY IF EXISTS "Avatar images are publicly accessible" ON storage.objects;
 DROP TABLE IF EXISTS conversation_participants CASCADE;
-DROP TABLE IF EXISTS conversations CASCADE;
 DROP TABLE IF EXISTS messages CASCADE;
+DROP TABLE IF EXISTS conversations CASCADE;
 
--- Recreate tables with proper structure
-CREATE TABLE conversations (
+-- Create conversations table
+CREATE TABLE IF NOT EXISTS conversations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  last_message_at TIMESTAMP WITH TIME ZONE,
-  title TEXT,
-  is_group BOOLEAN DEFAULT FALSE
+  last_message_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  title TEXT
 );
 
-CREATE TABLE conversation_participants (
+-- Create conversation_participants table
+CREATE TABLE IF NOT EXISTS conversation_participants (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(conversation_id, user_id)
+  conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE (conversation_id, user_id)
 );
 
-CREATE TABLE messages (
+-- Create messages table
+CREATE TABLE IF NOT EXISTS messages (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
-  sender_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  sender_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  is_read BOOLEAN DEFAULT FALSE
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create a trigger to update last_message_at in conversations when a new message is inserted
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_conversation_participants_conversation_id ON conversation_participants(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_conversation_participants_user_id ON conversation_participants(user_id);
+
+-- Security policies
+-- Conversations policies
+CREATE POLICY "Users can only view conversations they are participants in"
+  ON conversations
+  FOR SELECT
+  USING (
+    auth.uid() IN (
+      SELECT user_id FROM conversation_participants 
+      WHERE conversation_id = conversations.id
+    )
+  );
+
+CREATE POLICY "Users can insert conversations"
+  ON conversations
+  FOR INSERT
+  WITH CHECK (true);
+
+-- Conversation participants policies
+CREATE POLICY "Users can view participants in conversations they are part of"
+  ON conversation_participants
+  FOR SELECT
+  USING (
+    auth.uid() IN (
+      SELECT user_id FROM conversation_participants 
+      WHERE conversation_id = conversation_participants.conversation_id
+    )
+  );
+
+CREATE POLICY "Users can insert participants"
+  ON conversation_participants
+  FOR INSERT
+  WITH CHECK (true);
+
+-- Messages policies
+CREATE POLICY "Users can only view messages in conversations they are part of"
+  ON messages
+  FOR SELECT
+  USING (
+    auth.uid() IN (
+      SELECT user_id FROM conversation_participants 
+      WHERE conversation_id = messages.conversation_id
+    )
+  );
+
+CREATE POLICY "Users can send messages in conversations they are part of"
+  ON messages
+  FOR INSERT
+  WITH CHECK (
+    auth.uid() = sender_id AND
+    auth.uid() IN (
+      SELECT user_id FROM conversation_participants 
+      WHERE conversation_id = messages.conversation_id
+    )
+  );
+
+-- Storage bucket for avatars
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', true)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "Avatar images are publicly accessible"
+  ON storage.objects
+  FOR SELECT
+  USING (
+    bucket_id = 'avatars'
+  );
+
+CREATE POLICY "Users can upload avatars"
+  ON storage.objects
+  FOR INSERT
+  WITH CHECK (
+    bucket_id = 'avatars' AND
+    owner = auth.uid()
+  );
+
+CREATE POLICY "Users can update their own avatars"
+  ON storage.objects
+  FOR UPDATE
+  USING (
+    bucket_id = 'avatars' AND
+    owner = auth.uid()
+  );
+
+-- Function to update last_message_at on conversations
 CREATE OR REPLACE FUNCTION update_conversation_last_message()
 RETURNS TRIGGER AS $$
 BEGIN
   UPDATE conversations
-  SET last_message_at = NEW.created_at,
-      updated_at = NEW.created_at
+  SET last_message_at = NEW.created_at
   WHERE id = NEW.conversation_id;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE TRIGGER update_conversation_trigger
-AFTER INSERT ON messages
-FOR EACH ROW
-EXECUTE FUNCTION update_conversation_last_message();
-
--- Create policies with simplified, non-recursive logic
--- Conversations policies
-CREATE POLICY "Users can view conversations they participate in"
-  ON conversations
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM conversation_participants cp
-      WHERE cp.conversation_id = conversations.id
-      AND cp.user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can update conversations they participate in"
-  ON conversations
-  FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM conversation_participants cp
-      WHERE cp.conversation_id = conversations.id
-      AND cp.user_id = auth.uid()
-    )
-  );
-
--- Conversation participants policies
-CREATE POLICY "Users can view participants in conversations they participate in"
-  ON conversation_participants
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM conversation_participants cp
-      WHERE cp.conversation_id = conversation_participants.conversation_id
-      AND cp.user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can insert participants in conversations they participate in"
-  ON conversation_participants
-  FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1
-      FROM conversation_participants cp
-      WHERE cp.conversation_id = conversation_participants.conversation_id
-      AND cp.user_id = auth.uid()
-    )
-  );
-
--- Messages policies
-CREATE POLICY "Users can send messages in conversations they participate in"
-  ON messages
-  FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1
-      FROM conversation_participants cp
-      WHERE cp.conversation_id = messages.conversation_id
-      AND cp.user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can view messages in conversations they participate in"
-  ON messages
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM conversation_participants cp
-      WHERE cp.conversation_id = messages.conversation_id
-      AND cp.user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can update their own messages"
-  ON messages
-  FOR UPDATE
-  USING (sender_id = auth.uid());
-
--- Storage policy for avatar images
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_policies
-    WHERE policyname = 'Avatar images are publicly accessible'
-    AND tablename = 'objects'
-  ) THEN
-    CREATE POLICY "Avatar images are publicly accessible"
-      ON storage.objects
-      FOR SELECT
-      USING (bucket_id = 'avatars');
-  END IF;
-END
-$$;
+-- Trigger to update last_message_at
+CREATE TRIGGER update_conversation_timestamp
+  AFTER INSERT ON messages
+  FOR EACH ROW
+  EXECUTE FUNCTION update_conversation_last_message();
