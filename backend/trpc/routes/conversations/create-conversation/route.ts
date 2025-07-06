@@ -6,7 +6,7 @@ export const createConversationProcedure = protectedProcedure
   .input(z.object({
     otherUserId: z.string().uuid(),
   }))
-  .mutation(async ({ input, ctx }: { input: { otherUserId: string }, ctx: { user: { id: string } } }) => {
+  .mutation(async ({ input, ctx }) => {
     const userId = ctx.user.id;
     const { otherUserId } = input;
 
@@ -68,6 +68,15 @@ export const createConversationProcedure = protectedProcedure
       };
     } catch (error: any) {
       console.error('Error in createConversation:', error);
-      throw new Error(`Failed to create conversation: ${error.message}`);
+      
+      // Handle specific database errors
+      if (error?.code === '42P17') {
+        throw new Error('Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.');
+      }
+      if (error?.code === '42P01') {
+        throw new Error('Messaging system is not set up yet. Please run the database setup script.');
+      }
+      
+      throw new Error(`Failed to create conversation: ${error.message || 'Unknown error'}`);
     }
   });

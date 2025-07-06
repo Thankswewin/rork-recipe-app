@@ -20,7 +20,7 @@ export default function MessagesScreen() {
     refetch
   } = trpc.conversations.getConversations.useQuery(undefined, {
     enabled: !!user,
-    retry: (failureCount: number, error: any) => {
+    retry: (failureCount, error) => {
       // Don't retry on infinite recursion errors
       if (error?.data?.code === '42P17') {
         return false;
@@ -39,10 +39,13 @@ export default function MessagesScreen() {
 
   const getErrorMessage = (error: any) => {
     if (error?.data?.code === '42P17') {
-      return 'Messaging system is temporarily unavailable due to a configuration issue. Please run the database fix to resolve this.';
+      return 'Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.';
     }
     if (error?.data?.code === '42P01') {
-      return 'Messaging system is not set up yet. Please set up the database tables.';
+      return 'Messaging system is not set up yet. Please contact support to set up the database tables.';
+    }
+    if (error?.message?.includes('Messaging system is temporarily unavailable')) {
+      return 'Messaging system is temporarily unavailable due to a configuration issue. Please contact support.';
     }
     return error?.message || 'Failed to load conversations. Please try again.';
   };
@@ -103,12 +106,14 @@ export default function MessagesScreen() {
       <Text style={[styles.errorSubtitle, { color: colors.muted }]}>
         {getErrorMessage(error)}
       </Text>
-      <TouchableOpacity
-        style={[styles.retryButton, { backgroundColor: colors.tint }]}
-        onPress={() => refetch()}
-      >
-        <Text style={styles.retryButtonText}>Try Again</Text>
-      </TouchableOpacity>
+      {!error?.message?.includes('configuration issue') && !error?.message?.includes('not set up yet') && (
+        <TouchableOpacity
+          style={[styles.retryButton, { backgroundColor: colors.tint }]}
+          onPress={() => refetch()}
+        >
+          <Text style={styles.retryButtonText}>Try Again</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 

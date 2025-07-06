@@ -3,7 +3,7 @@ import { protectedProcedure } from '../../../create-context';
 import { supabase } from '@/lib/supabase';
 
 export const getConversationsProcedure = protectedProcedure
-  .query(async ({ ctx }: { ctx: { user: { id: string } } }) => {
+  .query(async ({ ctx }) => {
     const userId = ctx.user.id;
 
     try {
@@ -86,6 +86,15 @@ export const getConversationsProcedure = protectedProcedure
       return conversationsWithDetails;
     } catch (error: any) {
       console.error('Error in getConversations:', error);
-      throw new Error(`Failed to get conversations: ${error.message}`);
+      
+      // Handle specific database errors
+      if (error?.code === '42P17') {
+        throw new Error('Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.');
+      }
+      if (error?.code === '42P01') {
+        throw new Error('Messaging system is not set up yet. Please run the database setup script.');
+      }
+      
+      throw new Error(`Failed to get conversations: ${error.message || 'Unknown error'}`);
     }
   });

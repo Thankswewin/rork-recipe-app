@@ -209,8 +209,15 @@ export default function SearchScreen() {
       }
     } catch (error: any) {
       console.error('Error creating conversation:', error);
-      // For now, just navigate to messages list
-      router.push("/messages");
+      
+      // Show user-friendly error message
+      if (error?.message?.includes('configuration issue') || error?.message?.includes('not set up yet')) {
+        // Navigate to messages to show the proper error state
+        router.push("/messages");
+      } else {
+        // For other errors, still try to navigate to messages
+        router.push("/messages");
+      }
     }
   };
 
