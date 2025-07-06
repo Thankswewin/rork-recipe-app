@@ -9,30 +9,50 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOi
 console.log('Supabase config:', { 
   url: supabaseUrl, 
   hasKey: !!supabaseAnonKey,
-  keyLength: supabaseAnonKey?.length
+  keyLength: supabaseAnonKey?.length,
+  platform: Platform.OS
 });
+
+// Validate configuration
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase configuration');
+  throw new Error('Missing Supabase URL or API key');
+}
 
 // Create a custom storage adapter for React Native
 const customStorage = {
   getItem: async (key: string) => {
-    if (Platform.OS === 'web') {
-      return localStorage.getItem(key);
+    try {
+      if (Platform.OS === 'web') {
+        return localStorage.getItem(key);
+      }
+      return await AsyncStorage.getItem(key);
+    } catch (error) {
+      console.error('Storage getItem error:', error);
+      return null;
     }
-    return AsyncStorage.getItem(key);
   },
   setItem: async (key: string, value: string) => {
-    if (Platform.OS === 'web') {
-      localStorage.setItem(key, value);
-      return;
+    try {
+      if (Platform.OS === 'web') {
+        localStorage.setItem(key, value);
+        return;
+      }
+      return await AsyncStorage.setItem(key, value);
+    } catch (error) {
+      console.error('Storage setItem error:', error);
     }
-    return AsyncStorage.setItem(key, value);
   },
   removeItem: async (key: string) => {
-    if (Platform.OS === 'web') {
-      localStorage.removeItem(key);
-      return;
+    try {
+      if (Platform.OS === 'web') {
+        localStorage.removeItem(key);
+        return;
+      }
+      return await AsyncStorage.removeItem(key);
+    } catch (error) {
+      console.error('Storage removeItem error:', error);
     }
-    return AsyncStorage.removeItem(key);
   },
 };
 
@@ -43,23 +63,70 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: false,
   },
+  global: {
+    headers: {
+      'X-Client-Info': 'rork-recipe-app',
+    },
+  },
 });
 
-// Test Supabase connection
+// Test Supabase connection with better error handling
 export const testSupabaseConnection = async () => {
   try {
+    console.log('Testing Supabase connection...');
+    
+    // First try a simple health check
     const { data, error } = await supabase.from('profiles').select('count').limit(1);
+    
     if (error) {
       console.error('Supabase connection test failed:', error);
+      
+      // Provide more specific error messages
+      if (error.message.includes('Failed to fetch')) {
+        return { 
+          success: false, 
+          error: 'Network connection failed. Please check your internet connection and try again.' 
+        };
+      } else if (error.message.includes('Invalid API key')) {
+        return { 
+          success: false, 
+          error: 'Invalid Supabase configuration. Please check your API keys.' 
+        };
+      } else if (error.message.includes('CORS')) {
+        return { 
+          success: false, 
+          error: 'CORS error. Please check your Supabase project settings.' 
+        };
+      }
+      
       return { success: false, error: error.message };
     }
+    
     console.log('Supabase connection test successful');
     return { success: true };
   } catch (error: any) {
     console.error('Supabase connection test error:', error);
-    return { success: false, error: error.message };
+    
+    // Handle network errors specifically
+    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+      return { 
+        success: false, 
+        error: 'Network connection failed. Please check your internet connection and try again.' 
+      };
+    }
+    
+    return { success: false, error: error.message || 'Unknown connection error' };
   }
 };
+
+// Initialize connection test on module load (but don't block)
+setTimeout(() => {
+  testSupabaseConnection().then(result => {
+    if (!result.success) {
+      console.warn('Initial Supabase connection test failed:', result.error);
+    }
+  });
+}, 1000);
 
 export type Database = {
   public: {
