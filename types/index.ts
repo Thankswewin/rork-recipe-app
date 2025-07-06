@@ -26,6 +26,7 @@ export interface Recipe {
   is_favorited: boolean;
   likes_count: number;
   comments_count: number;
+  category?: string;
   author?: {
     id: string;
     username: string | null;

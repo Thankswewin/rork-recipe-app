@@ -6,7 +6,7 @@ export const createConversationProcedure = protectedProcedure
   .input(z.object({
     otherUserId: z.string().uuid(),
   }))
-  .mutation(async ({ input, ctx }) => {
+  .mutation(async ({ input, ctx }: { input: { otherUserId: string }, ctx: { user: { id: string } } }) => {
     const userId = ctx.user.id;
     const { otherUserId } = input;
 

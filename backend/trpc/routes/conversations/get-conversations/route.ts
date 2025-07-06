@@ -3,7 +3,7 @@ import { protectedProcedure } from '../../../create-context';
 import { supabase } from '@/lib/supabase';
 
 export const getConversationsProcedure = protectedProcedure
-  .query(async ({ ctx }) => {
+  .query(async ({ ctx }: { ctx: { user: { id: string } } }) => {
     const userId = ctx.user.id;
 
     try {

@@ -20,7 +20,7 @@ export default function MessagesScreen() {
     refetch
   } = trpc.conversations.getConversations.useQuery(undefined, {
     enabled: !!user,
-    retry: (failureCount, error: any) => {
+    retry: (failureCount: number, error: any) => {
       // Don't retry on infinite recursion errors
       if (error?.data?.code === '42P17') {
         return false;

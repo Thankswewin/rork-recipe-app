@@ -227,7 +227,7 @@ export default function SearchScreen() {
   const filteredRecipes = recipes.filter((recipe) => {
     const matchesSearch = searchQuery === "" || 
       recipe.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      recipe.category.toLowerCase().includes(searchQuery.toLowerCase());
+      (recipe.category && recipe.category.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesCategory = selectedCategory === null || recipe.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
