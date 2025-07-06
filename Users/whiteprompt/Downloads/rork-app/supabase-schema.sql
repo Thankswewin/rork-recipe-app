@@ -30,11 +30,23 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Create profiles table
+CREATE TABLE IF NOT EXISTS profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  username TEXT UNIQUE NOT NULL,
+  full_name TEXT,
+  avatar_url TEXT,
+  email TEXT UNIQUE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_participants_conversation_id ON conversation_participants(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_participants_user_id ON conversation_participants(user_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_email ON profiles(email);
 
 -- Security policies
 -- Conversations policies
@@ -91,6 +103,22 @@ CREATE POLICY "Users can send messages in conversations they are part of"
     )
   );
 
+-- Profiles policies
+CREATE POLICY "Users can view profiles"
+  ON profiles
+  FOR SELECT
+  USING (true);
+
+CREATE POLICY "Users can update their own profile"
+  ON profiles
+  FOR UPDATE
+  USING (auth.uid() = id);
+
+CREATE POLICY "Users can insert their own profile"
+  ON profiles
+  FOR INSERT
+  WITH CHECK (auth.uid() = id);
+
 -- Storage bucket for avatars
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('avatars', 'avatars', true)
@@ -135,3 +163,19 @@ CREATE TRIGGER update_conversation_timestamp
   AFTER INSERT ON messages
   FOR EACH ROW
   EXECUTE FUNCTION update_conversation_last_message();
+
+-- Function to automatically create profile on user signup
+CREATE OR REPLACE FUNCTION create_profile_for_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO profiles (id, email)
+  VALUES (NEW.id, NEW.email);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger to create profile on user signup
+CREATE TRIGGER create_profile_after_signup
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION create_profile_for_new_user();
