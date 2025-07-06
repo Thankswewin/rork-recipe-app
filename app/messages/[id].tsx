@@ -1,15 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, FlatList, StyleSheet } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
+import { useState, useEffect } from 'react';
+import { View, Text, TextInput, Button, FlatList, StyleSheet } from 'react-native';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/stores/authStore';
-
-type Profile = {
-  id: string;
-  username: string;
-  full_name: string;
-  avatar_url: string;
-};
+import { useAuthStore } from '@/stores/authStore'; // Corrected import to useAuthStore
 
 type Message = {
   id: string;
@@ -17,13 +10,23 @@ type Message = {
   sender_id: string;
   content: string;
   created_at: string;
-  profiles: Profile;
+  profiles: {
+    id: string;
+    username: string;
+    full_name: string;
+    avatar_url: string;
+  };
 };
 
 type Participant = {
   id: string;
   user_id: string;
-  profiles: Profile;
+  profiles: {
+    id: string;
+    username: string;
+    full_name: string;
+    avatar_url: string;
+  };
 };
 
 export default function ConversationScreen() {
@@ -31,10 +34,10 @@ export default function ConversationScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const { user } = useAuth();
+  const user = useAuthStore((state) => state.user); // Using useAuthStore to get user data
 
   useEffect(() => {
-    if (!user) return;
+    if (!id || !user) return;
 
     const fetchMessages = async () => {
       try {
@@ -49,9 +52,7 @@ export default function ConversationScreen() {
           return;
         }
 
-        if (data) {
-          setMessages(data as unknown as Message[]);
-        }
+        setMessages(data || []);
       } catch (err) {
         console.error('Error fetching messages:', err);
       }
@@ -69,9 +70,7 @@ export default function ConversationScreen() {
           return;
         }
 
-        if (data) {
-          setParticipants(data as unknown as Participant[]);
-        }
+        setParticipants(data || []);
       } catch (err) {
         console.error('Error fetching participants:', err);
       }
@@ -98,54 +97,48 @@ export default function ConversationScreen() {
   }, [id, user]);
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !user) return;
+    if (!newMessage.trim() || !user || !id) return;
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('messages')
-        .insert([
-          {
-            conversation_id: id,
-            sender_id: user.id,
-            content: newMessage,
-          },
-        ])
-        .select('*, profiles(*)')
-        .single();
+        .insert({
+          conversation_id: id,
+          sender_id: user.id,
+          content: newMessage,
+        });
 
       if (error) {
         console.error('Error sending message:', error);
         return;
       }
 
-      if (data) {
-        setMessages((prev) => [...prev, data as unknown as Message]);
-        setNewMessage('');
-      }
+      setNewMessage('');
     } catch (err) {
       console.error('Error sending message:', err);
     }
   };
 
   const renderItem = ({ item }: { item: Message }) => (
-    <View style={styles.messageContainer}>
-      <Text style={styles.sender}>{item.profiles.username}</Text>
-      <Text style={styles.message}>{item.content}</Text>
-      <Text style={styles.timestamp}>{new Date(item.created_at).toLocaleString()}</Text>
+    <View style={item.sender_id === user?.id ? styles.myMessage : styles.otherMessage}>
+      <Text style={styles.messageText}>{item.content}</Text>
+      <Text style={styles.timestamp}>
+        {new Date(item.created_at).toLocaleTimeString()}
+      </Text>
     </View>
   );
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Conversation</Text>
-      <Text style={styles.subtitle}>
+      <Text style={styles.participants}>
         Participants: {participants.map((p) => p.profiles.username).join(', ')}
       </Text>
       <FlatList
         data={messages}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
-        style={styles.messagesList}
+        style={styles.messageList}
       />
       <View style={styles.inputContainer}>
         <TextInput
@@ -171,42 +164,56 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 8,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
+  participants: {
+    fontSize: 14,
+    color: '#888',
     marginBottom: 16,
   },
-  messagesList: {
+  messageList: {
     flex: 1,
     marginBottom: 16,
   },
-  messageContainer: {
-    padding: 10,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    marginBottom: 8,
+  myMessage: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#007AFF',
+    padding: 12,
+    borderRadius: 16,
+    marginVertical: 4,
+    maxWidth: '80%',
   },
-  sender: {
-    fontWeight: 'bold',
-    marginBottom: 4,
+  otherMessage: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#E5E5EA',
+    padding: 12,
+    borderRadius: 16,
+    marginVertical: 4,
+    maxWidth: '80%',
   },
-  message: {
+  messageText: {
     fontSize: 16,
+    color: '#000',
   },
   timestamp: {
     fontSize: 12,
-    color: '#999',
+    color: '#888',
     marginTop: 4,
+    alignSelf: 'flex-end',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5EA',
+    paddingTop: 8,
   },
   input: {
     flex: 1,
-    padding: 10,
+    height: 40,
     backgroundColor: '#fff',
-    borderRadius: 8,
+    borderRadius: 20,
+    paddingHorizontal: 16,
     marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
   },
 });
