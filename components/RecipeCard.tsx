@@ -58,8 +58,8 @@ export default function RecipeCard({ recipe, onPress, onFavoritePress, style }: 
           style={[styles.actionButton, { backgroundColor: 'transparent', borderColor: colors.iconBorder }]}
           onPress={onFavoritePress}
         >
-          <View style={[styles.actionIconContainer, { backgroundColor: recipe.isFavorite ? '#EF4444' : '#FACC15', borderColor: colors.iconBorder }]}>
-            <Heart size={14} color="black" fill={recipe.isFavorite ? "black" : 'transparent'} />
+          <View style={[styles.actionIconContainer, { backgroundColor: recipe.is_favorited ? '#EF4444' : '#FACC15', borderColor: colors.iconBorder }]}>
+            <Heart size={14} color="black" fill={recipe.is_favorited ? "black" : 'transparent'} />
           </View>
           <Text style={[styles.actionButtonText, { color: colors.text }]}>Save Chef</Text>
         </TouchableOpacity>

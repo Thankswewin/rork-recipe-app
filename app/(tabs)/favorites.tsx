@@ -8,7 +8,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Heart, Search } from "lucide-react-native";
 
 export default function FavoritesScreen() {
-  const favoriteRecipes = recipes.filter((recipe) => recipe.isFavorite);
+  const favoriteRecipes = recipes.filter((recipe) => recipe.is_favorited);
   const { colors } = useTheme();
 
   const handleRecipePress = (recipeId: string) => {
