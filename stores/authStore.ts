@@ -94,10 +94,14 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
         
         try {
-          console.log('AuthStore: Starting sign in process');
+          console.log('AuthStore: Starting sign in process for:', email);
+          
+          // First test the connection
+          const { data: connectionTest } = await supabase.from('profiles').select('count').limit(1);
+          console.log('AuthStore: Connection test result:', !!connectionTest);
           
           const { data, error } = await supabase.auth.signInWithPassword({
-            email,
+            email: email.trim().toLowerCase(),
             password,
           });
 
@@ -107,16 +111,20 @@ export const useAuthStore = create<AuthState>()(
             
             // Provide more user-friendly error messages
             if (error.message.includes('Invalid login credentials')) {
-              return { error: 'Invalid email or password. Please try again.' };
+              return { error: 'Invalid email or password. Please check your credentials and try again.' };
+            } else if (error.message.includes('Email not confirmed')) {
+              return { error: 'Please check your email and click the confirmation link before signing in.' };
             } else if (error.message.includes('Failed to fetch')) {
               return { error: 'Network connection failed. Please check your internet connection and try again.' };
+            } else if (error.message.includes('Too many requests')) {
+              return { error: 'Too many sign in attempts. Please wait a few minutes and try again.' };
             }
             
             return { error: error.message };
           }
 
           if (data.user && data.session) {
-            console.log('AuthStore: Sign in successful');
+            console.log('AuthStore: Sign in successful for user:', data.user.id);
             set({
               user: data.user,
               session: data.session,
@@ -151,14 +159,29 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
         
         try {
-          console.log('AuthStore: Starting sign up process');
+          console.log('AuthStore: Starting sign up process for:', email);
+          
+          // First test the connection and database
+          try {
+            const { data: connectionTest, error: connectionError } = await supabase.from('profiles').select('count').limit(1);
+            if (connectionError) {
+              console.error('AuthStore: Database connection test failed:', connectionError);
+              set({ isLoading: false });
+              return { error: 'Database connection failed. Please try again later.' };
+            }
+            console.log('AuthStore: Database connection test successful');
+          } catch (dbError) {
+            console.error('AuthStore: Database test error:', dbError);
+            set({ isLoading: false });
+            return { error: 'Database connection failed. Please try again later.' };
+          }
           
           const { data, error } = await supabase.auth.signUp({
-            email,
+            email: email.trim().toLowerCase(),
             password,
             options: {
               data: {
-                full_name: fullName,
+                full_name: fullName?.trim(),
               },
             },
           });
@@ -180,13 +203,17 @@ export const useAuthStore = create<AuthState>()(
               return { error: 'Network connection failed. Please check your internet connection and try again.' };
             } else if (error.message.includes('Database error saving new user')) {
               return { error: 'Account creation failed. Please try again or contact support if the problem persists.' };
+            } else if (error.message.includes('Password should be at least')) {
+              return { error: 'Password must be at least 6 characters long.' };
+            } else if (error.message.includes('Unable to validate email address')) {
+              return { error: 'Please enter a valid email address.' };
             }
             
             return { error: error.message };
           }
 
           if (data.user) {
-            console.log('AuthStore: Sign up successful');
+            console.log('AuthStore: Sign up successful for user:', data.user.id);
             set({
               user: data.user,
               session: data.session,
@@ -246,7 +273,7 @@ export const useAuthStore = create<AuthState>()(
       resetPassword: async (email: string) => {
         try {
           console.log('AuthStore: Sending password reset email');
-          const { error } = await supabase.auth.resetPasswordForEmail(email);
+          const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
           
           if (error) {
             console.error('AuthStore: Password reset error:', error);
@@ -460,7 +487,7 @@ export const useAuthStore = create<AuthState>()(
           const { data, error } = await supabase
             .from('profiles')
             .select('username')
-            .eq('username', username)
+            .eq('username', username.trim().toLowerCase())
             .maybeSingle();
 
           if (error && error.code !== 'PGRST116') {

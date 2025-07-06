@@ -97,6 +97,11 @@ export const testSupabaseConnection = async () => {
           success: false, 
           error: 'CORS error. Please check your Supabase project settings.' 
         };
+      } else if (error.message.includes('relation') && error.message.includes('does not exist')) {
+        return { 
+          success: false, 
+          error: 'Database tables not found. Please run the database schema setup.' 
+        };
       }
       
       return { success: false, error: error.message };
@@ -116,6 +121,26 @@ export const testSupabaseConnection = async () => {
     }
     
     return { success: false, error: error.message || 'Unknown connection error' };
+  }
+};
+
+// Test authentication specifically
+export const testSupabaseAuth = async () => {
+  try {
+    console.log('Testing Supabase auth...');
+    
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error('Auth test failed:', error);
+      return { success: false, error: error.message };
+    }
+    
+    console.log('Auth test successful, session:', !!session);
+    return { success: true, hasSession: !!session };
+  } catch (error: any) {
+    console.error('Auth test error:', error);
+    return { success: false, error: error.message || 'Unknown auth error' };
   }
 };
 

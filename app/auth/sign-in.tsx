@@ -15,12 +15,14 @@ import { Stack, router } from 'expo-router';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/authStore';
 import { useTheme } from '@/hooks/useTheme';
+import DebugSupabase from '@/components/DebugSupabase';
 
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
   
   const { signIn } = useAuthStore();
   const { colors } = useTheme();
@@ -28,6 +30,13 @@ export default function SignInScreen() {
   const handleSignIn = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
       return;
     }
 
@@ -79,6 +88,7 @@ export default function SignInScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  autoComplete="email"
                 />
               </View>
             </View>
@@ -95,6 +105,7 @@ export default function SignInScreen() {
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  autoComplete="password"
                 />
                 <TouchableOpacity
                   onPress={() => setShowPassword(!showPassword)}
@@ -139,7 +150,19 @@ export default function SignInScreen() {
                 <Text style={[styles.signUpLink, { color: colors.tint }]}>Sign Up</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Debug toggle */}
+            <TouchableOpacity 
+              onPress={() => setShowDebug(!showDebug)}
+              style={styles.debugToggle}
+            >
+              <Text style={[styles.debugToggleText, { color: colors.muted }]}>
+                {showDebug ? 'Hide Debug' : 'Show Debug'}
+              </Text>
+            </TouchableOpacity>
           </View>
+
+          {showDebug && <DebugSupabase />}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -241,5 +264,13 @@ const styles = StyleSheet.create({
   signUpLink: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  debugToggle: {
+    marginTop: 20,
+    alignSelf: 'center',
+  },
+  debugToggleText: {
+    fontSize: 12,
+    textDecorationLine: 'underline',
   },
 });

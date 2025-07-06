@@ -15,7 +15,7 @@ import { Stack, router } from 'expo-router';
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/authStore';
 import { useTheme } from '@/hooks/useTheme';
-// Remove direct import
+import DebugSupabase from '@/components/DebugSupabase';
 
 export default function SignUpScreen() {
   const [fullName, setFullName] = useState('');
@@ -25,6 +25,7 @@ export default function SignUpScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
   
   const { signUp } = useAuthStore();
   const { colors } = useTheme();
@@ -32,6 +33,13 @@ export default function SignUpScreen() {
   const handleSignUp = async () => {
     if (!fullName || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
       return;
     }
 
@@ -47,20 +55,6 @@ export default function SignUpScreen() {
 
     setIsLoading(true);
     try {
-      console.log('Testing Supabase connection first...');
-      try {
-        const { testSupabaseConnection } = await import('@/lib/supabase');
-        const connectionTest = await testSupabaseConnection();
-        if (!connectionTest.success) {
-          setIsLoading(false);
-          Alert.alert('Connection Error', `Database connection failed: ${connectionTest.error}`);
-          return;
-        }
-      } catch (importError) {
-        console.warn('Could not test Supabase connection:', importError);
-        // Continue anyway
-      }
-      
       console.log('Attempting to sign up with:', { email, fullName });
       const { error } = await signUp(email, password, fullName);
       setIsLoading(false);
@@ -120,6 +114,7 @@ export default function SignUpScreen() {
                   onChangeText={setFullName}
                   autoCapitalize="words"
                   autoCorrect={false}
+                  autoComplete="name"
                 />
               </View>
             </View>
@@ -136,6 +131,7 @@ export default function SignUpScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  autoComplete="email"
                 />
               </View>
             </View>
@@ -152,6 +148,7 @@ export default function SignUpScreen() {
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  autoComplete="password-new"
                 />
                 <TouchableOpacity
                   onPress={() => setShowPassword(!showPassword)}
@@ -178,6 +175,7 @@ export default function SignUpScreen() {
                   secureTextEntry={!showConfirmPassword}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  autoComplete="password-new"
                 />
                 <TouchableOpacity
                   onPress={() => setShowConfirmPassword(!showConfirmPassword)}
@@ -216,7 +214,19 @@ export default function SignUpScreen() {
                 <Text style={[styles.signInLink, { color: colors.tint }]}>Sign In</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Debug toggle */}
+            <TouchableOpacity 
+              onPress={() => setShowDebug(!showDebug)}
+              style={styles.debugToggle}
+            >
+              <Text style={[styles.debugToggleText, { color: colors.muted }]}>
+                {showDebug ? 'Hide Debug' : 'Show Debug'}
+              </Text>
+            </TouchableOpacity>
           </View>
+
+          {showDebug && <DebugSupabase />}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -311,5 +321,13 @@ const styles = StyleSheet.create({
   signInLink: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  debugToggle: {
+    marginTop: 20,
+    alignSelf: 'center',
+  },
+  debugToggleText: {
+    fontSize: 12,
+    textDecorationLine: 'underline',
   },
 });
