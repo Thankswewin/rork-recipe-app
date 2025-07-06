@@ -62,7 +62,7 @@ CREATE INDEX IF NOT EXISTS idx_conversations_last_message_at ON conversations(la
 
 -- Security policies
 
--- Profiles policies
+-- Profile policies
 CREATE POLICY "Users can only view their own profile"
   ON profiles
   FOR SELECT
