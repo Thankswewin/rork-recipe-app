@@ -20,9 +20,12 @@ export default function MessagesScreen() {
     refetch
   } = trpc.conversations.getConversations.useQuery(undefined, {
     enabled: !!user,
-    retry: (failureCount, error) => {
+    retry: (failureCount: number, error: any) => {
       // Don't retry on infinite recursion errors
-      if (error?.data?.code === '42P17') {
+      if (error?.data?.httpStatus === 500 && error?.message?.includes('infinite recursion')) {
+        return false;
+      }
+      if (error?.data?.httpStatus === 500 && error?.message?.includes('42P17')) {
         return false;
       }
       return failureCount < 3;
@@ -38,10 +41,10 @@ export default function MessagesScreen() {
   };
 
   const getErrorMessage = (error: any) => {
-    if (error?.data?.code === '42P17') {
+    if (error?.message?.includes('infinite recursion') || error?.message?.includes('42P17')) {
       return 'Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.';
     }
-    if (error?.data?.code === '42P01') {
+    if (error?.message?.includes('42P01') || error?.message?.includes('does not exist')) {
       return 'Messaging system is not set up yet. Please contact support to set up the database tables.';
     }
     if (error?.message?.includes('Messaging system is temporarily unavailable')) {

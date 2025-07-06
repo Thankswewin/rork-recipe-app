@@ -11,7 +11,7 @@ interface MessagingSystemStatusProps {
 export default function MessagingSystemStatus({ onRetry }: MessagingSystemStatusProps) {
   const { colors } = useTheme();
   
-  const { data: status, isLoading, error } = trpc.conversations.setupMessaging.useQuery(undefined, {
+  const { data: status, isLoading, error } = trpc.conversations.checkMessagingStatus.useQuery(undefined, {
     retry: false,
     refetchOnWindowFocus: false,
   });
