@@ -15,7 +15,7 @@ export default function HomeScreen() {
   const [activeSlide, setActiveSlide] = useState(0);
   const router = useRouter();
   const { colors } = useTheme();
-  const { profile, unreadNotificationsCount, fetchNotifications } = useAuthStore();
+  const { profile, unreadNotificationsCount, fetchNotifications, isLoading } = useAuthStore();
   const { selectedAgent } = useChefAssistantStore();
 
   // Fetch notifications when screen loads
@@ -63,7 +63,21 @@ export default function HomeScreen() {
     router.push("/(tabs)/assistant");
   };
 
-  const avatarUrl = profile?.avatar_url || currentUser.avatar;
+  // Safely get avatar URL with fallback
+  const avatarUrl = profile?.avatar_url || currentUser?.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face';
+
+  // Show loading state if auth is still loading
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.appBackground }]}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={["top"]}>
+          <View style={styles.loadingContainer}>
+            <Text style={[styles.loadingText, { color: colors.text }]}>Loading...</Text>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.appBackground }]}>
@@ -193,21 +207,27 @@ export default function HomeScreen() {
                   borderColor: colors.iconBorder,
                 }]}>
                   <View style={styles.recipeImageContainer}>
-                    <Image source={{ uri: item.image }} style={[styles.recipeImage, { borderColor: colors.iconBorder }]} />
+                    <Image 
+                      source={{ uri: item.image_url || 'https://images.unsplash.com/photo-1476124369491-e7addf5db371?w=400&h=300&fit=crop' }} 
+                      style={[styles.recipeImage, { borderColor: colors.iconBorder }]} 
+                    />
                     <View style={styles.recipeInfo}>
                       <Text style={[styles.recipeTitle, { color: colors.text }]}>{item.title}</Text>
                       <View style={styles.authorInfo}>
-                        <Image source={{ uri: item.author.avatar }} style={[styles.authorAvatar, { borderColor: colors.iconBorder }]} />
-                        <Text style={[styles.authorName, { color: colors.muted }]}>{item.author.name}</Text>
+                        <Image 
+                          source={{ uri: item.author?.avatar_url || avatarUrl }} 
+                          style={[styles.authorAvatar, { borderColor: colors.iconBorder }]} 
+                        />
+                        <Text style={[styles.authorName, { color: colors.muted }]}>{item.author?.full_name || 'Chef'}</Text>
                       </View>
                       <View style={styles.recipeStats}>
                         <View style={styles.statItem}>
                           <Text style={[styles.likeIcon, { color: colors.tertiary }]}>👍</Text>
-                          <Text style={[styles.statText, { color: colors.muted }]}>{item.likes} Like</Text>
+                          <Text style={[styles.statText, { color: colors.muted }]}>{item.likes_count} Like</Text>
                         </View>
                         <View style={styles.statItem}>
                           <Text style={[styles.commentIcon, { color: colors.muted }]}>💬</Text>
-                          <Text style={[styles.statText, { color: colors.muted }]} numberOfLines={1}>{item.comments} Comments</Text>
+                          <Text style={[styles.statText, { color: colors.muted }]} numberOfLines={1}>{item.comments_count} Comments</Text>
                         </View>
                       </View>
                     </View>
@@ -270,7 +290,7 @@ export default function HomeScreen() {
             <View style={styles.categoryContainer}>
               <TouchableOpacity 
                 style={[styles.categoryCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]} 
-                onPress={() => handleCategoryPress(categories[0].id)}
+                onPress={() => handleCategoryPress(categories[0]?.id || '1')}
               >
                 <LinearGradient
                   colors={["#FACC15", "#F59E0B"]}
@@ -286,7 +306,7 @@ export default function HomeScreen() {
               
               <TouchableOpacity 
                 style={[styles.categoryCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]} 
-                onPress={() => handleCategoryPress(categories[1].id)}
+                onPress={() => handleCategoryPress(categories[1]?.id || '2')}
               >
                 <LinearGradient
                   colors={["#8B5CF6", "#7C3AED"]}
@@ -329,6 +349,15 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 100, // Space for tab bar
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
   header: {
     flexDirection: "row",
