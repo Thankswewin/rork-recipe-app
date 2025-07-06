@@ -1,8 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Platform } from 'react-native';
 import { Copy, CheckCircle, AlertCircle, Database } from 'lucide-react-native';
 import { useTheme } from '@/hooks/useTheme';
 import * as Clipboard from 'expo-clipboard';
+
+// Safe platform detection
+const isWeb = () => {
+  try {
+    return Platform.OS === 'web';
+  } catch {
+    return typeof window !== 'undefined';
+  }
+};
 
 export default function DatabaseSetupGuide() {
   const { colors } = useTheme();
@@ -10,11 +19,27 @@ export default function DatabaseSetupGuide() {
 
   const copyToClipboard = async (text: string, stepNumber: number) => {
     try {
-      await Clipboard.setStringAsync(text);
+      if (isWeb()) {
+        // Use web clipboard API
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          // Fallback for older browsers
+          const textArea = document.createElement('textarea');
+          textArea.value = text;
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+        }
+      } else {
+        await Clipboard.setStringAsync(text);
+      }
       setCopiedStep(stepNumber);
       setTimeout(() => setCopiedStep(null), 2000);
       Alert.alert('Copied!', 'SQL script copied to clipboard');
     } catch (error) {
+      console.error('Copy error:', error);
       Alert.alert('Error', 'Failed to copy to clipboard');
     }
   };
