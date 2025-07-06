@@ -245,8 +245,15 @@ export default function MessagesScreen() {
           <MessageCircle size={64} color={colors.muted} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>No Messages Yet</Text>
           <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
-            Start a conversation by messaging someone from their profile
+            Start a conversation by finding users in the Search tab
           </Text>
+          <TouchableOpacity
+            style={[styles.searchUsersButton, { backgroundColor: colors.tint }]}
+            onPress={() => router.push("/(tabs)/search")}
+          >
+            <Search size={16} color="white" />
+            <Text style={styles.searchUsersButtonText}>Find Users to Message</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -336,6 +343,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
     lineHeight: 20,
+    marginBottom: 24,
+  },
+  searchUsersButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  searchUsersButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   conversationsList: {
     paddingHorizontal: 16,

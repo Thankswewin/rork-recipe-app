@@ -191,6 +191,15 @@ export default function SearchScreen() {
     router.push(`/user/${userId}`);
   };
 
+  const handleRecipePress = (recipeId: string) => {
+    router.push("/(tabs)/assistant");
+  };
+
+  const handleStartMessage = (userId: string) => {
+    // For now, just navigate to messages - we'll implement conversation creation later
+    router.push("/messages");
+  };
+
   const renderUserItem = ({ item }: { item: UserProfile }) => (
     <UserProfileCard
       user={item}
@@ -310,7 +319,13 @@ export default function SearchScreen() {
               
               <View style={styles.recipesGrid}>
                 {filteredRecipes.slice(0, 6).map((recipe) => (
-                  <RecipeCard key={recipe.id} recipe={recipe} />
+                  <TouchableOpacity 
+                    key={recipe.id} 
+                    onPress={() => handleRecipePress(recipe.id)}
+                    activeOpacity={0.8}
+                  >
+                    <RecipeCard recipe={recipe} />
+                  </TouchableOpacity>
                 ))}
               </View>
               

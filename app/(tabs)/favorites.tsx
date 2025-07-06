@@ -1,24 +1,27 @@
 import React from "react";
-import { StyleSheet, View, Text, FlatList } from "react-native";
+import { StyleSheet, View, Text, FlatList, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { recipes } from "@/constants/mockData";
 import RecipeCard from "@/components/RecipeCard";
-import BackButton from "@/components/BackButton";
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import { useTheme } from "@/hooks/useTheme";
+import { Heart, Search } from "lucide-react-native";
 
 export default function FavoritesScreen() {
   const favoriteRecipes = recipes.filter((recipe) => recipe.isFavorite);
   const { colors } = useTheme();
 
   const handleRecipePress = (recipeId: string) => {
-    // Navigate to recipe details
-    console.log(`Recipe ${recipeId} pressed`);
+    router.push("/(tabs)/assistant");
   };
 
   const handleFavoritePress = (recipeId: string) => {
-    // Toggle favorite status
+    // In a real app, this would toggle the favorite status in a database
     console.log(`Toggle favorite for recipe ${recipeId}`);
+  };
+
+  const handleSearchRecipes = () => {
+    router.push("/(tabs)/search");
   };
 
   return (
@@ -26,9 +29,16 @@ export default function FavoritesScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       
       <View style={styles.header}>
-        <BackButton />
+        <View style={styles.headerLeft}>
+          <Heart size={24} color={colors.tint} />
+        </View>
         <Text style={[styles.title, { color: colors.text }]}>Favorite Recipes</Text>
-        <View style={styles.placeholder} />
+        <TouchableOpacity 
+          style={[styles.searchButton, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+          onPress={handleSearchRecipes}
+        >
+          <Search size={20} color={colors.text} />
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -46,12 +56,20 @@ export default function FavoritesScreen() {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
+            <Heart size={64} color={colors.muted} />
             <Text style={[styles.emptyText, { color: colors.text }]}>
-              You haven't saved any recipes yet.
+              No Favorite Recipes Yet
             </Text>
             <Text style={[styles.emptySubtext, { color: colors.muted }]}>
-              Tap the heart icon on recipes you love to save them here.
+              Discover amazing recipes and save your favorites here
             </Text>
+            <TouchableOpacity
+              style={[styles.discoverButton, { backgroundColor: colors.tint }]}
+              onPress={handleSearchRecipes}
+            >
+              <Search size={16} color="white" />
+              <Text style={styles.discoverButtonText}>Discover Recipes</Text>
+            </TouchableOpacity>
           </View>
         }
       />
@@ -77,8 +95,18 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
-  placeholder: {
-    width: 40, // Same width as BackButton to center the title
+  headerLeft: {
+    width: 40,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  searchButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
   },
   recipeList: {
     paddingHorizontal: 16,
@@ -105,5 +133,19 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 14,
     textAlign: "center",
+    marginBottom: 24,
+  },
+  discoverButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  discoverButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

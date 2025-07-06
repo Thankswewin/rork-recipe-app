@@ -24,27 +24,27 @@ export default function HomeScreen() {
   }, []);
 
   const handleCreateRecipe = () => {
-    console.log("Create recipe pressed");
+    router.push("/(tabs)/assistant");
   };
 
   const handleRecipePress = (recipeId: string) => {
-    console.log(`Recipe ${recipeId} pressed`);
+    router.push("/(tabs)/assistant");
   };
 
   const handleCategoryPress = (categoryId: string) => {
-    console.log(`Category ${categoryId} pressed`);
+    router.push("/(tabs)/search");
   };
 
   const handleViewAllRecipes = () => {
-    router.push("/explore");
+    router.push("/(tabs)/search");
   };
 
   const handleViewAllCategories = () => {
-    console.log("View all categories pressed");
+    router.push("/(tabs)/search");
   };
 
   const handleFavoritePress = (recipeId: string) => {
-    console.log(`Toggle favorite for recipe ${recipeId}`);
+    router.push("/(tabs)/favorites");
   };
 
   const handleNotificationsPress = () => {
@@ -148,23 +148,27 @@ export default function HomeScreen() {
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Search and Create Recipe */}
+            {/* Quick Actions */}
             <View style={styles.searchContainer}>
-              <View style={[styles.searchBar, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
+              <TouchableOpacity 
+                style={[styles.searchBar, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}
+                onPress={() => router.push("/(tabs)/search")}
+                activeOpacity={0.8}
+              >
                 <View style={[styles.searchIconContainer, { backgroundColor: '#10B981', borderColor: colors.iconBorder }]}>
                   <Search size={16} color="black" />
                 </View>
-                <Text style={[styles.searchPlaceholder, { color: colors.muted }]}>Search Tutorial food...</Text>
-              </View>
+                <Text style={[styles.searchPlaceholder, { color: colors.muted }]}>Search recipes & users...</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.createButtonContainer} onPress={handleCreateRecipe}>
                 <LinearGradient
-                  colors={["#1F2937", "#374151"]}
+                  colors={["#8B5CF6", "#7C3AED"]}
                   style={styles.createButton}
                 >
-                  <View style={[styles.createIconContainer, { backgroundColor: '#EF4444', borderColor: colors.iconBorder }]}>
-                    <Plus size={12} color="black" />
+                  <View style={[styles.createIconContainer, { backgroundColor: 'rgba(255,255,255,0.2)', borderColor: 'transparent' }]}>
+                    <Plus size={12} color="white" />
                   </View>
-                  <Text style={styles.createButtonText}>Create Recipe</Text>
+                  <Text style={styles.createButtonText}>Ask Chef</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
