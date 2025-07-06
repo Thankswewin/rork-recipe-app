@@ -55,9 +55,7 @@ export default function HomeScreen() {
     router.push("/(tabs)/profile");
   };
 
-  const handleMessagesPress = () => {
-    router.push("/messages");
-  };
+  // Messaging functionality has been removed
 
   const handleChefAssistantPress = () => {
     router.push("/(tabs)/assistant");
@@ -118,14 +116,7 @@ export default function HomeScreen() {
                     </View>
                   </View>
                 </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.iconButtonContainer}
-                  onPress={handleMessagesPress}
-                >
-                  <View style={[styles.iconButton, { backgroundColor: '#10B981', borderColor: colors.iconBorder }]}>
-                    <MessageCircle size={20} color="black" />
-                  </View>
-                </TouchableOpacity>
+                {/* Messaging button removed */}
                 <TouchableOpacity 
                   style={styles.iconButtonContainer}
                   onPress={handleChefAssistantPress}

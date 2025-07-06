@@ -1,6 +1,7 @@
+// This layout has been removed as messaging functionality is no longer needed
 import { Stack } from "expo-router";
 
-export default function MessagesLayout() {
+export default function RemovedMessagesLayout() {
   return (
     <Stack
       screenOptions={{
