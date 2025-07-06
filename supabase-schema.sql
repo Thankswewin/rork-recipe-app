@@ -1,37 +1,24 @@
--- Drop all existing policies and tables to avoid dependency issues
-DROP POLICY IF EXISTS "Users can view their conversations" ON conversations CASCADE;
-DROP POLICY IF EXISTS "conversations_select_policy" ON conversations CASCADE;
-DROP POLICY IF EXISTS "conversations_update_policy" ON conversations CASCADE;
-DROP POLICY IF EXISTS "Users can update conversations they participate in" ON conversations CASCADE;
-DROP POLICY IF EXISTS "Users can view their conversation participants" ON conversation_participants CASCADE;
-DROP POLICY IF EXISTS "Users can manage their conversation participants" ON conversation_participants CASCADE;
-DROP POLICY IF EXISTS "Users can view their messages" ON messages CASCADE;
-DROP POLICY IF EXISTS "Users can send messages" ON messages CASCADE;
-
--- Drop triggers first
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users CASCADE;
-DROP TRIGGER IF EXISTS on_follow_created ON followers CASCADE;
-DROP TRIGGER IF EXISTS on_message_created ON messages CASCADE;
-
--- Drop functions
-DROP FUNCTION IF EXISTS handle_new_user() CASCADE;
-DROP FUNCTION IF EXISTS handle_new_follow() CASCADE;
-DROP FUNCTION IF EXISTS handle_new_message() CASCADE;
-
--- Drop tables in correct order (child tables first)
-DROP TABLE IF EXISTS messages CASCADE;
+-- Drop existing tables and policies if they exist to avoid conflicts
+DROP POLICY IF EXISTS "Users can only view their own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
+DROP POLICY IF EXISTS "Avatar images are publicly accessible" ON storage.objects;
+DROP POLICY IF EXISTS "Users can upload files to their own folder" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete their own files" ON storage.objects;
+DROP POLICY IF EXISTS "Users can only view conversations they participate in" ON conversations;
+DROP POLICY IF EXISTS "Users can update conversations they participate in" ON conversations;
+DROP POLICY IF EXISTS "Users can insert conversations" ON conversations;
+DROP POLICY IF EXISTS "Users can only view messages in conversations they participate in" ON messages;
+DROP POLICY IF EXISTS "Users can send messages" ON messages;
+DROP POLICY IF EXISTS "Users can only view participants in conversations they participate in" ON conversation_participants;
+DROP POLICY IF EXISTS "Users can add participants to conversations" ON conversation_participants;
 DROP TABLE IF EXISTS conversation_participants CASCADE;
+DROP TABLE IF EXISTS messages CASCADE;
 DROP TABLE IF EXISTS conversations CASCADE;
-DROP TABLE IF EXISTS notifications CASCADE;
-DROP TABLE IF EXISTS followers CASCADE;
-DROP TABLE IF EXISTS favorites CASCADE;
-DROP TABLE IF EXISTS recipes CASCADE;
-DROP TABLE IF EXISTS profiles CASCADE;
 
--- Create profiles table
+-- Create profiles table if it doesn't exist
 CREATE TABLE IF NOT EXISTS profiles (
-  id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
-  email TEXT NOT NULL,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
   username TEXT UNIQUE,
   full_name TEXT,
   avatar_url TEXT,
@@ -40,416 +27,144 @@ CREATE TABLE IF NOT EXISTS profiles (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create recipes table
-CREATE TABLE IF NOT EXISTS recipes (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  title TEXT NOT NULL,
-  description TEXT,
-  image_url TEXT,
-  category TEXT NOT NULL,
-  difficulty TEXT NOT NULL,
-  prep_time INTEGER NOT NULL,
-  cook_time INTEGER NOT NULL,
-  servings INTEGER NOT NULL,
-  ingredients TEXT[] NOT NULL,
-  instructions TEXT[] NOT NULL,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  likes_count INTEGER DEFAULT 0,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Create favorites table
-CREATE TABLE IF NOT EXISTS favorites (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  recipe_id UUID REFERENCES recipes(id) ON DELETE CASCADE NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(user_id, recipe_id)
-);
-
--- Create followers table for social features
-CREATE TABLE IF NOT EXISTS followers (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  follower_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  following_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(follower_id, following_id)
-);
-
--- Create notifications table
-CREATE TABLE IF NOT EXISTS notifications (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  actor_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('follow', 'like', 'comment', 'recipe_created')),
-  title TEXT NOT NULL,
-  message TEXT NOT NULL,
-  data JSONB DEFAULT '{}',
-  read BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
 -- Create conversations table
-CREATE TABLE IF NOT EXISTS conversations (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+CREATE TABLE conversations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   last_message_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create conversation participants table
-CREATE TABLE IF NOT EXISTS conversation_participants (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE NOT NULL,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(conversation_id, user_id)
-);
-
 -- Create messages table
-CREATE TABLE IF NOT EXISTS messages (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE NOT NULL,
-  sender_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+CREATE TABLE messages (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
+  sender_id UUID REFERENCES profiles(user_id) ON DELETE SET NULL,
   content TEXT NOT NULL,
-  read BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Enable Row Level Security
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE recipes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
-ALTER TABLE followers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
-ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE conversation_participants ENABLE ROW LEVEL SECURITY;
-ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
-
--- Create policies for profiles
-CREATE POLICY "Users can view their own profile" ON profiles
-  FOR SELECT USING (auth.uid() = id);
-
-CREATE POLICY "Users can update their own profile" ON profiles
-  FOR UPDATE USING (auth.uid() = id);
-
-CREATE POLICY "Allow profile creation" ON profiles
-  FOR INSERT WITH CHECK (auth.uid() = id);
-
-CREATE POLICY "Authenticated users can view all profiles" ON profiles
-  FOR SELECT USING (auth.role() = 'authenticated');
-
-CREATE POLICY "Service role can manage profiles" ON profiles
-  FOR ALL USING (auth.role() = 'service_role');
-
--- Create policies for recipes
-CREATE POLICY "Anyone can view recipes" ON recipes
-  FOR SELECT USING (true);
-
-CREATE POLICY "Users can create recipes" ON recipes
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own recipes" ON recipes
-  FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete their own recipes" ON recipes
-  FOR DELETE USING (auth.uid() = user_id);
-
--- Create policies for favorites
-CREATE POLICY "Users can view their own favorites" ON favorites
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can create their own favorites" ON favorites
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete their own favorites" ON favorites
-  FOR DELETE USING (auth.uid() = user_id);
-
--- Create policies for followers
-CREATE POLICY "Users can view followers" ON followers
-  FOR SELECT USING (auth.role() = 'authenticated');
-
-CREATE POLICY "Users can manage their own follows" ON followers
-  FOR ALL USING (auth.uid() = follower_id);
-
--- Create policies for notifications
-CREATE POLICY "Users can view their own notifications" ON notifications
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own notifications" ON notifications
-  FOR UPDATE USING (auth.uid() = user_id);
-
--- Create policies for conversation_participants first (no dependencies)
-CREATE POLICY "Users can view conversation participants" ON conversation_participants
-  FOR SELECT USING (
-    user_id = auth.uid() OR 
-    conversation_id IN (
-      SELECT conversation_id FROM conversation_participants WHERE user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can manage their participation" ON conversation_participants
-  FOR ALL USING (auth.uid() = user_id);
-
--- Create policies for conversations (depends on conversation_participants)
-CREATE POLICY "Users can view their conversations" ON conversations
-  FOR SELECT USING (
-    id IN (
-      SELECT conversation_id FROM conversation_participants WHERE user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can create conversations" ON conversations
-  FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "Users can update their conversations" ON conversations
-  FOR UPDATE USING (
-    id IN (
-      SELECT conversation_id FROM conversation_participants WHERE user_id = auth.uid()
-    )
-  );
-
--- Create policies for messages (depends on conversation_participants)
-CREATE POLICY "Users can view messages in their conversations" ON messages
-  FOR SELECT USING (
-    conversation_id IN (
-      SELECT conversation_id FROM conversation_participants WHERE user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can send messages to their conversations" ON messages
-  FOR INSERT WITH CHECK (
-    auth.uid() = sender_id AND
-    conversation_id IN (
-      SELECT conversation_id FROM conversation_participants WHERE user_id = auth.uid()
-    )
-  );
-
--- Create function to handle profile creation
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER
-SECURITY DEFINER
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  INSERT INTO public.profiles (id, email, full_name, username)
-  VALUES (
-    NEW.id, 
-    COALESCE(NEW.email, ''), 
-    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
-    NULL
-  )
-  ON CONFLICT (id) DO UPDATE SET
-    email = EXCLUDED.email,
-    full_name = EXCLUDED.full_name,
-    updated_at = NOW();
-  
-  RETURN NEW;
-EXCEPTION
-  WHEN OTHERS THEN
-    RAISE WARNING 'Failed to create profile for user %: %', NEW.id, SQLERRM;
-    RETURN NEW;
-END;
-$$;
-
--- Create function to handle new follows and create notifications
-CREATE OR REPLACE FUNCTION handle_new_follow()
-RETURNS TRIGGER
-SECURITY DEFINER
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  follower_name TEXT;
-BEGIN
-  SELECT COALESCE(full_name, username, 'Someone') INTO follower_name
-  FROM profiles
-  WHERE id = NEW.follower_id;
-
-  INSERT INTO notifications (user_id, actor_id, type, title, message, data)
-  VALUES (
-    NEW.following_id,
-    NEW.follower_id,
-    'follow',
-    'New Follower',
-    follower_name || ' started following you',
-    jsonb_build_object('follower_id', NEW.follower_id)
-  );
-
-  RETURN NEW;
-EXCEPTION
-  WHEN OTHERS THEN
-    RAISE WARNING 'Failed to create follow notification: %', SQLERRM;
-    RETURN NEW;
-END;
-$$;
-
--- Create function to handle new messages and update conversation
-CREATE OR REPLACE FUNCTION handle_new_message()
-RETURNS TRIGGER
-SECURITY DEFINER
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  UPDATE conversations 
-  SET last_message_at = NEW.created_at, updated_at = NEW.created_at
-  WHERE id = NEW.conversation_id;
-
-  RETURN NEW;
-EXCEPTION
-  WHEN OTHERS THEN
-    RAISE WARNING 'Failed to update conversation timestamp: %', SQLERRM;
-    RETURN NEW;
-END;
-$$;
-
--- Create triggers
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
-
-CREATE TRIGGER on_follow_created
-  AFTER INSERT ON followers
-  FOR EACH ROW EXECUTE FUNCTION handle_new_follow();
-
-CREATE TRIGGER on_message_created
-  AFTER INSERT ON messages
-  FOR EACH ROW EXECUTE FUNCTION handle_new_message();
-
--- Grant necessary permissions
-GRANT USAGE ON SCHEMA public TO anon, authenticated;
-GRANT ALL ON public.profiles TO anon, authenticated;
-GRANT ALL ON public.recipes TO anon, authenticated;
-GRANT ALL ON public.favorites TO anon, authenticated;
-GRANT ALL ON public.followers TO anon, authenticated;
-GRANT ALL ON public.notifications TO anon, authenticated;
-GRANT ALL ON public.conversations TO anon, authenticated;
-GRANT ALL ON public.conversation_participants TO anon, authenticated;
-GRANT ALL ON public.messages TO anon, authenticated;
+-- Create conversation_participants table
+CREATE TABLE conversation_participants (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES profiles(user_id) ON DELETE CASCADE,
+  joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
 -- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_profiles_username ON profiles(username);
-CREATE INDEX IF NOT EXISTS idx_profiles_full_name ON profiles(full_name);
-CREATE INDEX IF NOT EXISTS idx_recipes_user_id ON recipes(user_id);
-CREATE INDEX IF NOT EXISTS idx_recipes_category ON recipes(category);
-CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id);
-CREATE INDEX IF NOT EXISTS idx_followers_follower_id ON followers(follower_id);
-CREATE INDEX IF NOT EXISTS idx_followers_following_id ON followers(following_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
-CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
-CREATE INDEX IF NOT EXISTS idx_conversation_participants_conversation_id ON conversation_participants(conversation_id);
-CREATE INDEX IF NOT EXISTS idx_conversation_participants_user_id ON conversation_participants(user_id);
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
-CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
+CREATE INDEX IF NOT EXISTS idx_conversation_participants_conversation_id ON conversation_participants(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_conversation_participants_user_id ON conversation_participants(user_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_last_message_at ON conversations(last_message_at);
 
--- Set up realtime subscriptions safely
-DO $$
-BEGIN
-  BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
-  EXCEPTION
-    WHEN duplicate_object THEN NULL;
-  END;
-  
-  BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE recipes;
-  EXCEPTION
-    WHEN duplicate_object THEN NULL;
-  END;
-  
-  BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE favorites;
-  EXCEPTION
-    WHEN duplicate_object THEN NULL;
-  END;
-  
-  BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE followers;
-  EXCEPTION
-    WHEN duplicate_object THEN NULL;
-  END;
-  
-  BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
-  EXCEPTION
-    WHEN duplicate_object THEN NULL;
-  END;
-  
-  BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE conversations;
-  EXCEPTION
-    WHEN duplicate_object THEN NULL;
-  END;
-  
-  BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE messages;
-  EXCEPTION
-    WHEN duplicate_object THEN NULL;
-  END;
-END $$;
+-- Security policies
 
--- Create storage buckets
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES (
-  'avatars',
-  'avatars', 
-  true,
-  5242880,
-  ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-) ON CONFLICT (id) DO NOTHING;
+-- Profiles policies
+CREATE POLICY "Users can only view their own profile"
+  ON profiles
+  FOR SELECT
+  USING (auth.uid() = user_id);
 
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES (
-  'recipe-images',
-  'recipe-images',
-  true, 
-  10485760,
-  ARRAY['image/jpeg', 'image/png', 'image/webp']
-) ON CONFLICT (id) DO NOTHING;
+CREATE POLICY "Users can update their own profile"
+  ON profiles
+  FOR UPDATE
+  USING (auth.uid() = user_id);
 
--- Storage policies for avatars bucket
-CREATE POLICY "Avatar images are publicly accessible" ON storage.objects
-  FOR SELECT USING (bucket_id = 'avatars');
+-- Storage policies for avatar images
+CREATE POLICY "Avatar images are publicly accessible"
+  ON storage.objects
+  FOR SELECT
+  USING (bucket_id = 'avatars' AND storage.objects.name = ANY (SELECT avatar_url FROM profiles));
 
-CREATE POLICY "Users can upload their own avatar" ON storage.objects
-  FOR INSERT WITH CHECK (
-    bucket_id = 'avatars' AND 
-    auth.uid()::text = (storage.foldername(name))[1]
+CREATE POLICY "Users can upload files to their own folder"
+  ON storage.objects
+  FOR INSERT
+  WITH CHECK (bucket_id = 'avatars' AND auth.uid()::text = split_part(name, '/', 1));
+
+CREATE POLICY "Users can delete their own files"
+  ON storage.objects
+  FOR DELETE
+  USING (bucket_id = 'avatars' AND auth.uid()::text = split_part(name, '/', 1));
+
+-- Conversation policies
+CREATE POLICY "Users can only view conversations they participate in"
+  ON conversations
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM conversation_participants
+      WHERE conversation_participants.conversation_id = conversations.id
+      AND conversation_participants.user_id = auth.uid()
+    )
   );
 
-CREATE POLICY "Users can update their own avatar" ON storage.objects
-  FOR UPDATE USING (
-    bucket_id = 'avatars' AND 
-    auth.uid()::text = (storage.foldername(name))[1]
+CREATE POLICY "Users can update conversations they participate in"
+  ON conversations
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM conversation_participants
+      WHERE conversation_participants.conversation_id = conversations.id
+      AND conversation_participants.user_id = auth.uid()
+    )
   );
 
-CREATE POLICY "Users can delete their own avatar" ON storage.objects
-  FOR DELETE USING (
-    bucket_id = 'avatars' AND 
-    auth.uid()::text = (storage.foldername(name))[1]
+CREATE POLICY "Users can insert conversations"
+  ON conversations
+  FOR INSERT
+  WITH CHECK (true);
+
+-- Message policies
+CREATE POLICY "Users can only view messages in conversations they participate in"
+  ON messages
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM conversation_participants
+      WHERE conversation_participants.conversation_id = messages.conversation_id
+      AND conversation_participants.user_id = auth.uid()
+    )
   );
 
--- Storage policies for recipe images bucket
-CREATE POLICY "Recipe images are publicly accessible" ON storage.objects
-  FOR SELECT USING (bucket_id = 'recipe-images');
-
-CREATE POLICY "Users can upload recipe images" ON storage.objects
-  FOR INSERT WITH CHECK (
-    bucket_id = 'recipe-images' AND 
-    auth.uid()::text = (storage.foldername(name))[1]
+CREATE POLICY "Users can send messages"
+  ON messages
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM conversation_participants
+      WHERE conversation_participants.conversation_id = messages.conversation_id
+      AND conversation_participants.user_id = auth.uid()
+    )
   );
 
-CREATE POLICY "Users can update their own recipe images" ON storage.objects
-  FOR UPDATE USING (
-    bucket_id = 'recipe-images' AND 
-    auth.uid()::text = (storage.foldername(name))[1]
+-- Conversation participant policies
+CREATE POLICY "Users can only view participants in conversations they participate in"
+  ON conversation_participants
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM conversation_participants cp2
+      WHERE cp2.conversation_id = conversation_participants.conversation_id
+      AND cp2.user_id = auth.uid()
+    )
   );
 
-CREATE POLICY "Users can delete their own recipe images" ON storage.objects
-  FOR DELETE USING (
-    bucket_id = 'recipe-images' AND 
-    auth.uid()::text = (storage.foldername(name))[1]
+CREATE POLICY "Users can add participants to conversations"
+  ON conversation_participants
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM conversation_participants cp2
+      WHERE cp2.conversation_id = conversation_participants.conversation_id
+      AND cp2.user_id = auth.uid()
+    )
   );

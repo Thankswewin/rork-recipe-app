@@ -1,100 +1,45 @@
-import { z } from 'zod';
 import { protectedProcedure } from '../../../create-context';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../../../../lib/supabase';
 
-export const getConversationsProcedure = protectedProcedure
-  .query(async ({ ctx }) => {
-    const userId = ctx.user.id;
+export const getConversationsProcedure = protectedProcedure.query(async ({ ctx }) => {
+  if (!ctx.user) {
+    throw new Error('User not authenticated');
+  }
 
-    try {
-      // Get conversations where user is a participant
-      const { data: conversationData, error } = await supabase
-        .from('conversation_participants')
-        .select(`
-          conversation_id,
-          conversations!inner (
-            id,
-            created_at,
-            updated_at,
-            last_message_at
-          )
-        `)
-        .eq('user_id', userId)
-        .order('conversations(last_message_at)', { ascending: false });
+  const { data, error } = await supabase
+    .from('conversations')
+    .select(`
+      id, title, created_at, updated_at, last_message_at,
+      conversation_participants!conversation_participants_conversation_id_fkey (
+        id, user_id,
+        profiles!conversation_participants_user_id_fkey (id, username, full_name, avatar_url)
+      ),
+      messages!messages_conversation_id_fkey (
+        id, content, created_at,
+        sender_id,
+        profiles!messages_sender_id_fkey (id, username, full_name, avatar_url)
+      )
+    `)
+    .order('last_message_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching conversations:', error);
-        throw new Error(`Failed to fetch conversations: ${error.message}`);
-      }
+  if (error) {
+    console.error('Error fetching conversations:', error);
+    throw new Error(`Failed to fetch conversations: ${error.message}`);
+  }
 
-      if (!conversationData || conversationData.length === 0) {
-        return [];
-      }
+  // Filter conversations to only include those where the user is a participant
+  const filteredData = data.filter(conversation => 
+    conversation.conversation_participants.some(participant => participant.user_id === ctx.user.id)
+  );
 
-      // For each conversation, get participants and last message
-      const conversationsWithDetails = await Promise.all(
-        conversationData.map(async (item: any) => {
-          const conversation = item.conversations;
-          
-          // Get all participants
-          const { data: participants, error: participantsError } = await supabase
-            .from('conversation_participants')
-            .select(`
-              *,
-              user:profiles!conversation_participants_user_id_fkey (
-                id,
-                username,
-                full_name,
-                avatar_url
-              )
-            `)
-            .eq('conversation_id', conversation.id);
-
-          if (participantsError) {
-            console.error('Error fetching participants:', participantsError);
-          }
-
-          // Get last message
-          const { data: lastMessage, error: messageError } = await supabase
-            .from('messages')
-            .select(`
-              *,
-              sender:profiles!messages_sender_id_fkey (
-                id,
-                username,
-                full_name,
-                avatar_url
-              )
-            `)
-            .eq('conversation_id', conversation.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          if (messageError) {
-            console.error('Error fetching last message:', messageError);
-          }
-
-          return {
-            ...conversation,
-            participants: participants || [],
-            last_message: lastMessage || null,
-          };
-        })
-      );
-
-      return conversationsWithDetails;
-    } catch (error: any) {
-      console.error('Error in getConversations:', error);
-      
-      // Handle specific database errors
-      if (error?.code === '42P17') {
-        throw new Error('Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.');
-      }
-      if (error?.code === '42P01') {
-        throw new Error('Messaging system is not set up yet. Please run the database setup script.');
-      }
-      
-      throw new Error(`Failed to get conversations: ${error.message || 'Unknown error'}`);
-    }
-  });
+  return filteredData.map(conversation => ({
+    ...conversation,
+    participants: conversation.conversation_participants.map(p => p.profiles),
+    lastMessage: conversation.messages.length > 0 
+      ? {
+          ...conversation.messages[conversation.messages.length - 1],
+          sender: conversation.messages[conversation.messages.length - 1].profiles
+        }
+      : null
+  }));
+});
