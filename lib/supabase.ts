@@ -227,18 +227,21 @@ export type Database = {
       conversations: {
         Row: {
           id: string;
+          title: string | null;
           created_at: string;
           updated_at: string;
           last_message_at: string;
         };
         Insert: {
           id?: string;
+          title?: string | null;
           created_at?: string;
           updated_at?: string;
           last_message_at?: string;
         };
         Update: {
           id?: string;
+          title?: string | null;
           created_at?: string;
           updated_at?: string;
           last_message_at?: string;
@@ -268,27 +271,33 @@ export type Database = {
         Row: {
           id: string;
           conversation_id: string;
-          sender_id: string;
+          sender_id: string | null;
           content: string;
-          read: boolean;
           created_at: string;
         };
         Insert: {
           id?: string;
           conversation_id: string;
-          sender_id: string;
+          sender_id?: string | null;
           content: string;
-          read?: boolean;
           created_at?: string;
         };
         Update: {
           id?: string;
           conversation_id?: string;
-          sender_id?: string;
+          sender_id?: string | null;
           content?: string;
-          read?: boolean;
           created_at?: string;
         };
+      };
+    };
+    Functions: {
+      find_conversation_between_users: {
+        Args: {
+          user1_id: string;
+          user2_id: string;
+        };
+        Returns: string | null;
       };
     };
   };

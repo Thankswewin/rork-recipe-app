@@ -14,11 +14,12 @@ DROP POLICY IF EXISTS "Users can add participants to conversations" ON conversat
 DROP TABLE IF EXISTS conversation_participants CASCADE;
 DROP TABLE IF EXISTS messages CASCADE;
 DROP TABLE IF EXISTS conversations CASCADE;
+DROP TABLE IF EXISTS profiles CASCADE;
 
--- Create profiles table if it doesn't exist
-CREATE TABLE IF NOT EXISTS profiles (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+-- Create profiles table with all required columns
+CREATE TABLE profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
   username TEXT UNIQUE,
   full_name TEXT,
   avatar_url TEXT,
@@ -36,23 +37,21 @@ CREATE TABLE conversations (
   last_message_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create messages table
+-- Create messages table with correct foreign key references
 CREATE TABLE messages (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
-  sender_id UUID REFERENCES profiles(user_id) ON DELETE SET NULL,
+  sender_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
   content TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  CONSTRAINT messages_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES profiles(user_id) ON DELETE SET NULL
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create conversation_participants table
+-- Create conversation_participants table with correct foreign key references
 CREATE TABLE conversation_participants (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES profiles(user_id) ON DELETE CASCADE,
-  joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  CONSTRAINT conversation_participants_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(user_id) ON DELETE CASCADE
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Create indexes for better performance
@@ -62,24 +61,35 @@ CREATE INDEX IF NOT EXISTS idx_conversation_participants_conversation_id ON conv
 CREATE INDEX IF NOT EXISTS idx_conversation_participants_user_id ON conversation_participants(user_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_last_message_at ON conversations(last_message_at);
 
+-- Enable RLS on all tables
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversation_participants ENABLE ROW LEVEL SECURITY;
+
 -- Security policies
 
 -- Profile policies
 CREATE POLICY "Users can only view their own profile"
   ON profiles
   FOR SELECT
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = id);
 
 CREATE POLICY "Users can update their own profile"
   ON profiles
   FOR UPDATE
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = id);
+
+CREATE POLICY "Users can insert their own profile"
+  ON profiles
+  FOR INSERT
+  WITH CHECK (auth.uid() = id);
 
 -- Storage policies for avatar images
 CREATE POLICY "Avatar images are publicly accessible"
   ON storage.objects
   FOR SELECT
-  USING (bucket_id = 'avatars' AND storage.objects.name = ANY (SELECT avatar_url FROM profiles));
+  USING (bucket_id = 'avatars');
 
 CREATE POLICY "Users can upload files to their own folder"
   ON storage.objects
@@ -138,6 +148,7 @@ CREATE POLICY "Users can send messages"
   ON messages
   FOR INSERT
   WITH CHECK (
+    sender_id = auth.uid() AND
     EXISTS (
       SELECT 1
       FROM conversation_participants
@@ -168,5 +179,55 @@ CREATE POLICY "Users can add participants to conversations"
       FROM conversation_participants cp2
       WHERE cp2.conversation_id = conversation_participants.conversation_id
       AND cp2.user_id = auth.uid()
+    ) OR NOT EXISTS (
+      SELECT 1
+      FROM conversation_participants cp3
+      WHERE cp3.conversation_id = conversation_participants.conversation_id
     )
   );
+
+-- Function to find conversation between two users
+CREATE OR REPLACE FUNCTION find_conversation_between_users(user1_id UUID, user2_id UUID)
+RETURNS UUID AS $$
+DECLARE
+  conversation_id UUID;
+BEGIN
+  SELECT c.id INTO conversation_id
+  FROM conversations c
+  WHERE EXISTS (
+    SELECT 1 FROM conversation_participants cp1 
+    WHERE cp1.conversation_id = c.id AND cp1.user_id = user1_id
+  )
+  AND EXISTS (
+    SELECT 1 FROM conversation_participants cp2 
+    WHERE cp2.conversation_id = c.id AND cp2.user_id = user2_id
+  )
+  AND (
+    SELECT COUNT(*) FROM conversation_participants cp 
+    WHERE cp.conversation_id = c.id
+  ) = 2
+  LIMIT 1;
+  
+  RETURN conversation_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to automatically create profile on user signup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, full_name)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1))
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger to automatically create profile on user signup
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

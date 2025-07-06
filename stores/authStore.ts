@@ -74,7 +74,6 @@ interface AuthState {
   setLoading: (loading: boolean) => void;
   initialize: () => Promise<void>;
   fetchProfile: (userId: string) => Promise<void>;
-  createProfile: (userId: string, email: string, fullName?: string) => Promise<{ error?: string }>;
   refreshProfile: () => Promise<void>;
   
   // Notification actions
@@ -171,7 +170,8 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: !!data.session,
             });
 
-            // Wait for the trigger to create the profile, then fetch it
+            // The profile should be created automatically by the trigger
+            // Wait a moment then fetch it
             if (data.session) {
               setTimeout(async () => {
                 try {
@@ -190,47 +190,6 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: false });
           console.error('Sign up error:', error);
           return { error: error?.message || 'An unexpected error occurred during sign up' };
-        }
-      },
-
-      createProfile: async (userId: string, email: string, fullName?: string) => {
-        try {
-          const supabase = await getSupabase();
-          
-          console.log('Creating profile for user:', userId);
-          
-          const { data, error } = await supabase
-            .from('profiles')
-            .upsert({
-              id: userId,
-              email: email,
-              full_name: fullName || null,
-              bio: null,
-              avatar_url: null,
-              username: null,
-            }, {
-              onConflict: 'id',
-              ignoreDuplicates: false
-            })
-            .select()
-            .single();
-
-          if (error) {
-            console.error('Error creating profile:', error);
-            if (error.code === '23505') {
-              console.log('Profile already exists, fetching existing profile');
-              await get().fetchProfile(userId);
-              return {};
-            }
-            return { error: error.message };
-          }
-
-          console.log('Profile created successfully:', data);
-          set({ profile: data });
-          return {};
-        } catch (error: any) {
-          console.error('Error in createProfile:', error);
-          return { error: error.message };
         }
       },
 
@@ -467,24 +426,12 @@ export const useAuthStore = create<AuthState>()(
             return;
           }
 
-          if (!data) {
-            console.log('Profile not found, attempting to create one');
-            const { user } = get();
-            if (user) {
-              const createResult = await get().createProfile(
-                userId, 
-                user.email || '', 
-                user.user_metadata?.full_name
-              );
-              if (createResult.error) {
-                console.error('Failed to create profile:', createResult.error);
-              }
-            }
-            return;
+          if (data) {
+            console.log('Profile fetched successfully:', data);
+            set({ profile: data });
+          } else {
+            console.log('Profile not found for user:', userId);
           }
-
-          console.log('Profile fetched successfully:', data);
-          set({ profile: data });
         } catch (error) {
           console.error('Error fetching profile:', error);
         }
@@ -739,92 +686,21 @@ export const useAuthStore = create<AuthState>()(
           
           console.log('Creating/getting conversation between:', user.id, 'and', otherUserId);
           
-          // First check if conversations table exists with a simple query
-          const { error: tableCheckError } = await supabase
-            .from('conversations')
-            .select('id')
-            .limit(1);
-
-          if (tableCheckError) {
-            console.error('Conversations table not accessible:', tableCheckError);
-            
-            // Check for specific infinite recursion error
-            if (tableCheckError.code === '42P17') {
-              return { error: 'Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.' };
-            } else if (tableCheckError.code === '42P01') {
-              return { error: 'Messaging system is not set up yet. Please contact support to enable messaging.' };
-            }
-            return { error: 'Unable to access messaging system. Please try again later.' };
-          }
-
-          // Check if conversation_participants table exists
-          const { error: participantsTableError } = await supabase
-            .from('conversation_participants')
-            .select('id')
-            .limit(1);
-
-          if (participantsTableError) {
-            console.error('Conversation participants table not accessible:', participantsTableError);
-            
-            // Check for specific infinite recursion error
-            if (participantsTableError.code === '42P17') {
-              return { error: 'Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.' };
-            } else if (participantsTableError.code === '42P01') {
-              return { error: 'Messaging system is not set up yet. Please contact support to enable messaging.' };
-            }
-            return { error: 'Unable to access messaging system. Please try again later.' };
-          }
-          
-          // Try to use RPC function to find existing conversation
+          // Use the RPC function to find existing conversation
           const { data: existingConversation, error: rpcError } = await supabase
             .rpc('find_conversation_between_users', {
               user1_id: user.id,
               user2_id: otherUserId
             });
 
-          // If RPC doesn't exist or fails, fall back to manual check
-          if (rpcError && rpcError.code === '42883') {
-            console.log('RPC not available, using manual check');
-            
-            // Get all conversations for current user (using simple query to avoid recursion)
-            const { data: userConversations, error: userConversationsError } = await supabase
-              .from('conversation_participants')
-              .select('conversation_id')
-              .eq('user_id', user.id);
-
-            if (userConversationsError) {
-              console.error('Error fetching user conversations:', userConversationsError);
-              if (userConversationsError.code === '42P17') {
-                return { error: 'Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.' };
-              }
-              return { error: 'Failed to check existing conversations' };
-            }
-
-            if (userConversations && userConversations.length > 0) {
-              // Check if any of these conversations also include the other user
-              for (const userConv of userConversations) {
-                const { data: otherParticipant, error: otherParticipantError } = await supabase
-                  .from('conversation_participants')
-                  .select('id')
-                  .eq('conversation_id', userConv.conversation_id)
-                  .eq('user_id', otherUserId)
-                  .maybeSingle();
-
-                if (!otherParticipantError && otherParticipant) {
-                  console.log('Found existing conversation:', userConv.conversation_id);
-                  return { conversationId: userConv.conversation_id };
-                }
-              }
-            }
-          } else if (!rpcError && existingConversation) {
-            console.log('Found existing conversation via RPC:', existingConversation);
+          if (!rpcError && existingConversation) {
+            console.log('Found existing conversation:', existingConversation);
             return { conversationId: existingConversation };
-          } else if (rpcError) {
+          }
+
+          if (rpcError && rpcError.code !== '42883') {
             console.error('RPC error:', rpcError);
-            if (rpcError.code === '42P17') {
-              return { error: 'Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.' };
-            }
-            // Continue with manual creation
+            return { error: 'Failed to check existing conversations' };
           }
 
           console.log('No existing conversation found, creating new one');
@@ -840,9 +716,6 @@ export const useAuthStore = create<AuthState>()(
 
           if (conversationError) {
             console.error('Error creating conversation:', conversationError);
-            if (conversationError.code === '42P17') {
-              return { error: 'Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.' };
-            }
             return { error: 'Failed to create conversation' };
           }
 
@@ -858,9 +731,6 @@ export const useAuthStore = create<AuthState>()(
 
           if (participantsError) {
             console.error('Error adding participants:', participantsError);
-            if (participantsError.code === '42P17') {
-              return { error: 'Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.' };
-            }
             // Clean up the conversation if participants couldn't be added
             await supabase.from('conversations').delete().eq('id', newConversation.id);
             return { error: 'Failed to create conversation' };
