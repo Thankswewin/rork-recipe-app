@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { trpc, trpcClient } from "@/lib/trpc";
 import { AuthProvider } from "@/components/AuthProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import DatabaseErrorHandler from "@/components/DatabaseErrorHandler";
 
 export const unstable_settings = {
   // Ensure that reloading on `/modal` keeps a back button present.
@@ -67,6 +68,7 @@ function RootLayoutNav() {
               <Stack.Screen name="chef-assistant" options={{ headerShown: false }} />
               <Stack.Screen name="modal" options={{ presentation: "modal" }} />
             </Stack>
+            <DatabaseErrorHandler />
           </AuthProvider>
         </QueryClientProvider>
       </trpc.Provider>

@@ -16,7 +16,7 @@ const isWeb = () => {
 
 interface Profile {
   id: string;
-  email: string;
+  email?: string;
   username: string | null;
   full_name: string | null;
   avatar_url: string | null;
@@ -59,6 +59,7 @@ interface AuthState {
   unreadNotificationsCount: number;
   isLoading: boolean;
   isAuthenticated: boolean;
+  databaseError: string | null;
   
   // Actions
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
@@ -87,6 +88,10 @@ interface AuthState {
   
   // Messaging actions
   createOrGetConversation: (otherUserId: string) => Promise<{ conversationId?: string; error?: string }>;
+  
+  // Database error handling
+  setDatabaseError: (error: string | null) => void;
+  clearDatabaseError: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -99,6 +104,7 @@ export const useAuthStore = create<AuthState>()(
       unreadNotificationsCount: 0,
       isLoading: true,
       isAuthenticated: false,
+      databaseError: null,
 
       signIn: async (email: string, password: string) => {
         set({ isLoading: true });
@@ -106,9 +112,20 @@ export const useAuthStore = create<AuthState>()(
         try {
           console.log('AuthStore: Starting sign in process for:', email);
           
-          // First test the connection
-          const { data: connectionTest } = await supabase.from('profiles').select('count').limit(1);
-          console.log('AuthStore: Connection test result:', !!connectionTest);
+          // First test the connection and check for schema issues
+          try {
+            const { data: connectionTest, error: connectionError } = await supabase.from('profiles').select('count').limit(1);
+            console.log('AuthStore: Connection test result:', !!connectionTest);
+            
+            if (connectionError) {
+              console.error('AuthStore: Connection test failed:', connectionError);
+              if (connectionError.message.includes('relation') && connectionError.message.includes('does not exist')) {
+                set({ databaseError: 'Database tables not found. Please run the database schema setup.' });
+              }
+            }
+          } catch (testError) {
+            console.error('AuthStore: Connection test error:', testError);
+          }
           
           const { data, error } = await supabase.auth.signInWithPassword({
             email: email.trim().toLowerCase(),
@@ -548,20 +565,70 @@ export const useAuthStore = create<AuthState>()(
               console.log('AuthStore: Attempting to create missing profile');
               const { user } = get();
               if (user) {
-                const { error: createError } = await supabase
-                  .from('profiles')
-                  .insert({
+                // First, check what columns exist in the profiles table
+                try {
+                  const { data: tableInfo, error: tableError } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .limit(0);
+                  
+                  console.log('AuthStore: Profiles table structure check:', { tableError });
+                  
+                  // Try to create profile with minimal required fields
+                  const profileData: any = {
                     id: user.id,
-                    email: user.email || '',
-                    full_name: user.user_metadata?.full_name || user.user_metadata?.name || null,
-                  });
-                
-                if (createError) {
-                  console.error('AuthStore: Error creating profile:', createError);
-                } else {
-                  console.log('AuthStore: Profile created successfully');
-                  // Fetch the newly created profile
-                  await get().fetchProfile(userId);
+                  };
+                  
+                  // Add optional fields
+                  if (user.user_metadata?.full_name || user.user_metadata?.name) {
+                    profileData.full_name = user.user_metadata?.full_name || user.user_metadata?.name || null;
+                  }
+                  
+                  // Add username if available
+                  if (user.user_metadata?.username) {
+                    profileData.username = user.user_metadata.username;
+                  }
+                  
+                  const { error: createError } = await supabase
+                    .from('profiles')
+                    .insert(profileData);
+                  
+                  if (createError) {
+                    console.error('AuthStore: Error creating profile:', createError);
+                    
+                    // If any column doesn't exist, set database error
+                    if (createError.code === 'PGRST204') {
+                      console.log('AuthStore: Database schema issue detected');
+                      set({ 
+                        databaseError: 'Database schema needs to be set up. Please run the required SQL schema in your Supabase project.' 
+                      });
+                      
+                      // Still try with minimal profile data
+                      const minimalProfile = {
+                        id: user.id,
+                        full_name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+                      };
+                      
+                      const { error: retryError } = await supabase
+                        .from('profiles')
+                        .insert(minimalProfile);
+                      
+                      if (retryError) {
+                        console.error('AuthStore: Error creating minimal profile:', retryError);
+                      } else {
+                        console.log('AuthStore: Minimal profile created successfully');
+                        set({ databaseError: null }); // Clear error if successful
+                        await get().fetchProfile(userId);
+                      }
+                    }
+                  } else {
+                    console.log('AuthStore: Profile created successfully');
+                    set({ databaseError: null }); // Clear any previous errors
+                    // Fetch the newly created profile
+                    await get().fetchProfile(userId);
+                  }
+                } catch (createError) {
+                  console.error('AuthStore: Exception creating profile:', createError);
                 }
               }
             }
@@ -896,6 +963,14 @@ export const useAuthStore = create<AuthState>()(
           
           return { error: error.message || 'Failed to create conversation' };
         }
+      },
+
+      setDatabaseError: (error: string | null) => {
+        set({ databaseError: error });
+      },
+
+      clearDatabaseError: () => {
+        set({ databaseError: null });
       },
 
       setSession: (session: Session | null) => {
