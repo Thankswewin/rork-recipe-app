@@ -25,7 +25,7 @@ export default function MessagesScreen() {
       if (error?.data?.httpStatus === 500 && error?.message?.includes('infinite recursion')) {
         return false;
       }
-      if (error?.data?.httpStatus === 500 && error?.message?.includes('42P17')) {
+      if (error?.data?.httpStatus === 500 && error?.message?.includes('PGRST116')) {
         return false;
       }
       return failureCount < 3;
@@ -41,7 +41,7 @@ export default function MessagesScreen() {
   };
 
   const getErrorMessage = (error: any) => {
-    if (error?.message?.includes('infinite recursion') || error?.message?.includes('42P17')) {
+    if (error?.message?.includes('infinite recursion') || error?.message?.includes('PGRST116')) {
       return 'Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.';
     }
     if (error?.message?.includes('42P01') || error?.message?.includes('does not exist')) {
