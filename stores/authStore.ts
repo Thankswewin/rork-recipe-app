@@ -739,7 +739,7 @@ export const useAuthStore = create<AuthState>()(
           
           console.log('Creating/getting conversation between:', user.id, 'and', otherUserId);
           
-          // First check if conversations table exists
+          // First check if conversations table exists with a simple query
           const { error: tableCheckError } = await supabase
             .from('conversations')
             .select('id')
@@ -747,7 +747,11 @@ export const useAuthStore = create<AuthState>()(
 
           if (tableCheckError) {
             console.error('Conversations table not accessible:', tableCheckError);
-            if (tableCheckError.code === '42P01') {
+            
+            // Check for specific infinite recursion error
+            if (tableCheckError.code === '42P17') {
+              return { error: 'Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.' };
+            } else if (tableCheckError.code === '42P01') {
               return { error: 'Messaging system is not set up yet. Please contact support to enable messaging.' };
             }
             return { error: 'Unable to access messaging system. Please try again later.' };
@@ -761,7 +765,11 @@ export const useAuthStore = create<AuthState>()(
 
           if (participantsTableError) {
             console.error('Conversation participants table not accessible:', participantsTableError);
-            if (participantsTableError.code === '42P01') {
+            
+            // Check for specific infinite recursion error
+            if (participantsTableError.code === '42P17') {
+              return { error: 'Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.' };
+            } else if (participantsTableError.code === '42P01') {
               return { error: 'Messaging system is not set up yet. Please contact support to enable messaging.' };
             }
             return { error: 'Unable to access messaging system. Please try again later.' };
@@ -774,11 +782,11 @@ export const useAuthStore = create<AuthState>()(
               user2_id: otherUserId
             });
 
-          // If RPC doesn't exist, fall back to manual check
+          // If RPC doesn't exist or fails, fall back to manual check
           if (rpcError && rpcError.code === '42883') {
             console.log('RPC not available, using manual check');
             
-            // Get all conversations for current user
+            // Get all conversations for current user (using simple query to avoid recursion)
             const { data: userConversations, error: userConversationsError } = await supabase
               .from('conversation_participants')
               .select('conversation_id')
@@ -786,6 +794,9 @@ export const useAuthStore = create<AuthState>()(
 
             if (userConversationsError) {
               console.error('Error fetching user conversations:', userConversationsError);
+              if (userConversationsError.code === '42P17') {
+                return { error: 'Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.' };
+              }
               return { error: 'Failed to check existing conversations' };
             }
 
@@ -810,6 +821,9 @@ export const useAuthStore = create<AuthState>()(
             return { conversationId: existingConversation };
           } else if (rpcError) {
             console.error('RPC error:', rpcError);
+            if (rpcError.code === '42P17') {
+              return { error: 'Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.' };
+            }
             // Continue with manual creation
           }
 
@@ -826,6 +840,9 @@ export const useAuthStore = create<AuthState>()(
 
           if (conversationError) {
             console.error('Error creating conversation:', conversationError);
+            if (conversationError.code === '42P17') {
+              return { error: 'Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.' };
+            }
             return { error: 'Failed to create conversation' };
           }
 
@@ -841,6 +858,9 @@ export const useAuthStore = create<AuthState>()(
 
           if (participantsError) {
             console.error('Error adding participants:', participantsError);
+            if (participantsError.code === '42P17') {
+              return { error: 'Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.' };
+            }
             // Clean up the conversation if participants couldn't be added
             await supabase.from('conversations').delete().eq('id', newConversation.id);
             return { error: 'Failed to create conversation' };

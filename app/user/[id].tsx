@@ -42,6 +42,7 @@ export default function UserProfileScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
+  const [isMessageLoading, setIsMessageLoading] = useState(false);
   const [avatarKey, setAvatarKey] = useState(0); // Force re-render of avatar
   const { colors } = useTheme();
   const { user: currentUser, createOrGetConversation } = useAuthStore();
@@ -210,15 +211,16 @@ export default function UserProfileScreen() {
   };
 
   const handleMessagePress = async () => {
-    if (!id) return;
+    if (!id || isMessageLoading) return;
     
+    setIsMessageLoading(true);
     try {
       const { conversationId, error } = await createOrGetConversation(id);
       
       if (error) {
         console.error('Error creating conversation:', error);
-        // You could show an alert here in a real app
-        // Alert.alert('Error', 'Unable to start conversation. Please try again.');
+        // In a real app, you might want to show a toast or alert here
+        // For now, we'll just log the error
         return;
       }
 
@@ -227,6 +229,8 @@ export default function UserProfileScreen() {
       }
     } catch (error) {
       console.error('Error navigating to conversation:', error);
+    } finally {
+      setIsMessageLoading(false);
     }
   };
 
@@ -351,11 +355,18 @@ export default function UserProfileScreen() {
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={[styles.messageButton, { borderColor: colors.border }]}
+                style={[
+                  styles.messageButton, 
+                  { borderColor: colors.border },
+                  isMessageLoading && { opacity: 0.6 }
+                ]}
                 onPress={handleMessagePress}
+                disabled={isMessageLoading}
               >
                 <MessageCircle size={18} color={colors.text} />
-                <Text style={[styles.messageButtonText, { color: colors.text }]}>Message</Text>
+                <Text style={[styles.messageButtonText, { color: colors.text }]}>
+                  {isMessageLoading ? 'Loading...' : 'Message'}
+                </Text>
               </TouchableOpacity>
             </View>
           )}

@@ -41,7 +41,11 @@ export default function ConversationScreen() {
 
       if (tableCheckError) {
         console.error('Conversations table not accessible:', tableCheckError);
-        if (tableCheckError.code === '42P01') {
+        
+        // Check for specific infinite recursion error
+        if (tableCheckError.code === '42P17') {
+          setError('Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.');
+        } else if (tableCheckError.code === '42P01') {
           setError('Messaging system is not set up yet. Please contact support to enable messaging.');
         } else {
           setError('Unable to access messaging system. Please try again later.');
@@ -57,7 +61,13 @@ export default function ConversationScreen() {
 
       if (error) {
         console.error('Error fetching conversation:', error);
-        setError('Conversation not found or no longer accessible.');
+        
+        // Check for specific infinite recursion error
+        if (error.code === '42P17') {
+          setError('Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.');
+        } else {
+          setError('Conversation not found or no longer accessible.');
+        }
         return;
       }
 
@@ -77,7 +87,13 @@ export default function ConversationScreen() {
 
       if (participantsError) {
         console.error('Error fetching participants:', participantsError);
-        setError('Unable to load conversation details.');
+        
+        // Check for specific infinite recursion error
+        if (participantsError.code === '42P17') {
+          setError('Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.');
+        } else {
+          setError('Unable to load conversation details.');
+        }
         return;
       }
 
@@ -106,7 +122,11 @@ export default function ConversationScreen() {
 
       if (tableCheckError) {
         console.error('Messages table not accessible:', tableCheckError);
-        if (tableCheckError.code === '42P01') {
+        
+        // Check for specific infinite recursion error
+        if (tableCheckError.code === '42P17') {
+          setError('Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.');
+        } else if (tableCheckError.code === '42P01') {
           setError('Messaging system is not set up yet. Please contact support to enable messaging.');
         } else {
           setError('Unable to access messaging system. Please try again later.');
@@ -130,7 +150,13 @@ export default function ConversationScreen() {
 
       if (error) {
         console.error('Error fetching messages:', error);
-        setError('Failed to load messages. Please try again.');
+        
+        // Check for specific infinite recursion error
+        if (error.code === '42P17') {
+          setError('Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.');
+        } else {
+          setError('Failed to load messages. Please try again.');
+        }
         return;
       }
 
@@ -226,7 +252,13 @@ export default function ConversationScreen() {
       if (error) {
         console.error('Error sending message:', error);
         setNewMessage(messageContent); // Restore message on error
-        setError('Failed to send message. Please try again.');
+        
+        // Check for specific infinite recursion error
+        if (error.code === '42P17') {
+          setError('Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.');
+        } else {
+          setError('Failed to send message. Please try again.');
+        }
       } else {
         // Update conversation's last_message_at
         await supabase

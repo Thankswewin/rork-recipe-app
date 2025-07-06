@@ -37,7 +37,11 @@ export default function MessagesScreen() {
 
       if (tableCheckError) {
         console.error('Conversations table not accessible:', tableCheckError);
-        if (tableCheckError.code === '42P01') {
+        
+        // Check for specific infinite recursion error
+        if (tableCheckError.code === '42P17') {
+          setError('Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.');
+        } else if (tableCheckError.code === '42P01') {
           setError('Messaging system is not set up yet. Please contact support to enable messaging.');
         } else {
           setError('Unable to access messaging system. Please try again later.');
@@ -53,7 +57,11 @@ export default function MessagesScreen() {
 
       if (participantsTableError) {
         console.error('Conversation participants table not accessible:', participantsTableError);
-        if (participantsTableError.code === '42P01') {
+        
+        // Check for specific infinite recursion error
+        if (participantsTableError.code === '42P17') {
+          setError('Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.');
+        } else if (participantsTableError.code === '42P01') {
           setError('Messaging system is not set up yet. Please contact support to enable messaging.');
         } else {
           setError('Unable to access messaging system. Please try again later.');
@@ -78,7 +86,13 @@ export default function MessagesScreen() {
 
       if (error) {
         console.error('Error fetching conversations:', error);
-        setError('Failed to load conversations. Please try again.');
+        
+        // Check for specific infinite recursion error
+        if (error.code === '42P17') {
+          setError('Messaging system is temporarily unavailable due to a configuration issue. Please contact support to fix the database policies.');
+        } else {
+          setError('Failed to load conversations. Please try again.');
+        }
         return;
       }
 
