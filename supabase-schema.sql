@@ -1,3 +1,33 @@
+-- Drop all existing policies and tables to avoid dependency issues
+DROP POLICY IF EXISTS "Users can view their conversations" ON conversations CASCADE;
+DROP POLICY IF EXISTS "conversations_select_policy" ON conversations CASCADE;
+DROP POLICY IF EXISTS "conversations_update_policy" ON conversations CASCADE;
+DROP POLICY IF EXISTS "Users can update conversations they participate in" ON conversations CASCADE;
+DROP POLICY IF EXISTS "Users can view their conversation participants" ON conversation_participants CASCADE;
+DROP POLICY IF EXISTS "Users can manage their conversation participants" ON conversation_participants CASCADE;
+DROP POLICY IF EXISTS "Users can view their messages" ON messages CASCADE;
+DROP POLICY IF EXISTS "Users can send messages" ON messages CASCADE;
+
+-- Drop triggers first
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users CASCADE;
+DROP TRIGGER IF EXISTS on_follow_created ON followers CASCADE;
+DROP TRIGGER IF EXISTS on_message_created ON messages CASCADE;
+
+-- Drop functions
+DROP FUNCTION IF EXISTS handle_new_user() CASCADE;
+DROP FUNCTION IF EXISTS handle_new_follow() CASCADE;
+DROP FUNCTION IF EXISTS handle_new_message() CASCADE;
+
+-- Drop tables in correct order (child tables first)
+DROP TABLE IF EXISTS messages CASCADE;
+DROP TABLE IF EXISTS conversation_participants CASCADE;
+DROP TABLE IF EXISTS conversations CASCADE;
+DROP TABLE IF EXISTS notifications CASCADE;
+DROP TABLE IF EXISTS followers CASCADE;
+DROP TABLE IF EXISTS favorites CASCADE;
+DROP TABLE IF EXISTS recipes CASCADE;
+DROP TABLE IF EXISTS profiles CASCADE;
+
 -- Create profiles table
 CREATE TABLE IF NOT EXISTS profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
@@ -97,31 +127,6 @@ ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversation_participants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
--- Drop existing policies if they exist
-DROP POLICY IF EXISTS "Users can view their own profile" ON profiles;
-DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
-DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
-DROP POLICY IF EXISTS "Service role can insert profiles" ON profiles;
-DROP POLICY IF EXISTS "Allow profile creation" ON profiles;
-DROP POLICY IF EXISTS "Service role can manage profiles" ON profiles;
-DROP POLICY IF EXISTS "Anyone can view recipes" ON recipes;
-DROP POLICY IF EXISTS "Users can create recipes" ON recipes;
-DROP POLICY IF EXISTS "Users can update their own recipes" ON recipes;
-DROP POLICY IF EXISTS "Users can delete their own recipes" ON recipes;
-DROP POLICY IF EXISTS "Users can view their own favorites" ON favorites;
-DROP POLICY IF EXISTS "Users can create their own favorites" ON favorites;
-DROP POLICY IF EXISTS "Users can delete their own favorites" ON favorites;
-DROP POLICY IF EXISTS "Authenticated users can view all profiles" ON profiles;
-DROP POLICY IF EXISTS "Users can view followers" ON followers;
-DROP POLICY IF EXISTS "Users can manage their own follows" ON followers;
-DROP POLICY IF EXISTS "Users can view their own notifications" ON notifications;
-DROP POLICY IF EXISTS "Users can update their own notifications" ON notifications;
-DROP POLICY IF EXISTS "Users can view their conversations" ON conversations;
-DROP POLICY IF EXISTS "Users can view their conversation participants" ON conversation_participants;
-DROP POLICY IF EXISTS "Users can manage their conversation participants" ON conversation_participants;
-DROP POLICY IF EXISTS "Users can view their messages" ON messages;
-DROP POLICY IF EXISTS "Users can send messages" ON messages;
-
 -- Create policies for profiles
 CREATE POLICY "Users can view their own profile" ON profiles
   FOR SELECT USING (auth.uid() = id);
@@ -134,6 +139,9 @@ CREATE POLICY "Allow profile creation" ON profiles
 
 CREATE POLICY "Authenticated users can view all profiles" ON profiles
   FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Service role can manage profiles" ON profiles
+  FOR ALL USING (auth.role() = 'service_role');
 
 -- Create policies for recipes
 CREATE POLICY "Anyone can view recipes" ON recipes
@@ -172,56 +180,51 @@ CREATE POLICY "Users can view their own notifications" ON notifications
 CREATE POLICY "Users can update their own notifications" ON notifications
   FOR UPDATE USING (auth.uid() = user_id);
 
--- Create policies for conversations
-CREATE POLICY "Users can view their conversations" ON conversations
+-- Create policies for conversation_participants first (no dependencies)
+CREATE POLICY "Users can view conversation participants" ON conversation_participants
   FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM conversation_participants 
-      WHERE conversation_id = conversations.id 
-      AND user_id = auth.uid()
+    user_id = auth.uid() OR 
+    conversation_id IN (
+      SELECT conversation_id FROM conversation_participants WHERE user_id = auth.uid()
     )
   );
 
--- Create policies for conversation participants
-CREATE POLICY "Users can view their conversation participants" ON conversation_participants
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM conversation_participants cp 
-      WHERE cp.conversation_id = conversation_participants.conversation_id 
-      AND cp.user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can manage their conversation participants" ON conversation_participants
+CREATE POLICY "Users can manage their participation" ON conversation_participants
   FOR ALL USING (auth.uid() = user_id);
 
--- Create policies for messages
-CREATE POLICY "Users can view their messages" ON messages
+-- Create policies for conversations (depends on conversation_participants)
+CREATE POLICY "Users can view their conversations" ON conversations
   FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM conversation_participants 
-      WHERE conversation_id = messages.conversation_id 
-      AND user_id = auth.uid()
+    id IN (
+      SELECT conversation_id FROM conversation_participants WHERE user_id = auth.uid()
     )
   );
 
-CREATE POLICY "Users can send messages" ON messages
+CREATE POLICY "Users can create conversations" ON conversations
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Users can update their conversations" ON conversations
+  FOR UPDATE USING (
+    id IN (
+      SELECT conversation_id FROM conversation_participants WHERE user_id = auth.uid()
+    )
+  );
+
+-- Create policies for messages (depends on conversation_participants)
+CREATE POLICY "Users can view messages in their conversations" ON messages
+  FOR SELECT USING (
+    conversation_id IN (
+      SELECT conversation_id FROM conversation_participants WHERE user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can send messages to their conversations" ON messages
   FOR INSERT WITH CHECK (
     auth.uid() = sender_id AND
-    EXISTS (
-      SELECT 1 FROM conversation_participants 
-      WHERE conversation_id = messages.conversation_id 
-      AND user_id = auth.uid()
+    conversation_id IN (
+      SELECT conversation_id FROM conversation_participants WHERE user_id = auth.uid()
     )
   );
-
--- Drop existing function and trigger if they exist
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-DROP FUNCTION IF EXISTS handle_new_user();
-DROP TRIGGER IF EXISTS on_follow_created ON followers;
-DROP FUNCTION IF EXISTS handle_new_follow();
-DROP TRIGGER IF EXISTS on_message_created ON messages;
-DROP FUNCTION IF EXISTS handle_new_message();
 
 -- Create function to handle profile creation
 CREATE OR REPLACE FUNCTION handle_new_user()
@@ -230,7 +233,6 @@ SECURITY DEFINER
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  -- Insert profile with security definer to bypass RLS
   INSERT INTO public.profiles (id, email, full_name, username)
   VALUES (
     NEW.id, 
@@ -246,7 +248,6 @@ BEGIN
   RETURN NEW;
 EXCEPTION
   WHEN OTHERS THEN
-    -- Log the error but don't fail the user creation
     RAISE WARNING 'Failed to create profile for user %: %', NEW.id, SQLERRM;
     RETURN NEW;
 END;
@@ -261,12 +262,10 @@ AS $$
 DECLARE
   follower_name TEXT;
 BEGIN
-  -- Get the follower's name for the notification
   SELECT COALESCE(full_name, username, 'Someone') INTO follower_name
   FROM profiles
   WHERE id = NEW.follower_id;
 
-  -- Create notification for the user being followed
   INSERT INTO notifications (user_id, actor_id, type, title, message, data)
   VALUES (
     NEW.following_id,
@@ -280,7 +279,6 @@ BEGIN
   RETURN NEW;
 EXCEPTION
   WHEN OTHERS THEN
-    -- Log the error but don't fail the follow action
     RAISE WARNING 'Failed to create follow notification: %', SQLERRM;
     RETURN NEW;
 END;
@@ -293,7 +291,6 @@ SECURITY DEFINER
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  -- Update conversation's last_message_at
   UPDATE conversations 
   SET last_message_at = NEW.created_at, updated_at = NEW.created_at
   WHERE id = NEW.conversation_id;
@@ -306,17 +303,15 @@ EXCEPTION
 END;
 $$;
 
--- Create trigger for new user registration
+-- Create triggers
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
--- Create trigger for new follows
 CREATE TRIGGER on_follow_created
   AFTER INSERT ON followers
   FOR EACH ROW EXECUTE FUNCTION handle_new_follow();
 
--- Create trigger for new messages
 CREATE TRIGGER on_message_created
   AFTER INSERT ON messages
   FOR EACH ROW EXECUTE FUNCTION handle_new_message();
@@ -331,11 +326,6 @@ GRANT ALL ON public.notifications TO anon, authenticated;
 GRANT ALL ON public.conversations TO anon, authenticated;
 GRANT ALL ON public.conversation_participants TO anon, authenticated;
 GRANT ALL ON public.messages TO anon, authenticated;
-
--- Additional policy to allow service role to create profiles
-CREATE POLICY "Service role can manage profiles" ON profiles
-  FOR ALL USING (true)
-  WITH CHECK (true);
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_profiles_username ON profiles(username);
@@ -358,82 +348,65 @@ CREATE INDEX IF NOT EXISTS idx_conversations_last_message_at ON conversations(la
 -- Set up realtime subscriptions safely
 DO $$
 BEGIN
-  -- Add profiles table to realtime publication
   BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
   EXCEPTION
-    WHEN duplicate_object THEN
-      NULL;
+    WHEN duplicate_object THEN NULL;
   END;
   
-  -- Add recipes table to realtime publication
   BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE recipes;
   EXCEPTION
-    WHEN duplicate_object THEN
-      NULL;
+    WHEN duplicate_object THEN NULL;
   END;
   
-  -- Add favorites table to realtime publication
   BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE favorites;
   EXCEPTION
-    WHEN duplicate_object THEN
-      NULL;
+    WHEN duplicate_object THEN NULL;
   END;
   
-  -- Add followers table to realtime publication
   BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE followers;
   EXCEPTION
-    WHEN duplicate_object THEN
-      NULL;
+    WHEN duplicate_object THEN NULL;
   END;
   
-  -- Add notifications table to realtime publication
   BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
   EXCEPTION
-    WHEN duplicate_object THEN
-      NULL;
+    WHEN duplicate_object THEN NULL;
   END;
   
-  -- Add conversations table to realtime publication
   BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE conversations;
   EXCEPTION
-    WHEN duplicate_object THEN
-      NULL;
+    WHEN duplicate_object THEN NULL;
   END;
   
-  -- Add messages table to realtime publication
   BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE messages;
   EXCEPTION
-    WHEN duplicate_object THEN
-      NULL;
+    WHEN duplicate_object THEN NULL;
   END;
 END $$;
 
 -- Create storage buckets
--- Note: These need to be created manually in Supabase dashboard or via SQL
--- Storage bucket for avatars
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
   'avatars',
   'avatars', 
   true,
-  5242880, -- 5MB limit
+  5242880,
   ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 ) ON CONFLICT (id) DO NOTHING;
 
--- Storage bucket for recipe images
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
   'recipe-images',
   'recipe-images',
   true, 
-  10485760, -- 10MB limit
+  10485760,
   ARRAY['image/jpeg', 'image/png', 'image/webp']
 ) ON CONFLICT (id) DO NOTHING;
 
