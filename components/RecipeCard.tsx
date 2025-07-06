@@ -21,22 +21,22 @@ export default function RecipeCard({ recipe, onPress, onFavoritePress, style }: 
     }, style]}>
       {/* Recipe Header */}
       <View style={styles.header}>
-        <Image source={{ uri: recipe.image }} style={[styles.recipeImage, { borderColor: colors.iconBorder }]} />
+        <Image source={{ uri: recipe.image_url }} style={[styles.recipeImage, { borderColor: colors.iconBorder }]} />
         <View style={styles.recipeInfo}>
           <Text style={[styles.recipeTitle, { color: colors.text }]}>{recipe.title}</Text>
           <View style={styles.authorContainer}>
-            <Image source={{ uri: recipe.author.avatar }} style={[styles.authorAvatar, { borderColor: colors.iconBorder }]} />
-            <Text style={[styles.authorName, { color: colors.muted }]}>{recipe.author.name}</Text>
+            <Image source={{ uri: recipe.user?.avatar_url }} style={[styles.authorAvatar, { borderColor: colors.iconBorder }]} />
+            <Text style={[styles.authorName, { color: colors.muted }]}>{recipe.user?.full_name}</Text>
           </View>
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               <View style={[styles.statIconContainer, { backgroundColor: '#3B82F6', borderColor: colors.iconBorder }]}>
                 <Heart size={12} color="black" />
               </View>
-              <Text style={[styles.statText, { color: colors.muted }]}>{recipe.likes} Like</Text>
+              <Text style={[styles.statText, { color: colors.muted }]}>{recipe.likes_count} Like</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={[styles.statText, { color: colors.muted }]}>{recipe.comments} Comments</Text>
+              <Text style={[styles.statText, { color: colors.muted }]}>Comments</Text>
             </View>
           </View>
         </View>
