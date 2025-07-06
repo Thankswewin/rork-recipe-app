@@ -1,61 +1,41 @@
-import { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
-import { initTRPC, TRPCError } from "@trpc/server";
-import superjson from "superjson";
-import { supabase } from "@/lib/supabase";
+import { initTRPC } from '@trpc/server';
+import { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
+import { supabase } from '@/lib/supabase';
 
-// Context creation function
 export const createContext = async (opts: FetchCreateContextFnOptions) => {
+  const authHeader = opts.req.headers.get('authorization');
+  
+  let user = null;
+  if (authHeader) {
+    try {
+      const { data: { user: authUser }, error } = await supabase.auth.getUser(
+        authHeader.replace('Bearer ', '')
+      );
+      if (!error && authUser) {
+        user = authUser;
+      }
+    } catch (error) {
+      console.error('Auth error:', error);
+    }
+  }
+
   return {
-    req: opts.req,
-    // You can add more context items here like database connections, auth, etc.
+    user,
   };
 };
 
-export type Context = Awaited<ReturnType<typeof createContext>>;
+const t = initTRPC.context<typeof createContext>().create();
 
-// Initialize tRPC
-const t = initTRPC.context<Context>().create({
-  transformer: superjson,
-});
-
-export const createTRPCRouter = t.router;
+export const router = t.router;
 export const publicProcedure = t.procedure;
-
-// Protected procedure that requires authentication
-export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
-  // Get the authorization header from the request
-  const authHeader = ctx.req.headers.get('authorization');
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new TRPCError({
-      code: 'UNAUTHORIZED',
-      message: 'No authorization token provided',
-    });
+export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
+  if (!ctx.user) {
+    throw new Error('Unauthorized');
   }
-
-  const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-
-  try {
-    // Verify the token with Supabase
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    
-    if (error || !user) {
-      throw new TRPCError({
-        code: 'UNAUTHORIZED',
-        message: 'Invalid or expired token',
-      });
-    }
-
-    return next({
-      ctx: {
-        ...ctx,
-        user,
-      },
-    });
-  } catch (error) {
-    throw new TRPCError({
-      code: 'UNAUTHORIZED',
-      message: 'Authentication failed',
-    });
-  }
+  return next({
+    ctx: {
+      ...ctx,
+      user: ctx.user,
+    },
+  });
 });

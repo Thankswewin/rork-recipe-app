@@ -1,16 +1,16 @@
-import { createTRPCRouter } from "./create-context";
-import hiRoute from "./routes/example/hi/route";
-import { getConversationsProcedure } from "./routes/conversations/get-conversations/route";
-import { createConversationProcedure } from "./routes/conversations/create-conversation/route";
-import { checkMessagingStatusProcedure } from "./routes/conversations/check-messaging-status/route";
+import { router } from './create-context';
+import { hiProcedure } from './routes/example/hi/route';
+import { createConversationProcedure } from './routes/conversations/create-conversation/route';
+import { getConversationsProcedure } from './routes/conversations/get-conversations/route';
+import { checkMessagingStatusProcedure } from './routes/conversations/check-messaging-status/route';
 
-export const appRouter = createTRPCRouter({
-  example: createTRPCRouter({
-    hi: hiRoute,
+export const appRouter = router({
+  example: router({
+    hi: hiProcedure,
   }),
-  conversations: createTRPCRouter({
-    getConversations: getConversationsProcedure,
+  conversations: router({
     createConversation: createConversationProcedure,
+    getConversations: getConversationsProcedure,
     checkMessagingStatus: checkMessagingStatusProcedure,
   }),
 });

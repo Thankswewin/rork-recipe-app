@@ -11,10 +11,15 @@ interface MessagingSystemStatusProps {
 export default function MessagingSystemStatus({ onRetry }: MessagingSystemStatusProps) {
   const { colors } = useTheme();
   
-  const { data: status, isLoading, error } = trpc.conversations.checkMessagingStatus.useQuery(undefined, {
+  const { data: status, isLoading, error, refetch } = trpc.conversations.checkMessagingStatus.useQuery(undefined, {
     retry: false,
     refetchOnWindowFocus: false,
   });
+
+  const handleRetry = () => {
+    refetch();
+    onRetry?.();
+  };
 
   if (isLoading) {
     return (
@@ -40,16 +45,14 @@ export default function MessagingSystemStatus({ onRetry }: MessagingSystemStatus
       <View style={styles.content}>
         <Text style={[styles.title, { color: '#92400E' }]}>Messaging System Setup Required</Text>
         <Text style={[styles.subtitle, { color: '#A16207' }]}>
-          The messaging system needs to be configured. Please contact support to set up the database.
+          {status?.message || error?.message || 'The messaging system needs to be configured. Please run the database setup script.'}
         </Text>
-        {onRetry && (
-          <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: '#F59E0B' }]}
-            onPress={onRetry}
-          >
-            <Text style={styles.retryButtonText}>Check Again</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={[styles.retryButton, { backgroundColor: '#F59E0B' }]}
+          onPress={handleRetry}
+        >
+          <Text style={styles.retryButtonText}>Check Again</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );

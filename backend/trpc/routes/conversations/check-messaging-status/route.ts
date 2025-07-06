@@ -1,28 +1,80 @@
-import { protectedProcedure } from '../../../create-context';
+import { publicProcedure } from '../../../create-context';
 import { supabase } from '@/lib/supabase';
 
-export const checkMessagingStatusProcedure = protectedProcedure
-  .query(async ({ ctx }) => {
+export const checkMessagingStatusProcedure = publicProcedure
+  .query(async () => {
     try {
-      // Test if messaging tables exist and are accessible
-      const { data, error } = await supabase
+      // Check if conversations table exists and is accessible
+      const { error: conversationsError } = await supabase
         .from('conversations')
         .select('id')
         .limit(1);
 
-      if (error) {
-        if (error.code === '42P01') {
-          throw new Error('Messaging tables do not exist. Please run the database setup script.');
-        }
-        if (error.code === '42P17') {
-          throw new Error('Database policies have infinite recursion. Please run the database fix script.');
-        }
-        throw new Error(`Database error: ${error.message}`);
+      if (conversationsError) {
+        console.error('Conversations table check failed:', conversationsError);
+        return {
+          success: false,
+          message: `Conversations table error: ${conversationsError.message}`,
+          error: conversationsError
+        };
       }
 
-      return { success: true, message: 'Messaging system is working correctly' };
+      // Check if conversation_participants table exists and is accessible
+      const { error: participantsError } = await supabase
+        .from('conversation_participants')
+        .select('id')
+        .limit(1);
+
+      if (participantsError) {
+        console.error('Conversation participants table check failed:', participantsError);
+        return {
+          success: false,
+          message: `Conversation participants table error: ${participantsError.message}`,
+          error: participantsError
+        };
+      }
+
+      // Check if messages table exists and is accessible
+      const { error: messagesError } = await supabase
+        .from('messages')
+        .select('id')
+        .limit(1);
+
+      if (messagesError) {
+        console.error('Messages table check failed:', messagesError);
+        return {
+          success: false,
+          message: `Messages table error: ${messagesError.message}`,
+          error: messagesError
+        };
+      }
+
+      // Check if RPC function exists
+      const { error: rpcError } = await supabase
+        .rpc('find_conversation_between_users', {
+          user1_id: '00000000-0000-0000-0000-000000000000',
+          user2_id: '00000000-0000-0000-0000-000000000001'
+        });
+
+      // RPC error is expected for non-existent users, but function should exist
+      if (rpcError && rpcError.code === '42883') {
+        return {
+          success: false,
+          message: 'RPC function find_conversation_between_users does not exist',
+          error: rpcError
+        };
+      }
+
+      return {
+        success: true,
+        message: 'Messaging system is properly configured and accessible'
+      };
     } catch (error: any) {
-      console.error('Error checking messaging system:', error);
-      throw new Error(`Messaging system check failed: ${error.message || 'Unknown error'}`);
+      console.error('Messaging status check error:', error);
+      return {
+        success: false,
+        message: `Unexpected error: ${error.message}`,
+        error
+      };
     }
   });
