@@ -1,114 +1,94 @@
-import { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TextInput, TouchableOpacity, Platform } from 'react-native';
-import { useLocalSearchParams, Stack } from 'expo-router';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, Button, FlatList, StyleSheet } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { trpcClient } from '@/lib/trpc';
+import { useAuth } from '@/stores/authStore';
 
-import { useAuthStore } from '@/stores/authStore';
+type Profile = {
+  id: string;
+  username: string;
+  full_name: string;
+  avatar_url: string;
+};
 
-interface Message {
+type Message = {
   id: string;
   conversation_id: string;
   sender_id: string;
   content: string;
   created_at: string;
-  profiles?: {
-    id: string;
-    username: string;
-    full_name: string;
-    avatar_url: string;
-  };
-}
+  profiles: Profile;
+};
 
-interface Participant {
+type Participant = {
   id: string;
   user_id: string;
-  profiles: {
-    id: string;
-    username: string;
-    full_name: string;
-    avatar_url: string;
-  };
-}
+  profiles: Profile;
+};
 
 export default function ConversationScreen() {
   const { id } = useLocalSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const user = useAuthStore((state) => state.user);
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!user) return;
 
-    const fetchConversationData = async () => {
+    const fetchMessages = async () => {
       try {
-        // Fetch messages with explicit relationship to profiles
-  const { data: messagesData, error: messagesError } = await supabase
-    .from('messages')
-    .select(`
-      id, conversation_id, sender_id, content, created_at,
-      profiles!messages_sender_id_fkey (id, username, full_name, avatar_url)
-    `)
-    .eq('conversation_id', id)
-    .order('created_at', { ascending: true });
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*, profiles(*)')
+          .eq('conversation_id', id)
+          .order('created_at', { ascending: true });
 
-        if (messagesError) {
-          console.error('Error fetching messages:', messagesError);
-          throw new Error(`Error fetching messages: ${messagesError.message}`);
+        if (error) {
+          console.error('Error fetching messages:', error);
+          return;
         }
 
-        setMessages(messagesData || []);
-
-        // Fetch participants with explicit relationship to profiles
-        const { data: participantsData, error: participantsError } = await supabase
-          .from('conversation_participants')
-          .select(`
-            id, user_id,
-            profiles!conversation_participants_user_id_fkey (id, username, full_name, avatar_url)
-          `)
-          .eq('conversation_id', id);
-
-        if (participantsError) {
-          console.error('Error fetching participants:', participantsError);
-          throw new Error(`Error fetching participants: ${participantsError.message}`);
+        if (data) {
+          setMessages(data as unknown as Message[]);
         }
-
-        setParticipants(participantsData || []);
       } catch (err) {
-        console.error('Error in fetchConversationData:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load conversation data');
+        console.error('Error fetching messages:', err);
       }
     };
 
-    fetchConversationData();
+    const fetchParticipants = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('conversation_participants')
+          .select('*, profiles(*)')
+          .eq('conversation_id', id);
 
-    // Subscribe to new messages
+        if (error) {
+          console.error('Error fetching participants:', error);
+          return;
+        }
+
+        if (data) {
+          setParticipants(data as unknown as Participant[]);
+        }
+      } catch (err) {
+        console.error('Error fetching participants:', err);
+      }
+    };
+
+    fetchMessages();
+    fetchParticipants();
+
     const subscription = supabase
       .channel(`conversation:${id}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'messages',
-        filter: `conversation_id=eq.${id}`
-      }, async (payload) => {
-        // Fetch the full message data including the sender profile
-        const { data: newMessageData, error } = await supabase
-          .from('messages')
-          .select(`
-            id, conversation_id, sender_id, content, created_at,
-            profiles!messages_sender_id_fkey (id, username, full_name, avatar_url)
-          `)
-          .eq('id', payload.new.id)
-          .single();
-
-        if (error) {
-          console.error('Error fetching new message details:', error);
-          return;
-        }
-
-        setMessages(prev => [...prev, newMessageData]);
+        filter: `conversation_id=eq.${id}`,
+      }, (payload) => {
+        setMessages((prev) => [...prev, payload.new as Message]);
       })
       .subscribe();
 
@@ -121,52 +101,51 @@ export default function ConversationScreen() {
     if (!newMessage.trim() || !user) return;
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('messages')
-        .insert([{
-          conversation_id: id,
-          sender_id: user.id,
-          content: newMessage
-        }]);
+        .insert([
+          {
+            conversation_id: id,
+            sender_id: user.id,
+            content: newMessage,
+          },
+        ])
+        .select('*, profiles(*)')
+        .single();
 
-      if (error) throw error;
-      setNewMessage('');
-      // Update conversation last message timestamp
-      await supabase
-        .from('conversations')
-        .update({ last_message_at: new Date().toISOString() })
-        .eq('id', id);
+      if (error) {
+        console.error('Error sending message:', error);
+        return;
+      }
+
+      if (data) {
+        setMessages((prev) => [...prev, data as unknown as Message]);
+        setNewMessage('');
+      }
     } catch (err) {
       console.error('Error sending message:', err);
-      setError(err instanceof Error ? err.message : 'Failed to send message');
     }
   };
 
   const renderItem = ({ item }: { item: Message }) => (
-    <View style={[styles.messageContainer, item.sender_id === user?.id ? styles.sent : styles.received]}>
-      <Text style={styles.sender}>{item.profiles?.username || 'Unknown'}</Text>
+    <View style={styles.messageContainer}>
+      <Text style={styles.sender}>{item.profiles.username}</Text>
       <Text style={styles.message}>{item.content}</Text>
-      <Text style={styles.time}>{new Date(item.created_at).toLocaleTimeString()}</Text>
+      <Text style={styles.timestamp}>{new Date(item.created_at).toLocaleString()}</Text>
     </View>
   );
 
-  const conversationTitle = participants.length > 0 
-    ? participants
-        .filter(p => p.user_id !== user?.id)
-        .map(p => p.profiles.username)
-        .join(', ')
-    : 'Conversation';
-
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: conversationTitle }} />
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      <Text style={styles.title}>Conversation</Text>
+      <Text style={styles.subtitle}>
+        Participants: {participants.map((p) => p.profiles.username).join(', ')}
+      </Text>
       <FlatList
         data={messages}
         renderItem={renderItem}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.messagesList}
-        inverted={false}
+        keyExtractor={(item) => item.id}
+        style={styles.messagesList}
       />
       <View style={styles.inputContainer}>
         <TextInput
@@ -175,9 +154,7 @@ export default function ConversationScreen() {
           onChangeText={setNewMessage}
           placeholder="Type a message..."
         />
-        <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
-          <Text style={styles.sendButtonText}>Send</Text>
-        </TouchableOpacity>
+        <Button title="Send" onPress={sendMessage} />
       </View>
     </View>
   );
@@ -186,73 +163,50 @@ export default function ConversationScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    padding: 16,
     backgroundColor: '#f5f5f5',
   },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 16,
+  },
   messagesList: {
-    padding: 16,
-    flexGrow: 1,
+    flex: 1,
+    marginBottom: 16,
   },
   messageContainer: {
-    maxWidth: '80%',
     padding: 10,
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  sent: {
-    backgroundColor: '#007AFF',
-    alignSelf: 'flex-end',
-  },
-  received: {
-    backgroundColor: '#E5E5EA',
-    alignSelf: 'flex-start',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginBottom: 8,
   },
   sender: {
-    fontSize: 12,
     fontWeight: 'bold',
     marginBottom: 4,
-    color: '#555',
   },
   message: {
     fontSize: 16,
   },
-  time: {
-    fontSize: 10,
-    color: '#888',
+  timestamp: {
+    fontSize: 12,
+    color: '#999',
     marginTop: 4,
-    alignSelf: 'flex-end',
   },
   inputContainer: {
     flexDirection: 'row',
-    padding: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5EA',
-    backgroundColor: '#fff',
-    ...Platform.select({
-      ios: {
-        paddingBottom: 30,
-      },
-    }),
+    alignItems: 'center',
   },
   input: {
     flex: 1,
-    backgroundColor: '#E5E5EA',
-    borderRadius: 20,
     padding: 10,
-    fontSize: 16,
-  },
-  sendButton: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  sendButtonText: {
-    color: '#007AFF',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  errorText: {
-    color: 'red',
-    textAlign: 'center',
-    padding: 10,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginRight: 8,
   },
 });
