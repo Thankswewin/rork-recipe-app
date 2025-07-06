@@ -16,6 +16,7 @@ CREATE TABLE conversations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  last_message_at TIMESTAMP WITH TIME ZONE,
   title TEXT,
   is_group BOOLEAN DEFAULT FALSE
 );
@@ -36,6 +37,23 @@ CREATE TABLE messages (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   is_read BOOLEAN DEFAULT FALSE
 );
+
+-- Create a trigger to update last_message_at in conversations when a new message is inserted
+CREATE OR REPLACE FUNCTION update_conversation_last_message()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE conversations
+  SET last_message_at = NEW.created_at,
+      updated_at = NEW.created_at
+  WHERE id = NEW.conversation_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_conversation_trigger
+AFTER INSERT ON messages
+FOR EACH ROW
+EXECUTE FUNCTION update_conversation_last_message();
 
 -- Create policies with simplified, non-recursive logic
 -- Conversations policies
