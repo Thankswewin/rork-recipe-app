@@ -152,9 +152,9 @@ export default function EnhancedCameraView({ onClose, onCapture }: EnhancedCamer
           >
             <Text style={styles.tipsTitle}>💡 Camera Tips</Text>
             <Text style={styles.tipsText}>
-              • Show ingredients clearly{'\n'}
-              • Good lighting helps analysis{'\n'}
-              • Capture cooking progress{'\n'}
+              • Show ingredients clearly{"\n"}
+              • Good lighting helps analysis{"\n"}
+              • Capture cooking progress{"\n"}
               • Ask questions while cooking
             </Text>
           </LinearGradient>

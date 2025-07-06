@@ -2,7 +2,17 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, Session } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
+
+// Safe platform detection
+const isWeb = () => {
+  try {
+    return Platform.OS === 'web';
+  } catch {
+    return typeof window !== 'undefined';
+  }
+};
 
 interface Profile {
   id: string;
@@ -952,7 +962,34 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => {
+        if (isWeb()) {
+          return {
+            getItem: (name: string) => {
+              try {
+                return localStorage.getItem(name);
+              } catch {
+                return null;
+              }
+            },
+            setItem: (name: string, value: string) => {
+              try {
+                localStorage.setItem(name, value);
+              } catch {
+                // Ignore errors
+              }
+            },
+            removeItem: (name: string) => {
+              try {
+                localStorage.removeItem(name);
+              } catch {
+                // Ignore errors
+              }
+            },
+          };
+        }
+        return AsyncStorage;
+      }),
       partialize: (state) => ({
         user: state.user,
         session: state.session,

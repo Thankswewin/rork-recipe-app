@@ -2,6 +2,15 @@ import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
+// Safe platform detection
+const isWeb = () => {
+  try {
+    return Platform.OS === 'web';
+  } catch {
+    return typeof window !== 'undefined';
+  }
+};
+
 // Use the provided credentials as fallbacks
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://qczagsahfjpzottzamwk.supabase.co';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjemFnc2FoZmpwem90dHphbXdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEyODYzNjksImV4cCI6MjA2Njg2MjM2OX0.bNu5mt1OEkUrYHop7nvQcJHX4ouD12npL0yfhUnOaGA';
@@ -10,7 +19,7 @@ console.log('Supabase config:', {
   url: supabaseUrl, 
   hasKey: !!supabaseAnonKey,
   keyLength: supabaseAnonKey?.length,
-  platform: Platform.OS
+  platform: isWeb() ? 'web' : 'native'
 });
 
 // Validate configuration
@@ -23,7 +32,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 const customStorage = {
   getItem: async (key: string) => {
     try {
-      if (Platform.OS === 'web') {
+      if (isWeb()) {
         return localStorage.getItem(key);
       }
       return await AsyncStorage.getItem(key);
@@ -34,7 +43,7 @@ const customStorage = {
   },
   setItem: async (key: string, value: string) => {
     try {
-      if (Platform.OS === 'web') {
+      if (isWeb()) {
         localStorage.setItem(key, value);
         return;
       }
@@ -45,7 +54,7 @@ const customStorage = {
   },
   removeItem: async (key: string) => {
     try {
-      if (Platform.OS === 'web') {
+      if (isWeb()) {
         localStorage.removeItem(key);
         return;
       }

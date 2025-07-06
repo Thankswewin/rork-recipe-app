@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase, testSupabaseConnection } from '@/lib/supabase';
 
