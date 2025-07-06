@@ -1,5 +1,5 @@
 import { router } from './create-context';
-import { hiProcedure } from './routes/example/hi/route';
+import hiProcedure from './routes/example/hi/route';
 
 export const appRouter = router({
   example: router({
