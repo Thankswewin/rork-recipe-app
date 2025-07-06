@@ -4,7 +4,7 @@ import { useLocalSearchParams, Stack } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { trpcClient } from '@/lib/trpc';
 
-import { useAuth } from '@/stores/authStore';
+import { useAuthStore } from '@/stores/authStore';
 
 interface Message {
   id: string;
@@ -37,7 +37,7 @@ export default function ConversationScreen() {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const user = useAuth((state) => state.user);
+  const user = useAuthStore((state) => state.user);
 
   useEffect(() => {
     if (!user) return;
