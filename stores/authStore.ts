@@ -178,6 +178,8 @@ export const useAuthStore = create<AuthState>()(
               return { error: 'An account with this email already exists. Please sign in instead.' };
             } else if (error.message.includes('Failed to fetch')) {
               return { error: 'Network connection failed. Please check your internet connection and try again.' };
+            } else if (error.message.includes('Database error saving new user')) {
+              return { error: 'Account creation failed. Please try again or contact support if the problem persists.' };
             }
             
             return { error: error.message };
@@ -504,6 +506,28 @@ export const useAuthStore = create<AuthState>()(
             set({ profile: data });
           } else {
             console.log('AuthStore: Profile not found for user:', userId);
+            // If profile doesn't exist, try to create it
+            if (userId === get().user?.id) {
+              console.log('AuthStore: Attempting to create missing profile');
+              const { user } = get();
+              if (user) {
+                const { error: createError } = await supabase
+                  .from('profiles')
+                  .insert({
+                    id: user.id,
+                    email: user.email || '',
+                    full_name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+                  });
+                
+                if (createError) {
+                  console.error('AuthStore: Error creating profile:', createError);
+                } else {
+                  console.log('AuthStore: Profile created successfully');
+                  // Fetch the newly created profile
+                  await get().fetchProfile(userId);
+                }
+              }
+            }
           }
         } catch (error) {
           console.error('AuthStore: Error fetching profile:', error);
