@@ -57,7 +57,7 @@ export const useVoiceChatStore = create<VoiceChatState>((set, get) => ({
     const state = get();
     if (state.isConnected || state.isConnecting) return;
 
-    set({ isConnecting: true });
+    set({ isConnecting: true, connectionStatus: 'connecting' });
 
     try {
       const voiceChat = new RealtimeVoiceChat(

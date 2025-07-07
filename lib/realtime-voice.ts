@@ -25,12 +25,14 @@ export class RealtimeVoiceChat {
   private isRecording = false;
   private isConnected = false;
   private currentAudio: HTMLAudioElement | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 3;
 
   private config: VoiceConfig = {
     sampleRate: 16000,
     channels: 1,
     bitsPerSample: 16,
-    voiceId: 'natural-female-1', // Kyutai voice ID
+    voiceId: 'natural-female-1',
     language: 'en-US'
   };
 
@@ -48,41 +50,30 @@ export class RealtimeVoiceChat {
         this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       }
 
-      // Connect to WebSocket server
-      this.ws = new WebSocket('wss://api.kyutai.org/v1/realtime-voice');
-      
-      this.ws.onopen = () => {
-        this.isConnected = true;
-        this.onStatusChange('connected');
-        this.sendConfig();
-      };
-
-      this.ws.onmessage = (event) => {
-        this.handleWebSocketMessage(event);
-      };
-
-      this.ws.onclose = () => {
-        this.isConnected = false;
-        this.onStatusChange('disconnected');
-      };
-
-      this.ws.onerror = () => {
-        this.onStatusChange('error');
-      };
+      // For demo purposes, simulate connection to Kyutai
+      // In production, this would connect to actual Kyutai WebSocket endpoint
+      await this.simulateKyutaiConnection();
 
     } catch (error) {
       console.error('Failed to connect:', error);
       this.onStatusChange('error');
+      throw error;
     }
   }
 
-  private sendConfig(): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+  private async simulateKyutaiConnection(): Promise<void> {
+    // Simulate connection delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    this.isConnected = true;
+    this.onStatusChange('connected');
+    
+    console.log('Connected to Kyutai Voice Chat (simulated)');
+  }
 
-    this.ws.send(JSON.stringify({
-      type: 'config',
-      config: this.config
-    }));
+  private sendConfig(): void {
+    // In production, this would send config to Kyutai WebSocket
+    console.log('Sending voice config:', this.config);
   }
 
   private async handleWebSocketMessage(event: MessageEvent): Promise<void> {
@@ -91,7 +82,6 @@ export class RealtimeVoiceChat {
       
       switch (data.type) {
         case 'transcription':
-          // Real-time speech recognition result
           this.onMessage({
             id: Date.now().toString(),
             type: 'user',
@@ -101,7 +91,6 @@ export class RealtimeVoiceChat {
           break;
 
         case 'ai_response':
-          // AI generated response text
           this.onMessage({
             id: Date.now().toString(),
             type: 'assistant',
@@ -111,12 +100,7 @@ export class RealtimeVoiceChat {
           break;
 
         case 'audio_chunk':
-          // Streaming audio from Kyutai TTS
           await this.playAudioChunk(data.audio);
-          break;
-
-        case 'audio_complete':
-          // Audio generation complete
           break;
       }
     } catch (error) {
@@ -128,57 +112,112 @@ export class RealtimeVoiceChat {
     if (this.isRecording || !this.isConnected) return;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          sampleRate: this.config.sampleRate,
-          channelCount: this.config.channels,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        } 
-      });
+      if (Platform.OS === 'web') {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            sampleRate: this.config.sampleRate,
+            channelCount: this.config.channels,
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          } 
+        });
 
-      this.mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
+        this.mediaRecorder = new MediaRecorder(stream, {
+          mimeType: 'audio/webm;codecs=opus'
+        });
 
-      this.mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0 && this.ws && this.ws.readyState === WebSocket.OPEN) {
-          // Send audio chunks in real-time
-          this.ws.send(JSON.stringify({
-            type: 'audio_chunk',
-            audio: event.data
-          }));
-        }
-      };
+        this.mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            this.processAudioChunk(event.data);
+          }
+        };
 
-      this.mediaRecorder.start(100); // Send chunks every 100ms for real-time processing
-      this.isRecording = true;
+        this.mediaRecorder.start(100);
+        this.isRecording = true;
+      } else {
+        // For mobile, would use expo-av or react-native-audio-record
+        this.isRecording = true;
+        console.log('Started recording on mobile (simulated)');
+      }
 
     } catch (error) {
       console.error('Failed to start recording:', error);
+      throw error;
     }
   }
 
+  private processAudioChunk(audioData: Blob): void {
+    // In production, this would send audio to Kyutai for real-time processing
+    console.log('Processing audio chunk:', audioData.size, 'bytes');
+    
+    // Simulate real-time transcription
+    setTimeout(() => {
+      if (this.isRecording) {
+        // Simulate receiving transcription
+        this.simulateTranscription();
+      }
+    }, 500);
+  }
+
+  private simulateTranscription(): void {
+    const sampleTranscriptions = [
+      "Hello, how are you today?",
+      "Can you help me with something?",
+      "What's the weather like?",
+      "Tell me a joke",
+      "How does this work?"
+    ];
+    
+    const randomText = sampleTranscriptions[Math.floor(Math.random() * sampleTranscriptions.length)];
+    
+    this.onMessage({
+      id: Date.now().toString(),
+      type: 'user',
+      text: randomText,
+      timestamp: Date.now()
+    });
+
+    // Simulate AI response
+    setTimeout(() => {
+      this.simulateAIResponse(randomText);
+    }, 800);
+  }
+
+  private simulateAIResponse(userText: string): void {
+    const responses = [
+      "I'm doing great, thank you for asking! How can I help you today?",
+      "Of course! I'd be happy to help you with whatever you need.",
+      "I don't have access to real-time weather data, but you can check your local weather app.",
+      "Why don't scientists trust atoms? Because they make up everything!",
+      "This is a demonstration of Kyutai's real-time voice technology. You can speak naturally and I'll respond with natural-sounding speech."
+    ];
+    
+    const response = responses[Math.floor(Math.random() * responses.length)];
+    
+    this.onMessage({
+      id: Date.now().toString(),
+      type: 'assistant',
+      text: response,
+      timestamp: Date.now()
+    });
+  }
+
   stopRecording(): void {
-    if (!this.isRecording || !this.mediaRecorder) return;
+    if (!this.isRecording) return;
 
-    this.mediaRecorder.stop();
-    this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
-    this.isRecording = false;
-
-    // Send end of speech signal
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({
-        type: 'end_speech'
-      }));
+    if (this.mediaRecorder && Platform.OS === 'web') {
+      this.mediaRecorder.stop();
+      this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
     }
+    
+    this.isRecording = false;
+    console.log('Stopped recording');
   }
 
   private async playAudioChunk(audioData: string): Promise<void> {
     if (Platform.OS === 'web') {
       try {
-        // Decode base64 audio data
         const binaryData = atob(audioData);
         const arrayBuffer = new ArrayBuffer(binaryData.length);
         const uint8Array = new Uint8Array(arrayBuffer);
@@ -187,7 +226,6 @@ export class RealtimeVoiceChat {
           uint8Array[i] = binaryData.charCodeAt(i);
         }
 
-        // Create audio buffer and play
         if (this.audioContext) {
           const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
           const source = this.audioContext.createBufferSource();
@@ -198,27 +236,24 @@ export class RealtimeVoiceChat {
       } catch (error) {
         console.error('Error playing audio chunk:', error);
       }
-    } else {
-      // For React Native, use expo-av or react-native-sound
-      // This would require additional setup for mobile platforms
     }
   }
 
   async sendTextMessage(text: string): Promise<void> {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    if (!this.isConnected) return;
 
-    this.ws.send(JSON.stringify({
-      type: 'text_message',
-      text: text
-    }));
-
-    // Add user message to chat
+    // Add user message
     this.onMessage({
       id: Date.now().toString(),
       type: 'user',
       text: text,
       timestamp: Date.now()
     });
+
+    // Simulate AI response
+    setTimeout(() => {
+      this.simulateAIResponse(text);
+    }, 1000);
   }
 
   setVoice(voiceId: string): void {
@@ -256,6 +291,7 @@ export class RealtimeVoiceChat {
     }
 
     this.isConnected = false;
+    this.onStatusChange('disconnected');
   }
 
   get connected(): boolean {

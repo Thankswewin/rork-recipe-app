@@ -7,7 +7,7 @@ import {
   StyleSheet,
   Switch
 } from 'react-native';
-import { ChevronRight, Volume2, Mic, Globe } from 'lucide-react-native';
+import { ChevronRight, Volume2, Mic, Globe, X } from 'lucide-react-native';
 import { useVoiceChatStore } from '@/stores/voiceChatStore';
 import { KYUTAI_VOICES, SUPPORTED_LANGUAGES } from '@/lib/realtime-voice';
 
@@ -31,187 +31,208 @@ export const VoiceSettings: React.FC<VoiceSettingsProps> = ({ onClose }) => {
   const selectedLanguageData = SUPPORTED_LANGUAGES.find((l: any) => l.code === selectedLanguage);
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Voice Settings</Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.title}>Voice Settings</Text>
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <X size={24} color="#6B7280" />
+          </TouchableOpacity>
+        </View>
         <Text style={styles.subtitle}>
-          Customize your voice chat experience
+          Customize your Kyutai voice experience
         </Text>
       </View>
 
-      {/* Voice Selection */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Volume2 size={20} color="#3B82F6" />
-          <Text style={styles.sectionTitle}>Voice</Text>
-        </View>
-        
-        <View style={styles.settingItem}>
-          <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>Selected Voice</Text>
-            <Text style={styles.settingValue}>
-              {selectedVoiceData?.name} - {selectedVoiceData?.description}
-            </Text>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Voice Selection */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Volume2 size={20} color="#3B82F6" />
+            <Text style={styles.sectionTitle}>Voice Style</Text>
           </View>
-          <ChevronRight size={20} color="#9CA3AF" />
+          
+          <Text style={styles.sectionDescription}>
+            Choose from Kyutai's natural-sounding AI voices
+          </Text>
+
+          <View style={styles.voiceGrid}>
+            {KYUTAI_VOICES.map((voice: any) => (
+              <TouchableOpacity
+                key={voice.id}
+                style={[
+                  styles.voiceCard,
+                  selectedVoice === voice.id && styles.selectedVoiceCard
+                ]}
+                onPress={() => setVoice(voice.id)}
+              >
+                <View style={styles.voiceCardContent}>
+                  <Text style={[
+                    styles.voiceName,
+                    selectedVoice === voice.id && styles.selectedVoiceName
+                  ]}>
+                    {voice.name}
+                  </Text>
+                  <Text style={[
+                    styles.voiceDescription,
+                    selectedVoice === voice.id && styles.selectedVoiceDescription
+                  ]}>
+                    {voice.description}
+                  </Text>
+                </View>
+                {selectedVoice === voice.id && (
+                  <View style={styles.selectedIndicator}>
+                    <Text style={styles.checkmark}>✓</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
-        <View style={styles.voiceGrid}>
-          {KYUTAI_VOICES.map((voice: any) => (
-            <TouchableOpacity
-              key={voice.id}
-              style={[
-                styles.voiceCard,
-                selectedVoice === voice.id && styles.selectedVoiceCard
-              ]}
-              onPress={() => setVoice(voice.id)}
-            >
-              <Text style={[
-                styles.voiceName,
-                selectedVoice === voice.id && styles.selectedVoiceName
-              ]}>
-                {voice.name}
+        {/* Language Selection */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Globe size={20} color="#3B82F6" />
+            <Text style={styles.sectionTitle}>Language</Text>
+          </View>
+          
+          <TouchableOpacity style={styles.settingItem}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>Selected Language</Text>
+              <Text style={styles.settingValue}>
+                {selectedLanguageData?.name}
               </Text>
-              <Text style={[
-                styles.voiceDescription,
-                selectedVoice === voice.id && styles.selectedVoiceDescription
-              ]}>
-                {voice.description}
+            </View>
+            <ChevronRight size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+
+          <View style={styles.languageList}>
+            {SUPPORTED_LANGUAGES.map((language: any) => (
+              <TouchableOpacity
+                key={language.code}
+                style={[
+                  styles.languageItem,
+                  selectedLanguage === language.code && styles.selectedLanguageItem
+                ]}
+                onPress={() => setLanguage(language.code)}
+              >
+                <Text style={[
+                  styles.languageName,
+                  selectedLanguage === language.code && styles.selectedLanguageName
+                ]}>
+                  {language.name}
+                </Text>
+                {selectedLanguage === language.code && (
+                  <View style={styles.languageCheckmark} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Audio Settings */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Mic size={20} color="#3B82F6" />
+            <Text style={styles.sectionTitle}>Audio Settings</Text>
+          </View>
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>Auto-play Responses</Text>
+              <Text style={styles.settingDescription}>
+                Automatically play AI responses when received
               </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {/* Language Selection */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Globe size={20} color="#3B82F6" />
-          <Text style={styles.sectionTitle}>Language</Text>
-        </View>
-        
-        <View style={styles.settingItem}>
-          <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>Selected Language</Text>
-            <Text style={styles.settingValue}>
-              {selectedLanguageData?.name}
-            </Text>
+            </View>
+            <Switch
+              value={autoPlay}
+              onValueChange={setAutoPlay}
+              trackColor={{ false: '#D1D5DB', true: '#93C5FD' }}
+              thumbColor={autoPlay ? '#3B82F6' : '#FFFFFF'}
+            />
           </View>
-          <ChevronRight size={20} color="#9CA3AF" />
-        </View>
 
-        <View style={styles.languageList}>
-          {SUPPORTED_LANGUAGES.map((language: any) => (
-            <TouchableOpacity
-              key={language.code}
-              style={[
-                styles.languageItem,
-                selectedLanguage === language.code && styles.selectedLanguageItem
-              ]}
-              onPress={() => setLanguage(language.code)}
-            >
-              <Text style={[
-                styles.languageName,
-                selectedLanguage === language.code && styles.selectedLanguageName
-              ]}>
-                {language.name}
+          <View style={styles.settingItem}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>Push to Talk</Text>
+              <Text style={styles.settingDescription}>
+                Hold microphone button to speak, release to send
               </Text>
-              {selectedLanguage === language.code && (
-                <View style={styles.checkmark} />
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {/* Audio Settings */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Mic size={20} color="#3B82F6" />
-          <Text style={styles.sectionTitle}>Audio Settings</Text>
-        </View>
-
-        <View style={styles.settingItem}>
-          <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>Auto-play Responses</Text>
-            <Text style={styles.settingDescription}>
-              Automatically play AI responses when received
-            </Text>
+            </View>
+            <Switch
+              value={pushToTalk}
+              onValueChange={setPushToTalk}
+              trackColor={{ false: '#D1D5DB', true: '#93C5FD' }}
+              thumbColor={pushToTalk ? '#3B82F6' : '#FFFFFF'}
+            />
           </View>
-          <Switch
-            value={autoPlay}
-            onValueChange={setAutoPlay}
-            trackColor={{ false: '#D1D5DB', true: '#93C5FD' }}
-            thumbColor={autoPlay ? '#3B82F6' : '#FFFFFF'}
-          />
         </View>
 
-        <View style={styles.settingItem}>
-          <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>Push to Talk</Text>
-            <Text style={styles.settingDescription}>
-              Hold microphone button to speak, release to send
-            </Text>
-          </View>
-          <Switch
-            value={pushToTalk}
-            onValueChange={setPushToTalk}
-            trackColor={{ false: '#D1D5DB', true: '#93C5FD' }}
-            thumbColor={pushToTalk ? '#3B82F6' : '#FFFFFF'}
-          />
+        {/* About */}
+        <View style={styles.section}>
+          <Text style={styles.aboutTitle}>About Kyutai Voice</Text>
+          <Text style={styles.aboutText}>
+            Experience natural, human-like conversations with Kyutai's advanced neural 
+            text-to-speech technology. Our AI delivers ultra-low latency voice synthesis 
+            optimized for real-time interactions.
+          </Text>
+          <Text style={styles.aboutText}>
+            Features include real-time speech recognition, natural language processing, 
+            and high-quality voice synthesis that adapts to conversational context.
+          </Text>
         </View>
-      </View>
-
-      {/* About */}
-      <View style={styles.section}>
-        <Text style={styles.aboutTitle}>About Kyutai Voice</Text>
-        <Text style={styles.aboutText}>
-          Powered by Kyutai's advanced neural text-to-speech technology, 
-          delivering natural, human-like voices with ultra-low latency 
-          for real-time conversations.
-        </Text>
-        <Text style={styles.aboutText}>
-          Features include real-time speech recognition, natural language 
-          processing, and high-quality voice synthesis optimized for 
-          conversational AI applications.
-        </Text>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FAFAFA',
   },
   header: {
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
-    paddingVertical: 24,
+    paddingTop: 20,
+    paddingBottom: 24,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 8,
+  },
+  closeButton: {
+    padding: 4,
   },
   subtitle: {
     fontSize: 16,
     color: '#6B7280',
     lineHeight: 24,
   },
+  content: {
+    flex: 1,
+  },
   section: {
+    backgroundColor: '#FFFFFF',
+    marginTop: 12,
     paddingHorizontal: 20,
     paddingVertical: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   sectionTitle: {
     fontSize: 18,
@@ -219,11 +240,19 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginLeft: 8,
   },
+  sectionDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
   settingItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F9FAFB',
   },
   settingInfo: {
     flex: 1,
@@ -244,18 +273,23 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   voiceGrid: {
-    marginTop: 16,
+    gap: 12,
   },
   voiceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
     borderColor: '#E5E7EB',
-    marginBottom: 12,
+    backgroundColor: '#FAFAFA',
   },
   selectedVoiceCard: {
     borderColor: '#3B82F6',
     backgroundColor: '#EFF6FF',
+  },
+  voiceCardContent: {
+    flex: 1,
   },
   voiceName: {
     fontSize: 16,
@@ -274,8 +308,21 @@ const styles = StyleSheet.create({
   selectedVoiceDescription: {
     color: '#1D4ED8',
   },
+  selectedIndicator: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkmark: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   languageList: {
-    marginTop: 16,
+    marginTop: 8,
   },
   languageItem: {
     flexDirection: 'row',
@@ -284,7 +331,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   selectedLanguageItem: {
     backgroundColor: '#EFF6FF',
@@ -297,10 +344,10 @@ const styles = StyleSheet.create({
     color: '#3B82F6',
     fontWeight: '500',
   },
-  checkmark: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  languageCheckmark: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: '#3B82F6',
   },
   aboutTitle: {

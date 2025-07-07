@@ -16,7 +16,6 @@ export const useTTS = (defaultOptions: UseTTSOptions = {}) => {
   const realtimeSessionRef = useRef<any>(null);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize real-time mode if requested
   useEffect(() => {
     if (isRealtimeMode && !realtimeSessionRef.current) {
       initializeRealtimeMode();
@@ -44,7 +43,6 @@ export const useTTS = (defaultOptions: UseTTSOptions = {}) => {
       });
       realtimeSessionRef.current = session;
       
-      // Get latency stats
       const stats = await ttsService.getLatencyStats();
       setLatencyStats(stats);
       
@@ -64,12 +62,11 @@ export const useTTS = (defaultOptions: UseTTSOptions = {}) => {
     setError(null);
     currentTextRef.current = text;
 
-    // Set a timeout to prevent infinite loading
     loadingTimeoutRef.current = setTimeout(() => {
       console.warn('TTS loading timeout reached');
       setIsLoading(false);
       setError('TTS request timed out. Please try again.');
-    }, 15000); // 15 second timeout
+    }, 15000);
 
     const startTime = Date.now();
 
@@ -77,8 +74,8 @@ export const useTTS = (defaultOptions: UseTTSOptions = {}) => {
       ...defaultOptions,
       ...options,
       realTime: isRealtimeMode || options.realTime,
-      lowLatency: true, // Always use low latency for better UX
-      streaming: true, // Enable streaming for faster response
+      lowLatency: true,
+      streaming: true,
       onStart: () => {
         if (loadingTimeoutRef.current) {
           clearTimeout(loadingTimeoutRef.current);
@@ -126,7 +123,6 @@ export const useTTS = (defaultOptions: UseTTSOptions = {}) => {
         defaultOptions.onError?.(err);
       },
       onChunk: (audioChunk) => {
-        // Handle real-time audio chunks
         console.log('Received audio chunk for real-time playback');
         options.onChunk?.(audioChunk);
       },
@@ -134,10 +130,8 @@ export const useTTS = (defaultOptions: UseTTSOptions = {}) => {
 
     try {
       if (isRealtimeMode && realtimeSessionRef.current) {
-        // Use real-time session for ultra-low latency
         await realtimeSessionRef.current.speak(text);
       } else {
-        // Use standard TTS service
         await ttsService.speak(text, mergedOptions);
       }
     } catch (err: any) {
@@ -196,12 +190,11 @@ export const useTTS = (defaultOptions: UseTTSOptions = {}) => {
   }, [isRealtimeMode]);
 
   const speakInstant = useCallback(async (text: string) => {
-    // Ultra-fast speech for real-time interaction
     await speak(text, {
       realTime: true,
       lowLatency: true,
       streaming: true,
-      voiceStyle: 'natural-female', // Use fastest voice
+      voiceStyle: 'natural-female',
     });
   }, [speak]);
 
