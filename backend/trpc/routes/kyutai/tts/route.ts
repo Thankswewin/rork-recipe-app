@@ -7,9 +7,11 @@ const ttsInputSchema = z.object({
   language: z.string().optional().default('en-US'),
 });
 
+type TTSInput = z.infer<typeof ttsInputSchema>;
+
 export const kyutaiTTSProcedure = publicProcedure
   .input(ttsInputSchema)
-  .mutation(async ({ input }) => {
+  .mutation(async ({ input }: { input: TTSInput }) => {
     try {
       // In a real implementation, this would call Kyutai's TTS API
       // For now, return a success response
