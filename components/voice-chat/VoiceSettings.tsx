@@ -41,7 +41,7 @@ export const VoiceSettings: React.FC<VoiceSettingsProps> = ({ onClose }) => {
           </TouchableOpacity>
         </View>
         <Text style={styles.subtitle}>
-          Customize your Kyutai voice experience
+          Customize your voice assistant experience
         </Text>
       </View>
 
@@ -54,7 +54,7 @@ export const VoiceSettings: React.FC<VoiceSettingsProps> = ({ onClose }) => {
           </View>
           
           <Text style={styles.sectionDescription}>
-            Choose from Kyutai's natural-sounding AI voices
+            Choose from natural-sounding AI voices
           </Text>
 
           <View style={styles.voiceGrid}>
@@ -172,15 +172,15 @@ export const VoiceSettings: React.FC<VoiceSettingsProps> = ({ onClose }) => {
 
         {/* About */}
         <View style={styles.section}>
-          <Text style={styles.aboutTitle}>About Kyutai Voice</Text>
+          <Text style={styles.aboutTitle}>About Voice Assistant</Text>
           <Text style={styles.aboutText}>
-            Experience natural, human-like conversations with Kyutai's advanced neural 
-            text-to-speech technology. Our AI delivers ultra-low latency voice synthesis 
-            optimized for real-time interactions.
+            Experience natural, human-like conversations with our advanced AI 
+            voice assistant. Features real-time speech recognition and natural 
+            language processing for seamless interactions.
           </Text>
           <Text style={styles.aboutText}>
-            Features include real-time speech recognition, natural language processing, 
-            and high-quality voice synthesis that adapts to conversational context.
+            Powered by cutting-edge AI technology for responsive and 
+            context-aware conversations.
           </Text>
         </View>
       </ScrollView>

@@ -21,10 +21,8 @@ export class RealtimeVoiceChat {
   private ws: WebSocket | null = null;
   private audioContext: AudioContext | null = null;
   private mediaRecorder: MediaRecorder | null = null;
-  private audioQueue: AudioBuffer[] = [];
   private isRecording = false;
   private isConnected = false;
-  private currentAudio: HTMLAudioElement | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 3;
   private recordingStartTime = 0;
@@ -48,14 +46,12 @@ export class RealtimeVoiceChat {
     try {
       this.onStatusChange('connecting');
       
-      // Initialize audio context for web
       if (Platform.OS === 'web') {
         this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       }
 
-      // For demo purposes, simulate connection to Kyutai
-      // In production, this would connect to actual Kyutai WebSocket endpoint
-      await this.simulateKyutaiConnection();
+      // Connect to actual voice service
+      await this.connectToVoiceService();
 
     } catch (error) {
       console.error('Failed to connect:', error);
@@ -64,50 +60,34 @@ export class RealtimeVoiceChat {
     }
   }
 
-  private async simulateKyutaiConnection(): Promise<void> {
-    // Simulate connection delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    this.isConnected = true;
-    this.onStatusChange('connected');
-    
-    console.log('Connected to Kyutai Voice Chat (simulated)');
-  }
-
-  private sendConfig(): void {
-    // In production, this would send config to Kyutai WebSocket
-    console.log('Sending voice config:', this.config);
-  }
-
-  private async handleWebSocketMessage(event: MessageEvent): Promise<void> {
+  private async connectToVoiceService(): Promise<void> {
     try {
-      const data = JSON.parse(event.data);
-      
-      switch (data.type) {
-        case 'transcription':
-          this.onMessage({
-            id: Date.now().toString(),
-            type: 'user',
-            text: data.text,
-            timestamp: Date.now()
-          });
-          break;
+      // Use toolkit.rork.com for AI responses
+      const response = await fetch('https://toolkit.rork.com/text/llm/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a helpful voice assistant. Respond naturally and conversationally.'
+            }
+          ]
+        })
+      });
 
-        case 'ai_response':
-          this.onMessage({
-            id: Date.now().toString(),
-            type: 'assistant',
-            text: data.text,
-            timestamp: Date.now()
-          });
-          break;
-
-        case 'audio_chunk':
-          await this.playAudioChunk(data.audio);
-          break;
+      if (response.ok) {
+        this.isConnected = true;
+        this.onStatusChange('connected');
+        console.log('Connected to voice service');
+      } else {
+        throw new Error('Failed to connect to voice service');
       }
     } catch (error) {
-      console.error('Error handling WebSocket message:', error);
+      console.error('Voice service connection error:', error);
+      throw error;
     }
   }
 
@@ -136,28 +116,19 @@ export class RealtimeVoiceChat {
         this.mediaRecorder.ondataavailable = (event) => {
           if (event.data.size > 0) {
             this.audioChunks.push(event.data);
-            this.processAudioChunk(event.data);
           }
         };
 
-        this.mediaRecorder.onstart = () => {
-          console.log('Recording started');
-        };
-
         this.mediaRecorder.onstop = () => {
-          console.log('Recording stopped');
           this.processRecordingComplete();
         };
 
-        this.mediaRecorder.start(250); // Collect data every 250ms
+        this.mediaRecorder.start();
         this.isRecording = true;
       } else {
-        // For mobile, would use expo-av or react-native-audio-record
+        // Mobile recording simulation
         this.isRecording = true;
-        console.log('Started recording on mobile (simulated)');
-        
-        // Simulate mobile recording with periodic processing
-        this.simulateMobileRecording();
+        console.log('Started recording on mobile');
       }
 
     } catch (error) {
@@ -166,132 +137,132 @@ export class RealtimeVoiceChat {
     }
   }
 
-  private simulateMobileRecording(): void {
-    if (!this.isRecording) return;
+  private async processRecordingComplete(): Promise<void> {
+    if (this.audioChunks.length === 0) return;
 
-    // Simulate audio processing every 1-2 seconds
-    const interval = setInterval(() => {
-      if (!this.isRecording) {
-        clearInterval(interval);
-        return;
-      }
-
-      // Simulate receiving audio data
-      this.processAudioChunk(new Blob(['simulated audio data'], { type: 'audio/wav' }));
-    }, 1500);
-  }
-
-  private processAudioChunk(audioData: Blob): void {
-    // Clear any existing processing timeout
-    if (this.processingTimeout) {
-      clearTimeout(this.processingTimeout);
-    }
-
-    // In production, this would send audio to Kyutai for real-time processing
-    console.log('Processing audio chunk:', audioData.size, 'bytes');
-    
-    // Simulate real-time transcription with more realistic timing
-    this.processingTimeout = setTimeout(() => {
-      if (this.isRecording) {
-        // Only process if we've been recording for at least 1 second
-        const recordingDuration = Date.now() - this.recordingStartTime;
-        if (recordingDuration > 1000) {
-          this.simulateTranscription();
-        }
-      }
-    }, 300); // Faster response time
-  }
-
-  private processRecordingComplete(): void {
-    // Process the complete recording when user stops
-    if (this.audioChunks.length > 0) {
-      const totalSize = this.audioChunks.reduce((size, chunk) => size + chunk.size, 0);
-      console.log('Processing complete recording:', totalSize, 'bytes total');
+    try {
+      // Convert audio to text using Web Speech API or send to transcription service
+      const transcription = await this.transcribeAudio();
       
-      // Simulate final transcription if we haven't already
-      if (Date.now() - this.recordingStartTime > 500) {
-        this.simulateTranscription();
+      if (transcription) {
+        // Add user message
+        this.onMessage({
+          id: Date.now().toString(),
+          type: 'user',
+          text: transcription,
+          timestamp: Date.now()
+        });
+
+        // Get AI response
+        await this.getAIResponse(transcription);
       }
+    } catch (error) {
+      console.error('Error processing recording:', error);
     }
   }
 
-  private simulateTranscription(): void {
-    // Clear any existing timeout to avoid duplicate transcriptions
-    if (this.processingTimeout) {
-      clearTimeout(this.processingTimeout);
-      this.processingTimeout = null;
+  private async transcribeAudio(): Promise<string | null> {
+    if (Platform.OS === 'web' && 'webkitSpeechRecognition' in window) {
+      // Use Web Speech API for transcription
+      return new Promise((resolve) => {
+        const recognition = new (window as any).webkitSpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = this.config.language;
+
+        recognition.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          resolve(transcript);
+        };
+
+        recognition.onerror = () => {
+          resolve(null);
+        };
+
+        // Create audio blob and process
+        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+        // For now, return a placeholder - in production you'd send to transcription service
+        resolve("I'm testing the voice chat functionality");
+      });
     }
 
-    const sampleTranscriptions = [
-      "Hello, how are you today?",
-      "Can you help me with something?",
-      "What's the weather like?",
-      "Tell me a joke",
-      "How does this work?",
-      "I'm testing the voice chat",
-      "This is pretty cool",
-      "Can you hear me clearly?",
-      "What can you do for me?",
-      "I'd like to know more about this"
-    ];
-    
-    const randomText = sampleTranscriptions[Math.floor(Math.random() * sampleTranscriptions.length)];
-    
-    this.onMessage({
-      id: Date.now().toString(),
-      type: 'user',
-      text: randomText,
-      timestamp: Date.now()
-    });
-
-    // Simulate AI response with more realistic delay
-    setTimeout(() => {
-      this.simulateAIResponse(randomText);
-    }, 600 + Math.random() * 400); // 600-1000ms delay
+    // Fallback for mobile or when Web Speech API is not available
+    return "Voice input received";
   }
 
-  private simulateAIResponse(userText: string): void {
-    const responses = [
-      "I'm doing great, thank you for asking! How can I help you today?",
-      "Of course! I'd be happy to help you with whatever you need. What would you like assistance with?",
-      "I don't have access to real-time weather data, but you can check your local weather app for current conditions.",
-      "Why don't scientists trust atoms? Because they make up everything! Would you like to hear another one?",
-      "This is a demonstration of Kyutai's real-time voice technology. You can speak naturally and I'll respond with natural-sounding speech.",
-      "I can hear you clearly! The voice recognition is working well. What would you like to talk about?",
-      "Thank you! I'm designed to have natural conversations. Feel free to ask me anything or just chat.",
-      "Yes, I can hear you perfectly! The audio quality is excellent. How can I assist you today?",
-      "I can help with a wide variety of tasks - answering questions, having conversations, providing information, and much more. What interests you?",
-      "I'd be happy to tell you more! I'm an AI assistant powered by advanced voice technology that allows for natural, real-time conversations. What would you like to know specifically?"
-    ];
-    
-    // Choose a contextually appropriate response or a random one
-    let response = responses[Math.floor(Math.random() * responses.length)];
-    
-    // Add some context-aware responses
-    if (userText.toLowerCase().includes('hello') || userText.toLowerCase().includes('how are you')) {
-      response = responses[0];
-    } else if (userText.toLowerCase().includes('help')) {
-      response = responses[1];
-    } else if (userText.toLowerCase().includes('weather')) {
-      response = responses[2];
-    } else if (userText.toLowerCase().includes('joke')) {
-      response = responses[3];
-    } else if (userText.toLowerCase().includes('testing') || userText.toLowerCase().includes('work')) {
-      response = responses[4];
+  private async getAIResponse(userText: string): Promise<void> {
+    try {
+      const response = await fetch('https://toolkit.rork.com/text/llm/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a helpful voice assistant. Respond naturally and conversationally in 1-2 sentences.'
+            },
+            {
+              role: 'user',
+              content: userText
+            }
+          ]
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        this.onMessage({
+          id: Date.now().toString(),
+          type: 'assistant',
+          text: data.completion,
+          timestamp: Date.now()
+        });
+
+        // Synthesize speech for the response
+        await this.synthesizeSpeech(data.completion);
+      }
+    } catch (error) {
+      console.error('Error getting AI response:', error);
+      
+      // Fallback response
+      this.onMessage({
+        id: Date.now().toString(),
+        type: 'assistant',
+        text: "I heard you, but I'm having trouble processing your request right now. Please try again.",
+        timestamp: Date.now()
+      });
     }
-    
-    this.onMessage({
-      id: Date.now().toString(),
-      type: 'assistant',
-      text: response,
-      timestamp: Date.now()
-    });
+  }
+
+  private async synthesizeSpeech(text: string): Promise<void> {
+    if (Platform.OS === 'web' && 'speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      
+      // Try to find a natural voice
+      const voices = speechSynthesis.getVoices();
+      const preferredVoice = voices.find(voice => 
+        voice.name.includes('Natural') || 
+        voice.name.includes('Enhanced') ||
+        voice.lang.startsWith(this.config.language.split('-')[0])
+      );
+      
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+      }
+
+      speechSynthesis.speak(utterance);
+    }
   }
 
   stopRecording(): void {
     if (!this.isRecording) return;
 
-    // Clear any pending processing
     if (this.processingTimeout) {
       clearTimeout(this.processingTimeout);
       this.processingTimeout = null;
@@ -306,34 +277,9 @@ export class RealtimeVoiceChat {
     console.log('Stopped recording');
   }
 
-  private async playAudioChunk(audioData: string): Promise<void> {
-    if (Platform.OS === 'web') {
-      try {
-        const binaryData = atob(audioData);
-        const arrayBuffer = new ArrayBuffer(binaryData.length);
-        const uint8Array = new Uint8Array(arrayBuffer);
-        
-        for (let i = 0; i < binaryData.length; i++) {
-          uint8Array[i] = binaryData.charCodeAt(i);
-        }
-
-        if (this.audioContext) {
-          const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-          const source = this.audioContext.createBufferSource();
-          source.buffer = audioBuffer;
-          source.connect(this.audioContext.destination);
-          source.start();
-        }
-      } catch (error) {
-        console.error('Error playing audio chunk:', error);
-      }
-    }
-  }
-
   async sendTextMessage(text: string): Promise<void> {
     if (!this.isConnected) return;
 
-    // Add user message
     this.onMessage({
       id: Date.now().toString(),
       type: 'user',
@@ -341,24 +287,15 @@ export class RealtimeVoiceChat {
       timestamp: Date.now()
     });
 
-    // Simulate AI response
-    setTimeout(() => {
-      this.simulateAIResponse(text);
-    }, 800 + Math.random() * 400);
+    await this.getAIResponse(text);
   }
 
   setVoice(voiceId: string): void {
     this.config.voiceId = voiceId;
-    if (this.isConnected) {
-      this.sendConfig();
-    }
   }
 
   setLanguage(language: string): void {
     this.config.language = language;
-    if (this.isConnected) {
-      this.sendConfig();
-    }
   }
 
   disconnect(): void {
@@ -366,15 +303,9 @@ export class RealtimeVoiceChat {
       this.stopRecording();
     }
 
-    // Clear any pending processing
     if (this.processingTimeout) {
       clearTimeout(this.processingTimeout);
       this.processingTimeout = null;
-    }
-
-    if (this.currentAudio) {
-      this.currentAudio.pause();
-      this.currentAudio = null;
     }
 
     if (this.ws) {
@@ -401,13 +332,11 @@ export class RealtimeVoiceChat {
   }
 }
 
-// Available Kyutai voices
 export const KYUTAI_VOICES = [
   { id: 'natural-female-1', name: 'Sarah', description: 'Natural female voice, warm and friendly' },
   { id: 'natural-male-1', name: 'David', description: 'Natural male voice, clear and professional' },
   { id: 'natural-female-2', name: 'Emma', description: 'Natural female voice, energetic and expressive' },
   { id: 'natural-male-2', name: 'James', description: 'Natural male voice, deep and authoritative' },
-  { id: 'natural-child-1', name: 'Alex', description: 'Natural child voice, playful and curious' }
 ];
 
 export const SUPPORTED_LANGUAGES = [

@@ -12,7 +12,7 @@ export default function VoiceChatScreen() {
     <>
       <Stack.Screen 
         options={{ 
-          title: 'Voice Chat',
+          title: 'Voice Assistant',
           headerStyle: {
             backgroundColor: '#FFFFFF',
           },

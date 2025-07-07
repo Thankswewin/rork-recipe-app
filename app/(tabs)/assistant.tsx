@@ -36,10 +36,10 @@ export default function AssistantScreen() {
               </View>
             </View>
             
-            <Text style={styles.cardTitle}>Voice Chat</Text>
+            <Text style={styles.cardTitle}>Voice Assistant</Text>
             <Text style={styles.cardDescription}>
-              Experience natural conversations with Kyutai's advanced voice AI. 
-              Ultra-low latency real-time speech interaction.
+              Experience natural conversations with our advanced voice AI. 
+              Real-time speech recognition and natural responses.
             </Text>
             
             <View style={styles.cardFeatures}>

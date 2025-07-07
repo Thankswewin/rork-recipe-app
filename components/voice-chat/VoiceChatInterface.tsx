@@ -38,7 +38,6 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const waveAnim = useRef(new Animated.Value(0)).current;
 
-  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (messages.length > 0) {
       setTimeout(() => {
@@ -47,7 +46,6 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
     }
   }, [messages]);
 
-  // Pulse animation for recording state
   useEffect(() => {
     if (isRecording) {
       const pulseAnimation = Animated.loop(
@@ -71,7 +69,6 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
     }
   }, [isRecording, pulseAnim]);
 
-  // Wave animation for listening state
   useEffect(() => {
     if (isListening || isRecording) {
       const waveAnimation = Animated.loop(
@@ -119,7 +116,7 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
   const getConnectionStatusText = () => {
     switch (connectionStatus) {
       case 'connecting':
-        return 'Connecting to Kyutai...';
+        return 'Connecting to AI...';
       case 'connected':
         return 'Connected • Real-time Voice';
       case 'disconnected':
@@ -152,7 +149,7 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
           <View style={styles.titleSection}>
             <View style={styles.titleRow}>
               <Radio size={20} color="#3B82F6" />
-              <Text style={styles.title}>Kyutai Voice</Text>
+              <Text style={styles.title}>Voice Assistant</Text>
               <Zap size={16} color="#10B981" />
             </View>
             <View style={styles.statusContainer}>
@@ -198,8 +195,8 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
               Start a Voice Conversation
             </Text>
             <Text style={styles.emptyStateText}>
-              Connect and speak naturally with Kyutai's advanced AI.{'\n'}
-              Experience ultra-low latency voice interaction.
+              Connect and speak naturally with our AI assistant.{'\n'}
+              Experience real-time voice interaction.
             </Text>
           </View>
         )}
@@ -250,7 +247,7 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
             >
               <Radio size={24} color="#FFFFFF" />
               <Text style={styles.connectButtonText}>
-                {isConnecting ? 'Connecting...' : 'Connect to Kyutai'}
+                {isConnecting ? 'Connecting...' : 'Connect Voice Assistant'}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -297,7 +294,7 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
       <View style={styles.instructions}>
         <Text style={styles.instructionText}>
           {!isConnected 
-            ? 'Connect to start real-time voice conversation with Kyutai AI'
+            ? 'Connect to start real-time voice conversation with AI'
             : pushToTalk 
               ? 'Hold microphone to speak, release to send'
               : isRecording
