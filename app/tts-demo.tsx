@@ -34,10 +34,10 @@ const VOICE_STYLES = [
 ] as const;
 
 const SAMPLE_TEXTS = [
-  \"Welcome to Kyutai's advanced text-to-speech technology. Experience natural, human-like voices with ultra-low latency.\",
-  \"The quick brown fox jumps over the lazy dog. This pangram contains every letter of the alphabet.\",
-  \"In the heart of an ancient forest, where the trees whispered secrets of the past, there lived a peculiar rabbit named Luna.\",
-  \"Cooking is an art that brings people together. Let me guide you through creating the perfect dish with step-by-step instructions.\",
+  "Welcome to Kyutai's advanced text-to-speech technology. Experience natural, human-like voices with ultra-low latency.",
+  "The quick brown fox jumps over the lazy dog. This pangram contains every letter of the alphabet.",
+  "In the heart of an ancient forest, where the trees whispered secrets of the past, there lived a peculiar rabbit named Luna.",
+  "Cooking is an art that brings people together. Let me guide you through creating the perfect dish with step-by-step instructions.",
 ];
 
 export default function TTSDemoScreen() {
@@ -96,9 +96,9 @@ export default function TTSDemoScreen() {
           <BackButton />
           <View style={styles.titleContainer}>
             <View style={styles.titleRow}>
-              <Sparkles size={24} color=\"#F59E0B\" />
+              <Sparkles size={24} color="#F59E0B" />
               <Text style={[styles.title, { color: colors.text }]}>Kyutai TTS Demo</Text>
-              <Zap size={24} color=\"#10B981\" />
+              <Zap size={24} color="#10B981" />
             </View>
             <Text style={[styles.subtitle, { color: colors.muted }]}>
               Ultra-low latency, natural voices
@@ -115,19 +115,19 @@ export default function TTSDemoScreen() {
         {lastLatency && (
           <View style={[styles.statsContainer, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
             <View style={styles.statItem}>
-              <Clock size={16} color=\"#10B981\" />
+              <Clock size={16} color="#10B981" />
               <Text style={[styles.statLabel, { color: colors.muted }]}>Latency</Text>
               <Text style={[styles.statValue, { color: colors.text }]}>{Math.round(lastLatency)}ms</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Zap size={16} color=\"#F59E0B\" />
+              <Zap size={16} color="#F59E0B" />
               <Text style={[styles.statLabel, { color: colors.muted }]}>Mode</Text>
               <Text style={[styles.statValue, { color: colors.text }]}>{lowLatency ? 'Low Latency' : 'Standard'}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Volume2 size={16} color=\"#8B5CF6\" />
+              <Volume2 size={16} color="#8B5CF6" />
               <Text style={[styles.statLabel, { color: colors.muted }]}>Voice</Text>
               <Text style={[styles.statValue, { color: colors.text }]}>{VOICE_STYLES.find(v => v.id === selectedVoice)?.name}</Text>
             </View>
@@ -197,11 +197,11 @@ export default function TTSDemoScreen() {
                 style={[styles.textInput, { color: colors.text }]}
                 value={text}
                 onChangeText={setText}
-                placeholder=\"Enter text to speak...\"
+                placeholder="Enter text to speak..."
                 placeholderTextColor={colors.muted}
                 multiline
                 numberOfLines={4}
-                textAlignVertical=\"top\"
+                textAlignVertical="top"
               />
             </View>
           </View>
@@ -288,7 +288,7 @@ export default function TTSDemoScreen() {
                   </View>
                 ) : (
                   <>
-                    <Play size={24} color=\"white\" />
+                    <Play size={24} color="white" />
                     <Text style={styles.playButtonText}>
                       Speak with {lowLatency ? 'Kyutai' : 'Standard'} TTS
                     </Text>
@@ -305,7 +305,7 @@ export default function TTSDemoScreen() {
                 colors={['#EF4444', '#DC2626']}
                 style={styles.stopButton}
               >
-                <Square size={24} color=\"white\" />
+                <Square size={24} color="white" />
                 <Text style={styles.stopButtonText}>Stop Speaking</Text>
               </LinearGradient>
             </TouchableOpacity>
