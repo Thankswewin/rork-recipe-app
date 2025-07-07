@@ -27,6 +27,9 @@ export class RealtimeVoiceChat {
   private currentAudio: HTMLAudioElement | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 3;
+  private recordingStartTime = 0;
+  private audioChunks: Blob[] = [];
+  private processingTimeout: NodeJS.Timeout | null = null;
 
   private config: VoiceConfig = {
     sampleRate: 16000,
@@ -112,6 +115,9 @@ export class RealtimeVoiceChat {
     if (this.isRecording || !this.isConnected) return;
 
     try {
+      this.audioChunks = [];
+      this.recordingStartTime = Date.now();
+
       if (Platform.OS === 'web') {
         const stream = await navigator.mediaDevices.getUserMedia({ 
           audio: {
@@ -129,16 +135,29 @@ export class RealtimeVoiceChat {
 
         this.mediaRecorder.ondataavailable = (event) => {
           if (event.data.size > 0) {
+            this.audioChunks.push(event.data);
             this.processAudioChunk(event.data);
           }
         };
 
-        this.mediaRecorder.start(100);
+        this.mediaRecorder.onstart = () => {
+          console.log('Recording started');
+        };
+
+        this.mediaRecorder.onstop = () => {
+          console.log('Recording stopped');
+          this.processRecordingComplete();
+        };
+
+        this.mediaRecorder.start(250); // Collect data every 250ms
         this.isRecording = true;
       } else {
         // For mobile, would use expo-av or react-native-audio-record
         this.isRecording = true;
         console.log('Started recording on mobile (simulated)');
+        
+        // Simulate mobile recording with periodic processing
+        this.simulateMobileRecording();
       }
 
     } catch (error) {
@@ -147,26 +166,73 @@ export class RealtimeVoiceChat {
     }
   }
 
+  private simulateMobileRecording(): void {
+    if (!this.isRecording) return;
+
+    // Simulate audio processing every 1-2 seconds
+    const interval = setInterval(() => {
+      if (!this.isRecording) {
+        clearInterval(interval);
+        return;
+      }
+
+      // Simulate receiving audio data
+      this.processAudioChunk(new Blob(['simulated audio data'], { type: 'audio/wav' }));
+    }, 1500);
+  }
+
   private processAudioChunk(audioData: Blob): void {
+    // Clear any existing processing timeout
+    if (this.processingTimeout) {
+      clearTimeout(this.processingTimeout);
+    }
+
     // In production, this would send audio to Kyutai for real-time processing
     console.log('Processing audio chunk:', audioData.size, 'bytes');
     
-    // Simulate real-time transcription
-    setTimeout(() => {
+    // Simulate real-time transcription with more realistic timing
+    this.processingTimeout = setTimeout(() => {
       if (this.isRecording) {
-        // Simulate receiving transcription
+        // Only process if we've been recording for at least 1 second
+        const recordingDuration = Date.now() - this.recordingStartTime;
+        if (recordingDuration > 1000) {
+          this.simulateTranscription();
+        }
+      }
+    }, 300); // Faster response time
+  }
+
+  private processRecordingComplete(): void {
+    // Process the complete recording when user stops
+    if (this.audioChunks.length > 0) {
+      const totalSize = this.audioChunks.reduce((size, chunk) => size + chunk.size, 0);
+      console.log('Processing complete recording:', totalSize, 'bytes total');
+      
+      // Simulate final transcription if we haven't already
+      if (Date.now() - this.recordingStartTime > 500) {
         this.simulateTranscription();
       }
-    }, 500);
+    }
   }
 
   private simulateTranscription(): void {
+    // Clear any existing timeout to avoid duplicate transcriptions
+    if (this.processingTimeout) {
+      clearTimeout(this.processingTimeout);
+      this.processingTimeout = null;
+    }
+
     const sampleTranscriptions = [
       "Hello, how are you today?",
       "Can you help me with something?",
       "What's the weather like?",
       "Tell me a joke",
-      "How does this work?"
+      "How does this work?",
+      "I'm testing the voice chat",
+      "This is pretty cool",
+      "Can you hear me clearly?",
+      "What can you do for me?",
+      "I'd like to know more about this"
     ];
     
     const randomText = sampleTranscriptions[Math.floor(Math.random() * sampleTranscriptions.length)];
@@ -178,22 +244,41 @@ export class RealtimeVoiceChat {
       timestamp: Date.now()
     });
 
-    // Simulate AI response
+    // Simulate AI response with more realistic delay
     setTimeout(() => {
       this.simulateAIResponse(randomText);
-    }, 800);
+    }, 600 + Math.random() * 400); // 600-1000ms delay
   }
 
   private simulateAIResponse(userText: string): void {
     const responses = [
       "I'm doing great, thank you for asking! How can I help you today?",
-      "Of course! I'd be happy to help you with whatever you need.",
-      "I don't have access to real-time weather data, but you can check your local weather app.",
-      "Why don't scientists trust atoms? Because they make up everything!",
-      "This is a demonstration of Kyutai's real-time voice technology. You can speak naturally and I'll respond with natural-sounding speech."
+      "Of course! I'd be happy to help you with whatever you need. What would you like assistance with?",
+      "I don't have access to real-time weather data, but you can check your local weather app for current conditions.",
+      "Why don't scientists trust atoms? Because they make up everything! Would you like to hear another one?",
+      "This is a demonstration of Kyutai's real-time voice technology. You can speak naturally and I'll respond with natural-sounding speech.",
+      "I can hear you clearly! The voice recognition is working well. What would you like to talk about?",
+      "Thank you! I'm designed to have natural conversations. Feel free to ask me anything or just chat.",
+      "Yes, I can hear you perfectly! The audio quality is excellent. How can I assist you today?",
+      "I can help with a wide variety of tasks - answering questions, having conversations, providing information, and much more. What interests you?",
+      "I'd be happy to tell you more! I'm an AI assistant powered by advanced voice technology that allows for natural, real-time conversations. What would you like to know specifically?"
     ];
     
-    const response = responses[Math.floor(Math.random() * responses.length)];
+    // Choose a contextually appropriate response or a random one
+    let response = responses[Math.floor(Math.random() * responses.length)];
+    
+    // Add some context-aware responses
+    if (userText.toLowerCase().includes('hello') || userText.toLowerCase().includes('how are you')) {
+      response = responses[0];
+    } else if (userText.toLowerCase().includes('help')) {
+      response = responses[1];
+    } else if (userText.toLowerCase().includes('weather')) {
+      response = responses[2];
+    } else if (userText.toLowerCase().includes('joke')) {
+      response = responses[3];
+    } else if (userText.toLowerCase().includes('testing') || userText.toLowerCase().includes('work')) {
+      response = responses[4];
+    }
     
     this.onMessage({
       id: Date.now().toString(),
@@ -205,6 +290,12 @@ export class RealtimeVoiceChat {
 
   stopRecording(): void {
     if (!this.isRecording) return;
+
+    // Clear any pending processing
+    if (this.processingTimeout) {
+      clearTimeout(this.processingTimeout);
+      this.processingTimeout = null;
+    }
 
     if (this.mediaRecorder && Platform.OS === 'web') {
       this.mediaRecorder.stop();
@@ -253,7 +344,7 @@ export class RealtimeVoiceChat {
     // Simulate AI response
     setTimeout(() => {
       this.simulateAIResponse(text);
-    }, 1000);
+    }, 800 + Math.random() * 400);
   }
 
   setVoice(voiceId: string): void {
@@ -275,6 +366,12 @@ export class RealtimeVoiceChat {
       this.stopRecording();
     }
 
+    // Clear any pending processing
+    if (this.processingTimeout) {
+      clearTimeout(this.processingTimeout);
+      this.processingTimeout = null;
+    }
+
     if (this.currentAudio) {
       this.currentAudio.pause();
       this.currentAudio = null;
@@ -291,6 +388,7 @@ export class RealtimeVoiceChat {
     }
 
     this.isConnected = false;
+    this.audioChunks = [];
     this.onStatusChange('disconnected');
   }
 

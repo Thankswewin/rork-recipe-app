@@ -41,7 +41,9 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (messages.length > 0) {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     }
   }, [messages]);
 
@@ -51,29 +53,31 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
       const pulseAnimation = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
-            toValue: 1.3,
-            duration: 600,
+            toValue: 1.2,
+            duration: 800,
             useNativeDriver: true,
           }),
           Animated.timing(pulseAnim, {
             toValue: 1,
-            duration: 600,
+            duration: 800,
             useNativeDriver: true,
           }),
         ])
       );
       pulseAnimation.start();
       return () => pulseAnimation.stop();
+    } else {
+      pulseAnim.setValue(1);
     }
   }, [isRecording, pulseAnim]);
 
   // Wave animation for listening state
   useEffect(() => {
-    if (isListening) {
+    if (isListening || isRecording) {
       const waveAnimation = Animated.loop(
         Animated.timing(waveAnim, {
           toValue: 1,
-          duration: 1200,
+          duration: 1000,
           useNativeDriver: true,
         })
       );
@@ -82,7 +86,7 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
     } else {
       waveAnim.setValue(0);
     }
-  }, [isListening, waveAnim]);
+  }, [isListening, isRecording, waveAnim]);
 
   const handleConnectionToggle = async () => {
     if (isConnected) {
@@ -97,6 +101,18 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
       stopRecording();
     } else {
       await startRecording();
+    }
+  };
+
+  const handleMicPressIn = async () => {
+    if (pushToTalk && !isRecording) {
+      await startRecording();
+    }
+  };
+
+  const handleMicPressOut = () => {
+    if (pushToTalk && isRecording) {
+      stopRecording();
     }
   };
 
@@ -209,7 +225,7 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
                     transform: [{
                       scaleY: waveAnim.interpolate({
                         inputRange: [0, 1],
-                        outputRange: [0.3, 1.5 - (index * 0.1)],
+                        outputRange: [0.4, 1.8 - (index * 0.15)],
                       })
                     }]
                   }
@@ -229,7 +245,7 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
             disabled={isConnecting}
           >
             <LinearGradient
-              colors={['#3B82F6', '#2563EB']}
+              colors={isConnecting ? ['#9CA3AF', '#6B7280'] : ['#3B82F6', '#2563EB']}
               style={styles.connectButton}
             >
               <Radio size={24} color="#FFFFFF" />
@@ -253,9 +269,10 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
                   styles.micButton,
                   isRecording ? styles.recordingButton : styles.idleButton
                 ]}
-                onPress={handleMicToggle}
-                onPressIn={pushToTalk ? handleMicToggle : undefined}
-                onPressOut={pushToTalk ? stopRecording : undefined}
+                onPress={pushToTalk ? undefined : handleMicToggle}
+                onPressIn={pushToTalk ? handleMicPressIn : undefined}
+                onPressOut={pushToTalk ? handleMicPressOut : undefined}
+                activeOpacity={0.8}
               >
                 <LinearGradient
                   colors={isRecording 
