@@ -14,6 +14,7 @@ export const useTTS = (defaultOptions: UseTTSOptions = {}) => {
   const [isRealtimeMode, setIsRealtimeMode] = useState(defaultOptions.realTimeMode || false);
   const currentTextRef = useRef<string>('');
   const realtimeSessionRef = useRef<any>(null);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize real-time mode if requested
   useEffect(() => {
@@ -25,6 +26,9 @@ export const useTTS = (defaultOptions: UseTTSOptions = {}) => {
       if (realtimeSessionRef.current) {
         realtimeSessionRef.current.stop();
         realtimeSessionRef.current = null;
+      }
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
       }
     };
   }, [isRealtimeMode]);
@@ -60,6 +64,13 @@ export const useTTS = (defaultOptions: UseTTSOptions = {}) => {
     setError(null);
     currentTextRef.current = text;
 
+    // Set a timeout to prevent infinite loading
+    loadingTimeoutRef.current = setTimeout(() => {
+      console.warn('TTS loading timeout reached');
+      setIsLoading(false);
+      setError('TTS request timed out. Please try again.');
+    }, 15000); // 15 second timeout
+
     const startTime = Date.now();
 
     const mergedOptions: KyutaiTTSOptions = {
@@ -69,6 +80,10 @@ export const useTTS = (defaultOptions: UseTTSOptions = {}) => {
       lowLatency: true, // Always use low latency for better UX
       streaming: true, // Enable streaming for faster response
       onStart: () => {
+        if (loadingTimeoutRef.current) {
+          clearTimeout(loadingTimeoutRef.current);
+          loadingTimeoutRef.current = null;
+        }
         setIsSpeaking(true);
         setIsLoading(false);
         const latency = Date.now() - startTime;
@@ -77,6 +92,10 @@ export const useTTS = (defaultOptions: UseTTSOptions = {}) => {
         defaultOptions.onStart?.();
       },
       onDone: () => {
+        if (loadingTimeoutRef.current) {
+          clearTimeout(loadingTimeoutRef.current);
+          loadingTimeoutRef.current = null;
+        }
         setIsSpeaking(false);
         setIsLoading(false);
         const totalTime = Date.now() - startTime;
@@ -85,15 +104,24 @@ export const useTTS = (defaultOptions: UseTTSOptions = {}) => {
         defaultOptions.onDone?.();
       },
       onStopped: () => {
+        if (loadingTimeoutRef.current) {
+          clearTimeout(loadingTimeoutRef.current);
+          loadingTimeoutRef.current = null;
+        }
         setIsSpeaking(false);
         setIsLoading(false);
         options.onStopped?.();
         defaultOptions.onStopped?.();
       },
       onError: (err) => {
+        if (loadingTimeoutRef.current) {
+          clearTimeout(loadingTimeoutRef.current);
+          loadingTimeoutRef.current = null;
+        }
         setIsSpeaking(false);
         setIsLoading(false);
         setError(err.message || 'TTS Error');
+        console.error('TTS Error:', err);
         options.onError?.(err);
         defaultOptions.onError?.(err);
       },
@@ -113,14 +141,25 @@ export const useTTS = (defaultOptions: UseTTSOptions = {}) => {
         await ttsService.speak(text, mergedOptions);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to speak');
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+      const errorMessage = err.message || 'Failed to speak';
+      setError(errorMessage);
       setIsSpeaking(false);
       setIsLoading(false);
+      console.error('TTS speak error:', err);
     }
   }, [isSpeaking, defaultOptions, isRealtimeMode]);
 
   const stop = useCallback(async () => {
     try {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+      
       if (realtimeSessionRef.current) {
         await realtimeSessionRef.current.stop();
       } else {
@@ -128,6 +167,7 @@ export const useTTS = (defaultOptions: UseTTSOptions = {}) => {
       }
       setIsSpeaking(false);
       setIsLoading(false);
+      setError(null);
     } catch (err: any) {
       setError(err.message || 'Failed to stop');
     }

@@ -14,7 +14,7 @@ const kyutaiTTSSchema = z.object({
 
 export const kyutaiTTSProcedure = publicProcedure
   .input(kyutaiTTSSchema)
-  .mutation(async ({ input }: { input: z.infer<typeof kyutaiTTSSchema> }) => {
+  .mutation(async ({ input }) => {
     try {
       const { text, voice_style, model, streaming, rate, pitch, low_latency, real_time } = input;
       

@@ -39,7 +39,8 @@ export const TTSPlayer: React.FC<TTSPlayerProps> = ({
     isLoading,
     isRealtimeMode,
     toggleRealtimeMode,
-    latencyStats
+    latencyStats,
+    error
   } = useTTS({ 
     lowLatency,
     realTimeMode,
@@ -157,6 +158,23 @@ export const TTSPlayer: React.FC<TTSPlayerProps> = ({
         </View>
       )}
 
+      {/* Error Display */}
+      {error && (
+        <View style={[styles.errorContainer, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}>
+          <Text style={[styles.errorText, { color: '#DC2626' }]}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={() => {
+              if (text.trim()) {
+                handleSpeak();
+              }
+            }}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {Platform.OS === 'web' && (
         <Text style={[styles.webNote, { color: colors.muted }]}>
           Web: Kyutai TTS with streaming support for natural voices
@@ -269,6 +287,31 @@ const styles = StyleSheet.create({
   buttonText: {
     color: 'white',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  errorContainer: {
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  errorText: {
+    fontSize: 14,
+    flex: 1,
+  },
+  retryButton: {
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginLeft: 12,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 12,
     fontWeight: '600',
   },
   webNote: {

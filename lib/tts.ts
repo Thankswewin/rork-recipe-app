@@ -29,6 +29,7 @@ class TTSService {
   private audioQueue: AudioBuffer[] = [];
   private isPlaying = false;
   private currentSource: AudioBufferSourceNode | null = null;
+  private initializationTimeout = 10000; // 10 seconds timeout
   
   constructor() {
     this.checkKyutaiAvailability();
@@ -37,14 +38,20 @@ class TTSService {
 
   private async checkKyutaiAvailability() {
     try {
+      console.log('Checking Kyutai TTS availability...');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
       const response = await fetch(`${this.kyutaiEndpoint}/health`, {
         method: 'GET',
-        signal: AbortSignal.timeout(5000),
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
       this.isKyutaiAvailable = response.ok;
       console.log('Kyutai TTS availability:', this.isKyutaiAvailable);
     } catch (error) {
-      console.log('Kyutai TTS not available, using fallback');
+      console.log('Kyutai TTS not available, using fallback:', error);
       this.isKyutaiAvailable = false;
     }
   }
@@ -62,13 +69,34 @@ class TTSService {
   async speak(text: string, options: KyutaiTTSOptions = {}) {
     console.log('TTS speak called with:', { text: text.substring(0, 50), options });
     
+    // Add timeout to prevent infinite loading
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('TTS request timed out')), this.initializationTimeout);
+    });
+
+    try {
+      const speakPromise = this.performSpeak(text, options);
+      await Promise.race([speakPromise, timeoutPromise]);
+    } catch (error) {
+      console.error('TTS speak error:', error);
+      options.onError?.(error);
+      throw error;
+    }
+  }
+
+  private async performSpeak(text: string, options: KyutaiTTSOptions) {
     if (Platform.OS === 'web') {
       return this.speakWeb(text, options);
     }
 
     // For mobile, prefer Kyutai if available and low latency is requested
     if (this.isKyutaiAvailable && (options.lowLatency || options.realTime)) {
-      return this.speakKyutai(text, options);
+      try {
+        await this.speakKyutai(text, options);
+        return;
+      } catch (error) {
+        console.warn('Kyutai TTS failed, falling back to Expo Speech:', error);
+      }
     }
 
     // Fallback to expo-speech
@@ -93,6 +121,7 @@ class TTSService {
     } catch (error) {
       console.error('Expo TTS Error:', error);
       options.onError?.(error);
+      throw error;
     }
   }
 
@@ -112,36 +141,14 @@ class TTSService {
       options.onDone?.();
     } catch (error) {
       console.error('Kyutai TTS Error:', error);
-      options.onError?.(error);
-      // Fallback to expo-speech
-      console.log('Falling back to Expo Speech');
-      await this.speakExpo(text, options);
+      throw error;
     }
   }
 
   private async speakKyutaiMLX(text: string, options: KyutaiTTSOptions) {
-    // This would interface with a React Native native module
-    // that wraps the moshi-swift implementation for iOS
-    
     console.log('Kyutai MLX TTS - On-device inference for iOS');
     
-    // In a real implementation, this would:
-    // 1. Call a native iOS module that uses moshi-swift
-    // 2. The native module would load the MLX model
-    // 3. Generate audio on-device with hardware acceleration
-    // 4. Stream audio back through the bridge
-    
-    // Example native module call:
-    // const { KyutaiMLXTTS } = NativeModules;
-    // const audioStream = await KyutaiMLXTTS.synthesizeStreaming(text, {
-    //   voiceStyle: options.voiceStyle,
-    //   streaming: options.streaming,
-    //   lowLatency: options.lowLatency,
-    //   realTime: options.realTime,
-    // });
-    
-    // For now, simulate with server call but with MLX-like performance
-    console.log('Simulating MLX on-device inference...');
+    // Simulate MLX on-device inference with realistic timing
     await new Promise(resolve => setTimeout(resolve, 50)); // Simulate ultra-low latency
     
     // In production, this would be actual on-device MLX inference
@@ -183,6 +190,9 @@ class TTSService {
       console.log('Starting Kyutai streaming TTS for real-time synthesis');
       
       // Create streaming request to Kyutai TTS server
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      
       const response = await fetch(`${this.kyutaiEndpoint}/stream`, {
         method: 'POST',
         headers: {
@@ -198,7 +208,10 @@ class TTSService {
           rate: options.rate || 1.0,
           pitch: options.pitch || 1.0,
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`Streaming TTS failed: ${response.status}`);
@@ -224,7 +237,7 @@ class TTSService {
     }
 
     // Fallback to Web Speech API
-    if ('speechSynthesis' in window) {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try {
         options.onStart?.();
         
@@ -250,10 +263,13 @@ class TTSService {
       } catch (error) {
         console.error('Web TTS Error:', error);
         options.onError?.(error);
+        throw error;
       }
     } else {
+      const error = new Error('Speech synthesis not supported');
       console.warn('Speech synthesis not supported in this browser');
-      options.onError?.(new Error('Speech synthesis not supported'));
+      options.onError?.(error);
+      throw error;
     }
   }
 
@@ -284,7 +300,7 @@ class TTSService {
           }
           
           // Call chunk callback if provided
-          options.onChunk?.(value.buffer as ArrayBuffer);
+          options.onChunk?.(value.buffer);
           
           console.log(`Received audio chunk: ${value.length} bytes`);
         }
@@ -315,7 +331,7 @@ class TTSService {
       try {
         // Convert chunks to audio buffer and play immediately
         const firstChunk = audioChunks[0];
-        const audioBuffer = await this.audioContext.decodeAudioData(firstChunk.buffer.slice() as ArrayBuffer);
+        const audioBuffer = await this.audioContext.decodeAudioData(firstChunk.buffer.slice());
         
         const source = this.audioContext.createBufferSource();
         source.buffer = audioBuffer;
@@ -431,7 +447,7 @@ class TTSService {
       this.currentSource = null;
     }
     
-    if (Platform.OS === 'web') {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
       speechSynthesis.cancel();
     } else {
       await Speech.stop();
@@ -439,7 +455,7 @@ class TTSService {
   }
 
   async getAvailableVoices() {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
       return speechSynthesis.getVoices().map(voice => ({
         identifier: voice.voiceURI,
         name: voice.name,
@@ -451,7 +467,7 @@ class TTSService {
   }
 
   isSpeaking() {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
       return speechSynthesis.speaking;
     } else {
       return Speech.isSpeakingAsync();
