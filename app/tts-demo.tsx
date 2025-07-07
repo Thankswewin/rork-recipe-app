@@ -69,7 +69,7 @@ export default function TTSDemoScreen() {
           </View>
           <TouchableOpacity onPress={() => setShowAdvanced(!showAdvanced)}>
             <View style={[styles.settingsButton, { backgroundColor: '#8B5CF6', borderColor: colors.iconBorder }]}>
-              <Settings size={20} color=\"black\" />
+              <Settings size={20} color="white" />
             </View>
           </TouchableOpacity>
         </View>
@@ -82,7 +82,7 @@ export default function TTSDemoScreen() {
             <View style={styles.featuresList}>
               <View style={styles.featureItem}>
                 <View style={[styles.featureIcon, { backgroundColor: '#10B981' }]}>
-                  <Zap size={16} color=\"black\" />
+                  <Zap size={16} color="white" />
                 </View>
                 <View style={styles.featureContent}>
                   <Text style={[styles.featureTitle, { color: colors.text }]}>Ultra Low Latency</Text>
@@ -94,7 +94,7 @@ export default function TTSDemoScreen() {
 
               <View style={styles.featureItem}>
                 <View style={[styles.featureIcon, { backgroundColor: '#3B82F6' }]}>
-                  <Volume2 size={16} color=\"black\" />
+                  <Volume2 size={16} color="white" />
                 </View>
                 <View style={styles.featureContent}>
                   <Text style={[styles.featureTitle, { color: colors.text }]}>High Quality Voice</Text>
@@ -106,7 +106,7 @@ export default function TTSDemoScreen() {
 
               <View style={styles.featureItem}>
                 <View style={[styles.featureIcon, { backgroundColor: '#F59E0B' }]}>
-                  <Play size={16} color=\"black\" />
+                  <Play size={16} color="white" />
                 </View>
                 <View style={styles.featureContent}>
                   <Text style={[styles.featureTitle, { color: colors.text }]}>Streaming Playback</Text>

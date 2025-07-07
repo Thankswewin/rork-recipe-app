@@ -11,9 +11,21 @@ import {
 import { Play, Square, Volume2 } from 'lucide-react-native';
 import { useTTS } from '@/hooks/useTTS';
 
-export const TTSPlayer: React.FC = () => {
-  const [text, setText] = useState('');
-  const { speak, stop, isSpeaking } = useTTS();
+interface TTSPlayerProps {
+  initialText?: string;
+  showControls?: boolean;
+  showSettings?: boolean;
+  lowLatency?: boolean;
+}
+
+export const TTSPlayer: React.FC<TTSPlayerProps> = ({ 
+  initialText = '',
+  showControls = true,
+  showSettings = false,
+  lowLatency = false 
+}) => {
+  const [text, setText] = useState(initialText);
+  const { speak, stop, isSpeaking } = useTTS({ lowLatency });
 
   const handleSpeak = async () => {
     if (!text.trim()) {
