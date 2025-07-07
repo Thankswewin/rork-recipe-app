@@ -19,7 +19,9 @@ import {
   Zap, 
   Clock,
   Mic,
-  Sparkles
+  Sparkles,
+  Radio,
+  Headphones
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTTS } from '@/hooks/useTTS';
@@ -34,7 +36,7 @@ const VOICE_STYLES = [
 ] as const;
 
 const SAMPLE_TEXTS = [
-  "Welcome to Kyutai's advanced text-to-speech technology. Experience natural, human-like voices with ultra-low latency.",
+  "Welcome to Kyutai advanced text-to-speech technology. Experience natural, human-like voices with ultra-low latency.",
   "The quick brown fox jumps over the lazy dog. This pangram contains every letter of the alphabet.",
   "In the heart of an ancient forest, where the trees whispered secrets of the past, there lived a peculiar rabbit named Luna.",
   "Cooking is an art that brings people together. Let me guide you through creating the perfect dish with step-by-step instructions.",
@@ -48,21 +50,23 @@ export default function TTSDemoScreen() {
   const [rate, setRate] = useState(1.0);
   const [pitch, setPitch] = useState(1.0);
   const [lowLatency, setLowLatency] = useState(true);
-  const [lastLatency, setLastLatency] = useState<number | null>(null);
 
-  const { speak, stop, isSpeaking, isLoading, error } = useTTS({
+  const { 
+    speak, 
+    speakInstant,
+    stop, 
+    isSpeaking, 
+    isLoading, 
+    error,
+    isRealtimeMode,
+    toggleRealtimeMode,
+    latencyStats
+  } = useTTS({
     lowLatency,
     voiceStyle: selectedVoice,
     rate,
     pitch,
-    onStart: () => {
-      const startTime = Date.now();
-      setLastLatency(null);
-    },
-    onDone: () => {
-      // In real implementation, we'd get latency from the service
-      setLastLatency(Math.random() * 100 + 50); // Simulate 50-150ms latency
-    },
+    realTimeMode: false, // Start in standard mode
   });
 
   const handleSpeak = async () => {
@@ -72,9 +76,13 @@ export default function TTSDemoScreen() {
     }
 
     try {
-      await speak(text);
+      if (isRealtimeMode) {
+        await speakInstant(text);
+      } else {
+        await speak(text);
+      }
     } catch (error) {
-      Alert.alert('Error', 'Failed to speak text. Using fallback voice.');
+      Alert.alert('Error', 'Failed to speak text. Check your connection.');
     }
   };
 
@@ -84,6 +92,14 @@ export default function TTSDemoScreen() {
 
   const selectSampleText = (sampleText: string) => {
     setText(sampleText);
+  };
+
+  const handleRealtimeToggle = async () => {
+    try {
+      await toggleRealtimeMode();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to toggle real-time mode');
+    }
   };
 
   return (
@@ -111,25 +127,46 @@ export default function TTSDemoScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Real-time Mode Toggle */}
+        <View style={[styles.realtimeContainer, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+          <View style={styles.realtimeInfo}>
+            <Radio size={20} color={isRealtimeMode ? "#10B981" : colors.muted} />
+            <View style={styles.realtimeText}>
+              <Text style={[styles.realtimeTitle, { color: colors.text }]}>
+                Real-time Mode {isRealtimeMode ? 'ON' : 'OFF'}
+              </Text>
+              <Text style={[styles.realtimeDescription, { color: colors.muted }]}>
+                {isRealtimeMode ? 'Ultra-low latency like unmute.sh' : 'Standard TTS mode'}
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={[styles.realtimeToggle, { backgroundColor: isRealtimeMode ? '#10B981' : colors.border }]}
+            onPress={handleRealtimeToggle}
+          >
+            <View style={[styles.realtimeThumb, { transform: [{ translateX: isRealtimeMode ? 20 : 0 }] }]} />
+          </TouchableOpacity>
+        </View>
+
         {/* Performance Stats */}
-        {lastLatency && (
+        {latencyStats && (
           <View style={[styles.statsContainer, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
             <View style={styles.statItem}>
               <Clock size={16} color="#10B981" />
               <Text style={[styles.statLabel, { color: colors.muted }]}>Latency</Text>
-              <Text style={[styles.statValue, { color: colors.text }]}>{Math.round(lastLatency)}ms</Text>
+              <Text style={[styles.statValue, { color: colors.text }]}>{latencyStats.lastLatency}ms</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Zap size={16} color="#F59E0B" />
-              <Text style={[styles.statLabel, { color: colors.muted }]}>Mode</Text>
-              <Text style={[styles.statValue, { color: colors.text }]}>{lowLatency ? 'Low Latency' : 'Standard'}</Text>
+              <Text style={[styles.statLabel, { color: colors.muted }]}>Model</Text>
+              <Text style={[styles.statValue, { color: colors.text }]}>{latencyStats.voiceModel}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Volume2 size={16} color="#8B5CF6" />
-              <Text style={[styles.statLabel, { color: colors.muted }]}>Voice</Text>
-              <Text style={[styles.statValue, { color: colors.text }]}>{VOICE_STYLES.find(v => v.id === selectedVoice)?.name}</Text>
+              <Headphones size={16} color="#8B5CF6" />
+              <Text style={[styles.statLabel, { color: colors.muted }]}>Quality</Text>
+              <Text style={[styles.statValue, { color: colors.text }]}>Natural</Text>
             </View>
           </View>
         )}
@@ -279,7 +316,7 @@ export default function TTSDemoScreen() {
               disabled={!text.trim() || isLoading}
             >
               <LinearGradient
-                colors={lowLatency ? ['#10B981', '#059669'] : ['#3B82F6', '#2563EB']}
+                colors={isRealtimeMode ? ['#10B981', '#059669'] : ['#3B82F6', '#2563EB']}
                 style={styles.playButton}
               >
                 {isLoading ? (
@@ -290,7 +327,7 @@ export default function TTSDemoScreen() {
                   <>
                     <Play size={24} color="white" />
                     <Text style={styles.playButtonText}>
-                      Speak with {lowLatency ? 'Kyutai' : 'Standard'} TTS
+                      {isRealtimeMode ? 'Speak Real-time' : 'Speak with Kyutai'}
                     </Text>
                   </>
                 )}
@@ -320,11 +357,14 @@ export default function TTSDemoScreen() {
         )}
 
         {/* Platform Note */}
-        {Platform.OS === 'web' && (
-          <Text style={[styles.platformNote, { color: colors.muted }]}>
-            Note: Kyutai TTS optimized for iOS. Web version uses fallback voices.
-          </Text>
-        )}
+        <Text style={[styles.platformNote, { color: colors.muted }]}>
+          {Platform.OS === 'ios' 
+            ? 'iOS: Kyutai TTS with MLX on-device inference for ultra-low latency'
+            : Platform.OS === 'web'
+            ? 'Web: Kyutai TTS server with streaming support'
+            : 'Android: Kyutai TTS server with optimized performance'
+          }
+        </Text>
       </View>
     </SafeAreaView>
   );
@@ -368,6 +408,46 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
+  },
+  realtimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  realtimeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  realtimeText: {
+    flex: 1,
+  },
+  realtimeTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  realtimeDescription: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  realtimeToggle: {
+    width: 50,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  realtimeThumb: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'white',
   },
   statsContainer: {
     flexDirection: 'row',
