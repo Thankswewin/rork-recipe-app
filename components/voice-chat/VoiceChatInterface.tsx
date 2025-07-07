@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   Animated,
   Platform
 } from 'react-native';
-import { Mic, MicOff, Settings, Volume2, Zap, Radio } from 'lucide-react-native';
+import { Mic, MicOff, Settings, Volume2, Zap, Radio, Bug, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useVoiceChatStore } from '@/stores/voiceChatStore';
 import { VoiceMessage } from '@/lib/realtime-voice';
@@ -27,14 +27,18 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
     isRecording,
     isListening,
     messages,
+    debugLogs,
     pushToTalk,
     connect,
     disconnect,
     startRecording,
-    stopRecording
+    stopRecording,
+    clearDebugLogs
   } = useVoiceChatStore();
 
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+  const debugScrollRef = useRef<ScrollView>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const waveAnim = useRef(new Animated.Value(0)).current;
 
@@ -45,6 +49,14 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
       }, 100);
     }
   }, [messages]);
+
+  useEffect(() => {
+    if (debugLogs.length > 0) {
+      setTimeout(() => {
+        debugScrollRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [debugLogs]);
 
   useEffect(() => {
     if (isRecording) {
@@ -141,6 +153,19 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
     }
   };
 
+  const getLogLevelColor = (level: string) => {
+    switch (level) {
+      case 'error':
+        return '#EF4444';
+      case 'warn':
+        return '#F59E0B';
+      case 'success':
+        return '#10B981';
+      default:
+        return '#6B7280';
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -165,14 +190,76 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
             </View>
           </View>
           
-          <TouchableOpacity 
-            style={styles.settingsButton}
-            onPress={onSettingsPress}
-          >
-            <Settings size={22} color="#6B7280" />
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity 
+              style={[styles.debugButton, showDebugPanel && styles.debugButtonActive]}
+              onPress={() => setShowDebugPanel(!showDebugPanel)}
+            >
+              <Bug size={18} color={showDebugPanel ? "#FFFFFF" : "#6B7280"} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.settingsButton}
+              onPress={onSettingsPress}
+            >
+              <Settings size={22} color="#6B7280" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
+
+      {/* Debug Panel */}
+      {showDebugPanel && (
+        <View style={styles.debugPanel}>
+          <View style={styles.debugHeader}>
+            <View style={styles.debugTitleRow}>
+              <Bug size={16} color="#3B82F6" />
+              <Text style={styles.debugTitle}>Debug Console</Text>
+              <TouchableOpacity 
+                style={styles.clearLogsButton}
+                onPress={clearDebugLogs}
+              >
+                <Text style={styles.clearLogsText}>Clear</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity 
+              style={styles.collapseButton}
+              onPress={() => setShowDebugPanel(false)}
+            >
+              <ChevronUp size={16} color="#6B7280" />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView 
+            ref={debugScrollRef}
+            style={styles.debugLogs}
+            showsVerticalScrollIndicator={false}
+          >
+            {debugLogs.length === 0 ? (
+              <Text style={styles.noLogsText}>No debug logs yet. Start using voice chat to see logs.</Text>
+            ) : (
+              debugLogs.map((log, index) => (
+                <View key={index} style={styles.debugLogItem}>
+                  <View style={styles.debugLogHeader}>
+                    <Text style={[styles.debugLogLevel, { color: getLogLevelColor(log.level) }]}>
+                      {log.level.toUpperCase()}
+                    </Text>
+                    <Text style={styles.debugLogTime}>
+                      {new Date(log.timestamp).toLocaleTimeString()}
+                    </Text>
+                  </View>
+                  <Text style={styles.debugLogMessage}>{log.message}</Text>
+                  {log.data && (
+                    <Text style={styles.debugLogData}>
+                      {typeof log.data === 'string' ? log.data : JSON.stringify(log.data, null, 2)}
+                    </Text>
+                  )}
+                </View>
+              ))
+            )}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Messages */}
       <ScrollView 
@@ -198,6 +285,15 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
               Connect and speak naturally with our AI assistant.{'\n'}
               Experience real-time voice interaction.
             </Text>
+            {!showDebugPanel && (
+              <TouchableOpacity 
+                style={styles.showDebugButton}
+                onPress={() => setShowDebugPanel(true)}
+              >
+                <Bug size={16} color="#3B82F6" />
+                <Text style={styles.showDebugText}>Show Debug Console</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -379,9 +475,105 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  debugButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+  },
+  debugButtonActive: {
+    backgroundColor: '#3B82F6',
+  },
   settingsButton: {
     padding: 8,
     borderRadius: 8,
+  },
+  debugPanel: {
+    backgroundColor: '#1F2937',
+    borderBottomWidth: 1,
+    borderBottomColor: '#374151',
+    maxHeight: 200,
+  },
+  debugHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#374151',
+  },
+  debugTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  debugTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  clearLogsButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    backgroundColor: '#374151',
+    borderRadius: 6,
+  },
+  clearLogsText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+  collapseButton: {
+    padding: 4,
+  },
+  debugLogs: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  noLogsText: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: 20,
+    fontStyle: 'italic',
+  },
+  debugLogItem: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#374151',
+  },
+  debugLogHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  debugLogLevel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  debugLogTime: {
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  debugLogMessage: {
+    fontSize: 13,
+    color: '#E5E7EB',
+    lineHeight: 18,
+  },
+  debugLogData: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    marginTop: 4,
+    paddingLeft: 8,
   },
   messagesContainer: {
     flex: 1,
@@ -420,6 +612,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
     maxWidth: 280,
+    marginBottom: 20,
+  },
+  showDebugButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
+  showDebugText: {
+    fontSize: 14,
+    color: '#3B82F6',
+    fontWeight: '500',
   },
   messageBubble: {
     maxWidth: '85%',
