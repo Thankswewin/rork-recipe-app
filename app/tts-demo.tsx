@@ -24,7 +24,7 @@ const sampleTexts = [
   },
   {
     title: 'Recipe Introduction',
-    text: 'Welcome to today\\'s cooking session! We\\'re making a delicious Nigerian Jollof Rice with perfectly seasoned chicken and fresh vegetables. This recipe serves 6 people and takes about 45 minutes.',
+    text: "Welcome to today's cooking session! We're making a delicious Nigerian Jollof Rice with perfectly seasoned chicken and fresh vegetables. This recipe serves 6 people and takes about 45 minutes.",
     category: 'intro',
   },
   {
@@ -204,7 +204,7 @@ export default function TTSDemoScreen() {
               style={styles.learnMoreButton}
               onPress={() => Alert.alert(
                 'Kyutai TTS Integration',
-                'To integrate Kyutai TTS:\\n\\n1. Install moshi-mlx package\\n2. Set up MLX framework\\n3. Create React Native bridge\\n4. Configure streaming audio\\n\\nCheck the GitHub repo for detailed instructions.',
+                "To integrate Kyutai TTS:\n\n1. Install moshi-mlx package\n2. Set up MLX framework\n3. Create React Native bridge\n4. Configure streaming audio\n\nCheck the GitHub repo for detailed instructions.",
                 [{ text: 'Got it!' }]
               )}
             >
