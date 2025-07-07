@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Camera, Mic, Brain, MessageCircle, Settings, Play, Square, ChefHat } from "lucide-react-native";
+import { Camera, Mic, Brain, MessageCircle, Settings, Play, Square, ChefHat, Volume2, VolumeX } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Stack, useRouter } from "expo-router";
 import { useTheme } from "@/hooks/useTheme";
@@ -11,6 +11,8 @@ import GradientText from "@/components/GradientText";
 import ChatMessage from "@/components/chef-assistant/ChatMessage";
 import MultimodalChatInput from "@/components/chef-assistant/MultimodalChatInput";
 import EnhancedCameraView from "@/components/chef-assistant/EnhancedCameraView";
+import { TTSPlayer } from "@/components/TTSPlayer";
+import { useTTS } from "@/hooks/useTTS";
 
 export default function AssistantScreen() {
   const { colors } = useTheme();
@@ -18,6 +20,16 @@ export default function AssistantScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [showAgentSelector, setShowAgentSelector] = useState(false);
+  const [showTTSDemo, setShowTTSDemo] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
+  
+  // TTS for assistant responses
+  const { speak, stop, isSpeaking } = useTTS({
+    lowLatency: true,
+    rate: 1.0,
+    pitch: 1.0,
+    language: 'en-US',
+  });
 
   const {
     currentSession,
@@ -94,6 +106,36 @@ export default function AssistantScreen() {
     }
   };
 
+  const handleTTSToggle = () => {
+    if (isSpeaking) {
+      stop();
+    }
+    setTtsEnabled(!ttsEnabled);
+  };
+
+  const speakLastMessage = () => {
+    const lastAssistantMessage = messages
+      .filter(msg => msg.role === 'assistant')
+      .pop();
+    
+    if (lastAssistantMessage && ttsEnabled) {
+      speak(lastAssistantMessage.content);
+    }
+  };
+
+  // Auto-speak new assistant messages
+  useEffect(() => {
+    if (ttsEnabled && messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.role === 'assistant' && lastMessage.content) {
+        // Small delay to ensure message is rendered
+        setTimeout(() => {
+          speak(lastMessage.content);
+        }, 500);
+      }
+    }
+  }, [messages.length, ttsEnabled]);
+
   if (showCamera) {
     return (
       <EnhancedCameraView
@@ -124,12 +166,47 @@ export default function AssistantScreen() {
               </Text>
             )}
           </View>
-          <TouchableOpacity onPress={() => setShowAgentSelector(!showAgentSelector)}>
-            <View style={[styles.agentButton, { backgroundColor: '#8B5CF6', borderColor: colors.iconBorder }]}>
-              <Brain size={20} color="black" />
-            </View>
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity onPress={handleTTSToggle}>
+              <View style={[styles.headerButton, { 
+                backgroundColor: ttsEnabled ? '#10B981' : '#EF4444', 
+                borderColor: colors.iconBorder 
+              }]}>
+                {isSpeaking ? (
+                  <Volume2 size={18} color="black" />
+                ) : ttsEnabled ? (
+                  <Volume2 size={18} color="black" />
+                ) : (
+                  <VolumeX size={18} color="black" />
+                )}
+              </View>
+            </TouchableOpacity>
+            
+            <TouchableOpacity onPress={() => router.push('/tts-demo')}>
+              <View style={[styles.headerButton, { backgroundColor: '#FACC15', borderColor: colors.iconBorder }]}>
+                <Mic size={18} color="black" />
+              </View>
+            </TouchableOpacity>
+            
+            <TouchableOpacity onPress={() => setShowAgentSelector(!showAgentSelector)}>
+              <View style={[styles.headerButton, { backgroundColor: '#8B5CF6', borderColor: colors.iconBorder }]}>
+                <Brain size={18} color="black" />
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
+
+        {/* TTS Demo */}
+        {showTTSDemo && (
+          <View style={styles.ttsDemo}>
+            <TTSPlayer
+              initialText="Welcome to your cooking assistant! I'm here to help you create amazing dishes with step-by-step guidance and real-time tips."
+              showControls={true}
+              showSettings={true}
+              lowLatency={true}
+            />
+          </View>
+        )}
 
         {/* Agent Selector */}
         {showAgentSelector && (
@@ -205,6 +282,25 @@ export default function AssistantScreen() {
                   <MessageCircle size={20} color="black" />
                 </View>
               </TouchableOpacity>
+              
+              {messages.length > 0 && (
+                <TouchableOpacity 
+                  style={styles.speakButtonContainer}
+                  onPress={speakLastMessage}
+                  disabled={!ttsEnabled}
+                >
+                  <View style={[styles.speakButton, { 
+                    backgroundColor: ttsEnabled ? '#F59E0B' : '#9CA3AF', 
+                    borderColor: colors.iconBorder 
+                  }]}>
+                    {isSpeaking ? (
+                      <Volume2 size={20} color="black" />
+                    ) : (
+                      <Volume2 size={20} color="black" />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </View>
@@ -358,13 +454,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
-  agentButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  headerButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
+  },
+  ttsDemo: {
+    marginHorizontal: 0,
+    marginBottom: 8,
   },
   agentSelector: {
     margin: 16,
@@ -465,6 +569,17 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   chatButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  speakButtonContainer: {
+    borderRadius: 16,
+  },
+  speakButton: {
     width: 56,
     height: 56,
     borderRadius: 16,
