@@ -1,341 +1,161 @@
 # Kyutai TTS iOS Integration Guide
 
-This guide explains how to integrate Kyutai's low-latency Text-to-Speech into your React Native iOS app.
-
 ## Overview
+This guide explains how to integrate Kyutai's low-latency Text-to-Speech into your React Native iOS app using the MLX implementation for on-device inference.
 
-Kyutai TTS offers ultra-low latency speech synthesis using their MLX implementation for Apple Silicon. This integration provides:
+## Architecture
 
-- **~50ms first audio latency**
-- **Streaming audio output**
-- **On-device inference** (no internet required)
-- **High-quality natural voice**
+### Current Implementation
+- **expo-speech**: Basic TTS with robotic voices
+- **Web fallback**: Browser speech synthesis
+- **Cross-platform**: Works on iOS, Android, and Web
 
-## Prerequisites
-
-1. **iOS Device**: iPhone with A12 Bionic or newer (for optimal MLX performance)
-2. **Xcode**: Latest version with iOS 15+ deployment target
-3. **React Native**: 0.70+ with Expo SDK 50+
-4. **MLX Framework**: Apple's machine learning framework
+### Kyutai Integration
+- **iOS MLX**: On-device inference using Apple Silicon acceleration
+- **Server fallback**: For Android/Web using Rust server
+- **Streaming**: Low-latency audio streaming
+- **Natural voices**: High-quality, human-like speech
 
 ## Integration Steps
 
-### 1. Install MLX Dependencies
+### 1. Native Module Setup
+Create a React Native native module that wraps the moshi-swift implementation:
 
-```bash
-# Install moshi-mlx package
-pip install moshi-mlx
+```swift
+// ios/KyutaiTTS.swift
+import Foundation
+import React
+import MLX
 
-# Or using uv
-uv add moshi-mlx
-```
-
-### 2. Download Kyutai Models
-
-```bash
-# Download the MLX-optimized model
-python -c "
-from moshi_mlx import load_model
-model = load_model('kyutai/stt-1b-en_fr-mlx')
-print('Model downloaded successfully')
-"
-```
-
-### 3. Create Native iOS Module
-
-Create a new native module to bridge Kyutai TTS with React Native:
-
-#### 3.1 Create the Native Module Files
-
-**KyutaiTTS.h**
-```objc
-#import <React/RCTBridgeModule.h>
-#import <React/RCTEventEmitter.h>
-
-@interface KyutaiTTS : RCTEventEmitter <RCTBridgeModule>
-@end
-```
-
-**KyutaiTTS.m**
-```objc
-#import "KyutaiTTS.h"
-#import <MLCompute/MLCompute.h>
-
-@implementation KyutaiTTS
-
-RCT_EXPORT_MODULE();
-
-- (NSArray<NSString *> *)supportedEvents {
-    return @[@"onTTSStart", @"onTTSChunk", @"onTTSComplete", @"onTTSError"];
-}
-
-RCT_EXPORT_METHOD(synthesize:(NSString *)text
-                  options:(NSDictionary *)options
-                  resolver:(RCTPromiseResolveBlock)resolve
-                  rejecter:(RCTPromiseRejectBlock)reject) {
-    
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        @try {
-            // Initialize MLX model (this would be the actual implementation)
-            [self sendEventWithName:@"onTTSStart" body:@{@"text": text}];
-            
-            // Process text through Kyutai model
-            // This is where you'd integrate with the moshi-swift codebase
-            NSData *audioData = [self processTextWithKyutai:text options:options];
-            
-            if (audioData) {
-                [self sendEventWithName:@"onTTSComplete" body:@{
-                    @"audioData": [audioData base64EncodedStringWithOptions:0],
-                    @"format": @"wav"
-                }];
-                resolve(@{@"success": @YES});
-            } else {
-                reject(@"TTS_ERROR", @"Failed to synthesize audio", nil);
-            }
-        } @catch (NSException *exception) {
-            reject(@"TTS_ERROR", exception.reason, nil);
+@objc(KyutaiTTS)
+class KyutaiTTS: NSObject {
+  private var model: TTSModel?
+  private var isInitialized = false
+  
+  @objc
+  func initialize(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    DispatchQueue.global(qos: .userInitiated).async {
+      do {
+        // Load the MLX TTS model
+        self.model = try TTSModel.load(modelPath: "kyutai-tts-mlx")
+        self.isInitialized = true
+        DispatchQueue.main.async {
+          resolve(["success": true])
         }
-    });
-}
-
-RCT_EXPORT_METHOD(synthesizeStreaming:(NSString *)text
-                  options:(NSDictionary *)options
-                  resolver:(RCTPromiseResolveBlock)resolve
-                  rejecter:(RCTPromiseRejectBlock)reject) {
-    
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        @try {
-            [self sendEventWithName:@"onTTSStart" body:@{@"text": text}];
-            
-            // Stream audio chunks as they're generated
-            [self processTextStreamingWithKyutai:text options:options];
-            
-            resolve(@{@"success": @YES});
-        } @catch (NSException *exception) {
-            reject(@"TTS_ERROR", exception.reason, nil);
+      } catch {
+        DispatchQueue.main.async {
+          reject("INIT_ERROR", "Failed to initialize Kyutai TTS", error)
         }
-    });
+      }
+    }
+  }
+  
+  @objc
+  func synthesize(_ text: String, options: NSDictionary, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    guard isInitialized, let model = model else {
+      reject("NOT_INITIALIZED", "Kyutai TTS not initialized", nil)
+      return
+    }
+    
+    DispatchQueue.global(qos: .userInitiated).async {
+      do {
+        let audioData = try model.synthesize(text: text, options: options)
+        DispatchQueue.main.async {
+          resolve(["audioData": audioData])
+        }
+      } catch {
+        DispatchQueue.main.async {
+          reject("SYNTHESIS_ERROR", "Failed to synthesize speech", error)
+        }
+      }
+    }
+  }
 }
-
-- (NSData *)processTextWithKyutai:(NSString *)text options:(NSDictionary *)options {
-    // This would integrate with the actual Kyutai MLX implementation
-    // For now, return nil to indicate not implemented
-    return nil;
-}
-
-- (void)processTextStreamingWithKyutai:(NSString *)text options:(NSDictionary *)options {
-    // This would handle streaming synthesis
-    // Emit chunks as they're generated:
-    // [self sendEventWithName:@"onTTSChunk" body:@{@"chunk": chunkData}];
-}
-
-@end
 ```
 
-### 4. Integrate moshi-swift
-
-Clone and integrate the moshi-swift repository:
+### 2. Model Integration
+Download and bundle the MLX model with your app:
 
 ```bash
-git clone https://github.com/kyutai-labs/moshi-swift.git
+# Download the MLX model
+curl -L "https://huggingface.co/kyutai/tts-mlx/resolve/main/model.mlx" -o ios/model.mlx
+
+# Add to Xcode project bundle
 ```
 
-Add the Swift files to your iOS project and modify the native module to use them.
-
-### 5. Update React Native TTS Service
-
-Modify your TTS service to use the native module:
-
+### 3. React Native Bridge
 ```typescript
-// lib/kyutai-native.ts
-import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
+// lib/KyutaiTTSNative.ts
+import { NativeModules, Platform } from 'react-native';
+
+interface KyutaiTTSNative {
+  initialize(): Promise<{success: boolean}>;
+  synthesize(text: string, options: any): Promise<{audioData: string}>;
+}
 
 const { KyutaiTTS } = NativeModules;
-const kyutaiEmitter = new NativeEventEmitter(KyutaiTTS);
 
-export class KyutaiNativeTTS {
-  private eventListeners: any[] = [];
-
-  async synthesize(text: string, options: any = {}) {
-    if (Platform.OS !== 'ios') {
-      throw new Error('Kyutai native TTS only available on iOS');
-    }
-
-    return new Promise((resolve, reject) => {
-      const startListener = kyutaiEmitter.addListener('onTTSStart', () => {
-        options.onStart?.();
-      });
-
-      const completeListener = kyutaiEmitter.addListener('onTTSComplete', (data) => {
-        this.cleanup();
-        options.onComplete?.(data);
-        resolve(data);
-      });
-
-      const errorListener = kyutaiEmitter.addListener('onTTSError', (error) => {
-        this.cleanup();
-        options.onError?.(error);
-        reject(error);
-      });
-
-      this.eventListeners = [startListener, completeListener, errorListener];
-
-      KyutaiTTS.synthesize(text, options)
-        .catch((error: any) => {
-          this.cleanup();
-          reject(error);
-        });
-    });
-  }
-
-  async synthesizeStreaming(text: string, options: any = {}) {
-    if (Platform.OS !== 'ios') {
-      throw new Error('Kyutai native TTS only available on iOS');
-    }
-
-    const chunkListener = kyutaiEmitter.addListener('onTTSChunk', (data) => {
-      options.onChunk?.(data);
-    });
-
-    this.eventListeners.push(chunkListener);
-
-    return this.synthesize(text, options);
-  }
-
-  private cleanup() {
-    this.eventListeners.forEach(listener => listener.remove());
-    this.eventListeners = [];
-  }
-}
-
-export const kyutaiNative = new KyutaiNativeTTS();
+export default KyutaiTTS as KyutaiTTSNative;
 ```
 
-### 6. Update Main TTS Service
+## Performance Benefits
+
+### Latency Comparison
+- **expo-speech**: 500-1000ms initial delay
+- **Kyutai TTS**: 50-100ms initial delay
+- **Streaming**: Audio starts playing immediately
+
+### Quality Comparison
+- **expo-speech**: Robotic, synthetic voices
+- **Kyutai TTS**: Natural, human-like voices
+- **Customization**: Multiple voice styles available
+
+## Implementation Status
+
+### ✅ Completed
+- Basic TTS service architecture
+- Cross-platform fallbacks
+- React hooks integration
+- UI components
+
+### 🚧 In Progress
+- Native module development
+- MLX model integration
+- Streaming audio playback
+
+### 📋 TODO
+- iOS native module
+- Model bundling
+- Performance optimization
+- Voice selection UI
+
+## Usage Example
 
 ```typescript
-// lib/tts.ts (update the speakKyutaiMLX method)
-import { kyutaiNative } from './kyutai-native';
+import { useTTS } from '@/hooks/useTTS';
 
-private async speakKyutaiMLX(text: string, options: KyutaiTTSOptions) {
-  try {
-    await kyutaiNative.synthesizeStreaming(text, {
-      streaming: options.streaming,
-      rate: options.rate,
-      pitch: options.pitch,
-      onStart: options.onStart,
-      onChunk: (data: any) => {
-        // Handle streaming audio chunks
-        console.log('Received audio chunk:', data);
-      },
-      onComplete: (data: any) => {
-        // Play the complete audio
-        this.playAudioData(data.audioData, options);
-      },
-      onError: options.onError,
-    });
-  } catch (error) {
-    console.error('MLX TTS Error:', error);
-    throw error;
-  }
-}
-```
+const MyComponent = () => {
+  const { speak, isSpeaking } = useTTS({
+    lowLatency: true,  // Enables Kyutai on iOS
+    streaming: true,   // Enables streaming playback
+    voice: 'natural-female'
+  });
 
-## Performance Optimization
+  const handleSpeak = () => {
+    speak("Hello! This is Kyutai's natural-sounding voice.");
+  };
 
-### Model Quantization
-
-For better performance on mobile devices:
-
-```python
-# Quantize the model for faster inference
-python scripts/tts_mlx.py text_input.txt output.wav --quantize 8
-```
-
-### Memory Management
-
-- Load models lazily
-- Implement model caching
-- Use background queues for processing
-- Clean up resources after use
-
-## Testing
-
-1. **Test on Device**: MLX requires actual iOS hardware
-2. **Performance Testing**: Measure latency and memory usage
-3. **Fallback Testing**: Ensure graceful fallback to expo-speech
-
-```typescript
-// Test the integration
-import { ttsService } from '@/lib/tts';
-
-const testKyutaiTTS = async () => {
-  try {
-    await ttsService.speak("Hello from Kyutai TTS!", {
-      lowLatency: true,
-      streaming: true,
-      onStart: () => console.log('TTS started'),
-      onDone: () => console.log('TTS completed'),
-      onError: (error) => console.error('TTS error:', error),
-    });
-  } catch (error) {
-    console.error('Test failed:', error);
-  }
+  return (
+    <TouchableOpacity onPress={handleSpeak}>
+      <Text>{isSpeaking ? 'Speaking...' : 'Speak'}</Text>
+    </TouchableOpacity>
+  );
 };
 ```
 
-## Deployment Considerations
+## Development Notes
 
-1. **App Size**: MLX models can be large (1-2GB)
-2. **Device Compatibility**: Requires A12+ for optimal performance
-3. **Battery Usage**: On-device inference uses more power
-4. **Privacy**: All processing happens on-device (no data sent to servers)
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Model Loading Fails**
-   - Check device storage space
-   - Verify model file integrity
-   - Ensure iOS version compatibility
-
-2. **Poor Performance**
-   - Use model quantization
-   - Check device thermal state
-   - Optimize batch sizes
-
-3. **Memory Issues**
-   - Implement proper cleanup
-   - Use background processing
-   - Monitor memory usage
-
-### Debug Mode
-
-Enable debug logging:
-
-```typescript
-// Enable debug mode in development
-if (__DEV__) {
-  ttsService.setDebugMode(true);
-}
-```
-
-## Next Steps
-
-1. **Implement the native module** with actual moshi-swift integration
-2. **Add model management** (download, cache, update)
-3. **Optimize performance** for your specific use case
-4. **Add voice customization** options
-5. **Implement offline capabilities**
-
-## Resources
-
-- [Kyutai TTS GitHub](https://github.com/kyutai-labs/delayed-streams-modeling)
-- [moshi-swift Repository](https://github.com/kyutai-labs/moshi-swift)
-- [MLX Documentation](https://ml-explore.github.io/mlx/)
-- [React Native Native Modules](https://reactnative.dev/docs/native-modules-ios)
-
----
-
-This integration provides cutting-edge TTS capabilities with minimal latency, perfect for real-time cooking assistance and interactive voice applications.
+1. **Model Size**: MLX models are ~100-500MB, consider lazy loading
+2. **Memory Usage**: Monitor memory usage during synthesis
+3. **Battery Impact**: MLX is optimized for efficiency on Apple Silicon
+4. **Fallbacks**: Always provide expo-speech fallback for compatibility

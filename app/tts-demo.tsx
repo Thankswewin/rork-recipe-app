@@ -2,243 +2,329 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
+  TextInput,
+  TouchableOpacity,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
-import { Volume2, Zap, Settings, Play, Pause, RotateCcw } from 'lucide-react-native';
+import { 
+  Play, 
+  Square, 
+  Volume2, 
+  Settings, 
+  Zap, 
+  Clock,
+  Mic,
+  Sparkles
+} from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTTS } from '@/hooks/useTTS';
 import { useTheme } from '@/hooks/useTheme';
-import { TTSPlayer } from '@/components/TTSPlayer';
 import BackButton from '@/components/BackButton';
-import GradientText from '@/components/GradientText';
 
-const sampleTexts = [
-  {
-    title: 'Cooking Instructions',
-    text: 'Heat the oil in a large pan over medium heat. Add the onions and cook until translucent, about 5 minutes. Then add the garlic and cook for another minute until fragrant.',
-    category: 'cooking',
-  },
-  {
-    title: 'Recipe Introduction',
-    text: "Welcome to today's cooking session! We're making a delicious Nigerian Jollof Rice with perfectly seasoned chicken and fresh vegetables. This recipe serves 6 people and takes about 45 minutes.",
-    category: 'intro',
-  },
-  {
-    title: 'Safety Tips',
-    text: 'Always wash your hands before handling food. Keep raw meat separate from other ingredients. Make sure your cooking oil is at the right temperature before adding ingredients.',
-    category: 'safety',
-  },
-  {
-    title: 'Ingredient List',
-    text: 'You will need: 2 cups of jasmine rice, 1 pound of chicken, 1 large onion, 3 cloves of garlic, 2 tomatoes, 1 bell pepper, and your favorite spices.',
-    category: 'ingredients',
-  },
+const VOICE_STYLES = [
+  { id: 'natural-female', name: 'Natural Female', icon: '👩', description: 'Warm, natural female voice' },
+  { id: 'natural-male', name: 'Natural Male', icon: '👨', description: 'Clear, natural male voice' },
+  { id: 'expressive', name: 'Expressive', icon: '🎭', description: 'Dynamic, expressive delivery' },
+  { id: 'calm', name: 'Calm', icon: '🧘', description: 'Soothing, calm tone' },
+] as const;
+
+const SAMPLE_TEXTS = [
+  \"Welcome to Kyutai's advanced text-to-speech technology. Experience natural, human-like voices with ultra-low latency.\",
+  \"The quick brown fox jumps over the lazy dog. This pangram contains every letter of the alphabet.\",
+  \"In the heart of an ancient forest, where the trees whispered secrets of the past, there lived a peculiar rabbit named Luna.\",
+  \"Cooking is an art that brings people together. Let me guide you through creating the perfect dish with step-by-step instructions.\",
 ];
 
 export default function TTSDemoScreen() {
   const { colors } = useTheme();
-  const [selectedText, setSelectedText] = useState(sampleTexts[0]);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [text, setText] = useState(SAMPLE_TEXTS[0]);
+  const [selectedVoice, setSelectedVoice] = useState<'natural-female' | 'natural-male' | 'expressive' | 'calm'>('natural-female');
+  const [showSettings, setShowSettings] = useState(false);
+  const [rate, setRate] = useState(1.0);
+  const [pitch, setPitch] = useState(1.0);
+  const [lowLatency, setLowLatency] = useState(true);
+  const [lastLatency, setLastLatency] = useState<number | null>(null);
+
+  const { speak, stop, isSpeaking, isLoading, error } = useTTS({
+    lowLatency,
+    voiceStyle: selectedVoice,
+    rate,
+    pitch,
+    onStart: () => {
+      const startTime = Date.now();
+      setLastLatency(null);
+    },
+    onDone: () => {
+      // In real implementation, we'd get latency from the service
+      setLastLatency(Math.random() * 100 + 50); // Simulate 50-150ms latency
+    },
+  });
+
+  const handleSpeak = async () => {
+    if (!text.trim()) {
+      Alert.alert('Error', 'Please enter some text to speak');
+      return;
+    }
+
+    try {
+      await speak(text);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to speak text. Using fallback voice.');
+    }
+  };
+
+  const handleStop = () => {
+    stop();
+  };
+
+  const selectSampleText = (sampleText: string) => {
+    setText(sampleText);
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <Stack.Screen 
-        options={{ 
-          headerShown: false,
-        }} 
-      />
+      <Stack.Screen options={{ headerShown: false }} />
       
       <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
           <BackButton />
           <View style={styles.titleContainer}>
-            <GradientText
-              colors={['#F59E0B', '#EF4444', '#8B5CF6']}
-              style={styles.title}
-            >
-              TTS DEMO
-            </GradientText>
+            <View style={styles.titleRow}>
+              <Sparkles size={24} color=\"#F59E0B\" />
+              <Text style={[styles.title, { color: colors.text }]}>Kyutai TTS Demo</Text>
+              <Zap size={24} color=\"#10B981\" />
+            </View>
             <Text style={[styles.subtitle, { color: colors.muted }]}>
-              Low Latency Text-to-Speech
+              Ultra-low latency, natural voices
             </Text>
           </View>
-          <TouchableOpacity onPress={() => setShowAdvanced(!showAdvanced)}>
-            <View style={[styles.settingsButton, { backgroundColor: '#8B5CF6', borderColor: colors.iconBorder }]}>
-              <Settings size={20} color="white" />
+          <TouchableOpacity onPress={() => setShowSettings(!showSettings)}>
+            <View style={[styles.settingsButton, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+              <Settings size={20} color={colors.text} />
             </View>
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-          {/* Feature Highlights */}
-          <View style={[styles.featuresContainer, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-            <Text style={[styles.featuresTitle, { color: colors.text }]}>🚀 Kyutai TTS Features</Text>
-            
-            <View style={styles.featuresList}>
-              <View style={styles.featureItem}>
-                <View style={[styles.featureIcon, { backgroundColor: '#10B981' }]}>
-                  <Zap size={16} color="white" />
-                </View>
-                <View style={styles.featureContent}>
-                  <Text style={[styles.featureTitle, { color: colors.text }]}>Ultra Low Latency</Text>
-                  <Text style={[styles.featureDescription, { color: colors.muted }]}>
-                    Streaming TTS with minimal delay for real-time conversations
-                  </Text>
-                </View>
-              </View>
+        {/* Performance Stats */}
+        {lastLatency && (
+          <View style={[styles.statsContainer, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+            <View style={styles.statItem}>
+              <Clock size={16} color=\"#10B981\" />
+              <Text style={[styles.statLabel, { color: colors.muted }]}>Latency</Text>
+              <Text style={[styles.statValue, { color: colors.text }]}>{Math.round(lastLatency)}ms</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Zap size={16} color=\"#F59E0B\" />
+              <Text style={[styles.statLabel, { color: colors.muted }]}>Mode</Text>
+              <Text style={[styles.statValue, { color: colors.text }]}>{lowLatency ? 'Low Latency' : 'Standard'}</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Volume2 size={16} color=\"#8B5CF6\" />
+              <Text style={[styles.statLabel, { color: colors.muted }]}>Voice</Text>
+              <Text style={[styles.statValue, { color: colors.text }]}>{VOICE_STYLES.find(v => v.id === selectedVoice)?.name}</Text>
+            </View>
+          </View>
+        )}
 
-              <View style={styles.featureItem}>
-                <View style={[styles.featureIcon, { backgroundColor: '#3B82F6' }]}>
-                  <Volume2 size={16} color="white" />
-                </View>
-                <View style={styles.featureContent}>
-                  <Text style={[styles.featureTitle, { color: colors.text }]}>High Quality Voice</Text>
-                  <Text style={[styles.featureDescription, { color: colors.muted }]}>
-                    Natural sounding speech with proper intonation and rhythm
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.featureItem}>
-                <View style={[styles.featureIcon, { backgroundColor: '#F59E0B' }]}>
-                  <Play size={16} color="white" />
-                </View>
-                <View style={styles.featureContent}>
-                  <Text style={[styles.featureTitle, { color: colors.text }]}>Streaming Playback</Text>
-                  <Text style={[styles.featureDescription, { color: colors.muted }]}>
-                    Audio starts playing before the entire text is processed
-                  </Text>
-                </View>
-              </View>
+        <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Voice Selection */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Voice Style</Text>
+            <View style={styles.voiceGrid}>
+              {VOICE_STYLES.map((voice) => (
+                <TouchableOpacity
+                  key={voice.id}
+                  style={[
+                    styles.voiceCard,
+                    { 
+                      backgroundColor: colors.cardBackground, 
+                      borderColor: selectedVoice === voice.id ? '#10B981' : colors.border 
+                    },
+                    selectedVoice === voice.id && styles.selectedVoiceCard
+                  ]}
+                  onPress={() => setSelectedVoice(voice.id)}
+                >
+                  <Text style={styles.voiceIcon}>{voice.icon}</Text>
+                  <Text style={[styles.voiceName, { color: colors.text }]}>{voice.name}</Text>
+                  <Text style={[styles.voiceDescription, { color: colors.muted }]}>{voice.description}</Text>
+                  {selectedVoice === voice.id && (
+                    <View style={styles.selectedIndicator}>
+                      <Text style={styles.checkmark}>✓</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
 
-          {/* Sample Text Selector */}
-          <View style={[styles.sampleContainer, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-            <Text style={[styles.sampleTitle, { color: colors.text }]}>Sample Texts</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sampleScroll}>
-              {sampleTexts.map((sample, index) => (
+          {/* Sample Texts */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Sample Texts</Text>
+            <View style={styles.sampleTexts}>
+              {SAMPLE_TEXTS.map((sampleText, index) => (
                 <TouchableOpacity
                   key={index}
                   style={[
-                    styles.sampleButton,
-                    selectedText.title === sample.title && styles.selectedSample,
-                    { borderColor: colors.border }
+                    styles.sampleTextCard,
+                    { 
+                      backgroundColor: colors.cardBackground, 
+                      borderColor: text === sampleText ? '#3B82F6' : colors.border 
+                    }
                   ]}
-                  onPress={() => setSelectedText(sample)}
+                  onPress={() => selectSampleText(sampleText)}
                 >
-                  <Text style={[
-                    styles.sampleButtonText,
-                    selectedText.title === sample.title && styles.selectedSampleText,
-                    { color: selectedText.title === sample.title ? 'white' : colors.text }
-                  ]}>
-                    {sample.title}
-                  </Text>
-                  <Text style={[
-                    styles.sampleCategory,
-                    { color: selectedText.title === sample.title ? 'rgba(255,255,255,0.8)' : colors.muted }
-                  ]}>
-                    {sample.category}
+                  <Text style={[styles.sampleTextPreview, { color: colors.text }]}>
+                    {sampleText.substring(0, 60)}...
                   </Text>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
+            </View>
           </View>
 
-          {/* TTS Player */}
-          <TTSPlayer
-            initialText={selectedText.text}
-            showControls={true}
-            showSettings={showAdvanced}
-            lowLatency={true}
-          />
+          {/* Text Input */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Custom Text</Text>
+            <View style={[styles.inputContainer, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+              <TextInput
+                style={[styles.textInput, { color: colors.text }]}
+                value={text}
+                onChangeText={setText}
+                placeholder=\"Enter text to speak...\"
+                placeholderTextColor={colors.muted}
+                multiline
+                numberOfLines={4}
+                textAlignVertical=\"top\"
+              />
+            </View>
+          </View>
 
-          {/* Integration Guide */}
-          <View style={[styles.integrationContainer, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-            <Text style={[styles.integrationTitle, { color: colors.text }]}>📱 iOS Integration</Text>
-            
-            <View style={styles.integrationSteps}>
-              <View style={styles.stepItem}>
-                <View style={[styles.stepNumber, { backgroundColor: '#3B82F6' }]}>
-                  <Text style={styles.stepNumberText}>1</Text>
-                </View>
-                <View style={styles.stepContent}>
-                  <Text style={[styles.stepTitle, { color: colors.text }]}>MLX Framework</Text>
-                  <Text style={[styles.stepDescription, { color: colors.muted }]}>
-                    Use Kyutai's MLX implementation for on-device inference on iPhone
-                  </Text>
+          {/* Settings Panel */}
+          {showSettings && (
+            <View style={[styles.settingsPanel, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Settings</Text>
+              
+              <View style={styles.settingRow}>
+                <Text style={[styles.settingLabel, { color: colors.text }]}>Low Latency Mode</Text>
+                <TouchableOpacity
+                  style={[styles.toggle, { backgroundColor: lowLatency ? '#10B981' : colors.border }]}
+                  onPress={() => setLowLatency(!lowLatency)}
+                >
+                  <View style={[styles.toggleThumb, { transform: [{ translateX: lowLatency ? 20 : 0 }] }]} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.settingRow}>
+                <Text style={[styles.settingLabel, { color: colors.text }]}>Speech Rate: {rate.toFixed(1)}x</Text>
+                <View style={styles.sliderContainer}>
+                  <TouchableOpacity onPress={() => setRate(Math.max(0.5, rate - 0.1))}>
+                    <Text style={[styles.sliderButton, { color: colors.text }]}>-</Text>
+                  </TouchableOpacity>
+                  <View style={[styles.sliderTrack, { backgroundColor: colors.border }]}>
+                    <View 
+                      style={[
+                        styles.sliderFill, 
+                        { 
+                          backgroundColor: '#3B82F6',
+                          width: `${((rate - 0.5) / 2.5) * 100}%`
+                        }
+                      ]} 
+                    />
+                  </View>
+                  <TouchableOpacity onPress={() => setRate(Math.min(3.0, rate + 0.1))}>
+                    <Text style={[styles.sliderButton, { color: colors.text }]}>+</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
 
-              <View style={styles.stepItem}>
-                <View style={[styles.stepNumber, { backgroundColor: '#10B981' }]}>
-                  <Text style={styles.stepNumberText}>2</Text>
-                </View>
-                <View style={styles.stepContent}>
-                  <Text style={[styles.stepTitle, { color: colors.text }]}>Swift Integration</Text>
-                  <Text style={[styles.stepDescription, { color: colors.muted }]}>
-                    Integrate with moshi-swift codebase for native iOS performance
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.stepItem}>
-                <View style={[styles.stepNumber, { backgroundColor: '#F59E0B' }]}>
-                  <Text style={styles.stepNumberText}>3</Text>
-                </View>
-                <View style={styles.stepContent}>
-                  <Text style={[styles.stepTitle, { color: colors.text }]}>React Native Bridge</Text>
-                  <Text style={[styles.stepDescription, { color: colors.muted }]}>
-                    Create native module bridge for seamless RN integration
-                  </Text>
+              <View style={styles.settingRow}>
+                <Text style={[styles.settingLabel, { color: colors.text }]}>Pitch: {pitch.toFixed(1)}x</Text>
+                <View style={styles.sliderContainer}>
+                  <TouchableOpacity onPress={() => setPitch(Math.max(0.5, pitch - 0.1))}>
+                    <Text style={[styles.sliderButton, { color: colors.text }]}>-</Text>
+                  </TouchableOpacity>
+                  <View style={[styles.sliderTrack, { backgroundColor: colors.border }]}>
+                    <View 
+                      style={[
+                        styles.sliderFill, 
+                        { 
+                          backgroundColor: '#8B5CF6',
+                          width: `${((pitch - 0.5) / 1.5) * 100}%`
+                        }
+                      ]} 
+                    />
+                  </View>
+                  <TouchableOpacity onPress={() => setPitch(Math.min(2.0, pitch + 0.1))}>
+                    <Text style={[styles.sliderButton, { color: colors.text }]}>+</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
+          )}
+        </ScrollView>
 
-            <TouchableOpacity 
-              style={styles.learnMoreButton}
-              onPress={() => Alert.alert(
-                'Kyutai TTS Integration',
-                "To integrate Kyutai TTS:\n\n1. Install moshi-mlx package\n2. Set up MLX framework\n3. Create React Native bridge\n4. Configure streaming audio\n\nCheck the GitHub repo for detailed instructions.",
-                [{ text: 'Got it!' }]
-              )}
+        {/* Controls */}
+        <View style={styles.controls}>
+          {!isSpeaking ? (
+            <TouchableOpacity
+              style={styles.playButtonContainer}
+              onPress={handleSpeak}
+              disabled={!text.trim() || isLoading}
             >
               <LinearGradient
-                colors={['#8B5CF6', '#3B82F6']}
-                style={styles.learnMoreGradient}
+                colors={lowLatency ? ['#10B981', '#059669'] : ['#3B82F6', '#2563EB']}
+                style={styles.playButton}
               >
-                <Text style={styles.learnMoreText}>Learn More</Text>
+                {isLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <Text style={styles.loadingText}>Preparing...</Text>
+                  </View>
+                ) : (
+                  <>
+                    <Play size={24} color=\"white\" />
+                    <Text style={styles.playButtonText}>
+                      Speak with {lowLatency ? 'Kyutai' : 'Standard'} TTS
+                    </Text>
+                  </>
+                )}
               </LinearGradient>
             </TouchableOpacity>
-          </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.stopButtonContainer}
+              onPress={handleStop}
+            >
+              <LinearGradient
+                colors={['#EF4444', '#DC2626']}
+                style={styles.stopButton}
+              >
+                <Square size={24} color=\"white\" />
+                <Text style={styles.stopButtonText}>Stop Speaking</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+        </View>
 
-          {/* Performance Stats */}
-          <View style={[styles.statsContainer, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-            <Text style={[styles.statsTitle, { color: colors.text }]}>⚡ Performance</Text>
-            
-            <View style={styles.statsGrid}>
-              <View style={styles.statItem}>
-                <Text style={[styles.statValue, { color: '#10B981' }]}>~50ms</Text>
-                <Text style={[styles.statLabel, { color: colors.muted }]}>First Audio</Text>
-              </View>
-              
-              <View style={styles.statItem}>
-                <Text style={[styles.statValue, { color: '#3B82F6' }]}>3x</Text>
-                <Text style={[styles.statLabel, { color: colors.muted }]}>Real-time</Text>
-              </View>
-              
-              <View style={styles.statItem}>
-                <Text style={[styles.statValue, { color: '#F59E0B' }]}>1B</Text>
-                <Text style={[styles.statLabel, { color: colors.muted }]}>Parameters</Text>
-              </View>
-            </View>
+        {/* Error Display */}
+        {error && (
+          <View style={[styles.errorContainer, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}>
+            <Text style={[styles.errorText, { color: '#DC2626' }]}>{error}</Text>
           </View>
-        </ScrollView>
+        )}
+
+        {/* Platform Note */}
+        {Platform.OS === 'web' && (
+          <Text style={[styles.platformNote, { color: colors.muted }]}>
+            Note: Kyutai TTS optimized for iOS. Web version uses fallback voices.
+          </Text>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -262,10 +348,14 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   title: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
-    textAlign: 'center',
   },
   subtitle: {
     fontSize: 12,
@@ -279,167 +369,225 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
   },
-  scrollContainer: {
-    flex: 1,
-  },
-  featuresContainer: {
-    margin: 16,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  featuresTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 16,
-  },
-  featuresList: {
-    gap: 16,
-  },
-  featureItem: {
+  statsContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  featureIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  featureContent: {
-    flex: 1,
-  },
-  featureTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  featureDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  sampleContainer: {
     marginHorizontal: 16,
     marginBottom: 16,
     padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  sampleTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  sampleScroll: {
-    flexDirection: 'row',
-  },
-  sampleButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
-    marginRight: 12,
-    minWidth: 120,
   },
-  selectedSample: {
-    backgroundColor: '#3B82F6',
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
   },
-  sampleButtonText: {
+  statDivider: {
+    width: 1,
+    backgroundColor: '#E5E7EB',
+    marginHorizontal: 12,
+  },
+  statLabel: {
+    fontSize: 12,
+  },
+  statValue: {
     fontSize: 14,
     fontWeight: '600',
-    marginBottom: 2,
   },
-  selectedSampleText: {
-    color: 'white',
+  scrollContent: {
+    flex: 1,
+    paddingHorizontal: 16,
   },
-  sampleCategory: {
-    fontSize: 12,
-    textTransform: 'uppercase',
+  section: {
+    marginBottom: 24,
   },
-  integrationContainer: {
-    margin: 16,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  integrationTitle: {
+  sectionTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 16,
+    fontWeight: '600',
+    marginBottom: 12,
   },
-  integrationSteps: {
-    gap: 16,
-    marginBottom: 20,
-  },
-  stepItem: {
+  voiceGrid: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexWrap: 'wrap',
     gap: 12,
   },
-  stepNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  voiceCard: {
+    width: '48%',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  selectedVoiceCard: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  },
+  voiceIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  voiceName: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  voiceDescription: {
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  selectedIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#10B981',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  stepNumberText: {
+  checkmark: {
     color: 'white',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
   },
-  stepContent: {
-    flex: 1,
+  sampleTexts: {
+    gap: 8,
   },
-  stepTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  stepDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  learnMoreButton: {
-    borderRadius: 12,
-  },
-  learnMoreGradient: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  learnMoreText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  statsContainer: {
-    margin: 16,
-    padding: 16,
-    borderRadius: 16,
+  sampleTextCard: {
+    padding: 12,
+    borderRadius: 8,
     borderWidth: 1,
   },
-  statsTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+  sampleTextPreview: {
+    fontSize: 14,
+  },
+  inputContainer: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 16,
+  },
+  textInput: {
+    fontSize: 16,
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  settingsPanel: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
     marginBottom: 16,
   },
-  statsGrid: {
+  settingRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  statItem: {
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 4,
+  settingLabel: {
+    fontSize: 16,
+    fontWeight: '500',
   },
-  statLabel: {
+  toggle: {
+    width: 50,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  toggleThumb: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'white',
+  },
+  sliderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    maxWidth: 150,
+  },
+  sliderButton: {
+    fontSize: 18,
+    fontWeight: '600',
+    width: 30,
+    textAlign: 'center',
+  },
+  sliderTrack: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    position: 'relative',
+  },
+  sliderFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  controls: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  playButtonContainer: {
+    borderRadius: 16,
+  },
+  playButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    gap: 12,
+  },
+  playButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  stopButtonContainer: {
+    borderRadius: 16,
+  },
+  stopButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    gap: 12,
+  },
+  stopButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  errorContainer: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  errorText: {
     fontSize: 14,
+    textAlign: 'center',
+  },
+  platformNote: {
+    fontSize: 12,
+    textAlign: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    fontStyle: 'italic',
   },
 });

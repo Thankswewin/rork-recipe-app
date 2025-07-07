@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import * as Speech from 'expo-speech';
+import { trpcClient } from '@/lib/trpc';
 
 export interface TTSOptions {
   voice?: string;
@@ -15,20 +16,30 @@ export interface TTSOptions {
 export interface KyutaiTTSOptions extends TTSOptions {
   streaming?: boolean;
   lowLatency?: boolean;
+  voiceStyle?: 'natural-female' | 'natural-male' | 'expressive' | 'calm';
+  model?: 'kyutai-tts-1b' | 'kyutai-tts-2.6b';
 }
 
 class TTSService {
   private isKyutaiAvailable = false;
-  private kyutaiEndpoint = 'https://api.kyutai.org/tts'; // Replace with actual endpoint
+  private kyutaiEndpoint = 'https://toolkit.rork.com/tts/kyutai'; // Using your existing toolkit endpoint
   
   constructor() {
     this.checkKyutaiAvailability();
   }
 
   private async checkKyutaiAvailability() {
-    // Check if Kyutai TTS service is available
-    // This would be replaced with actual availability check
-    this.isKyutaiAvailable = false; // Set to true when Kyutai is integrated
+    try {
+      // Check if Kyutai TTS service is available
+      const response = await fetch(`${this.kyutaiEndpoint}/health`, {
+        method: 'GET',
+        timeout: 5000,
+      });
+      this.isKyutaiAvailable = response.ok;
+    } catch (error) {
+      console.log('Kyutai TTS not available, using fallback');
+      this.isKyutaiAvailable = false;
+    }
   }
 
   async speak(text: string, options: KyutaiTTSOptions = {}) {
@@ -111,29 +122,26 @@ class TTSService {
   }
 
   private async speakKyutaiServer(text: string, options: KyutaiTTSOptions) {
-    const response = await fetch(this.kyutaiEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    try {
+      const result = await trpcClient.kyutai.tts.mutate({
         text,
-        voice: options.voice || 'default',
-        streaming: options.streaming || true,
+        voice_style: options.voiceStyle || 'natural-female',
+        model: options.model || 'kyutai-tts-1b',
+        streaming: options.streaming !== false,
         rate: options.rate || 1.0,
         pitch: options.pitch || 1.0,
-      }),
-    });
+        low_latency: options.lowLatency !== false,
+      });
 
-    if (!response.ok) {
-      throw new Error(`TTS Server error: ${response.status}`);
-    }
-
-    if (options.streaming) {
-      await this.handleStreamingAudio(response, options);
-    } else {
-      const audioBlob = await response.blob();
-      await this.playAudioBlob(audioBlob, options);
+      if (result.success && result.audio_url) {
+        console.log(`Kyutai TTS: ${result.latency_ms}ms latency, using ${result.voice_used} voice`);
+        await this.playAudioUrl(result.audio_url, options);
+      } else {
+        throw new Error('Failed to get audio from Kyutai TTS');
+      }
+    } catch (error) {
+      console.error('Kyutai TTS Server Error:', error);
+      throw error;
     }
   }
 
@@ -247,6 +255,43 @@ class TTSService {
       setTimeout(() => {
         options.onDone?.();
       }, 2000);
+    }
+  }
+
+  private async playAudioUrl(audioUrl: string, options: TTSOptions) {
+    if (Platform.OS === 'web') {
+      // Web implementation
+      const audio = new Audio(audioUrl);
+      
+      audio.onended = () => {
+        options.onDone?.();
+      };
+      
+      audio.onerror = (error) => {
+        options.onError?.(error);
+      };
+      
+      await audio.play();
+    } else {
+      // Mobile implementation using expo-av
+      try {
+        const { Audio } = require('expo-av');
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: audioUrl },
+          { shouldPlay: true }
+        );
+        
+        sound.setOnPlaybackStatusUpdate((status: any) => {
+          if (status.didJustFinish) {
+            options.onDone?.();
+          }
+        });
+        
+        await sound.playAsync();
+      } catch (error) {
+        console.error('Audio playback error:', error);
+        options.onError?.(error);
+      }
     }
   }
 
