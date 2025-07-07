@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { publicProcedure } from '../../create-context';
+import { publicProcedure } from '../../../create-context';
 
 const ttsInputSchema = z.object({
   text: z.string().min(1).max(1000),
