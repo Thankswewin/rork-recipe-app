@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { publicProcedure } from '../../create-context';
+import { publicProcedure } from '../../../create-context';
 
 const kyutaiTTSSchema = z.object({
   text: z.string().min(1).max(5000),
@@ -14,7 +14,7 @@ const kyutaiTTSSchema = z.object({
 
 export const kyutaiTTSProcedure = publicProcedure
   .input(kyutaiTTSSchema)
-  .mutation(async ({ input }) => {
+  .mutation(async ({ input }: { input: z.infer<typeof kyutaiTTSSchema> }) => {
     try {
       const { text, voice_style, model, streaming, rate, pitch, low_latency, real_time } = input;
       

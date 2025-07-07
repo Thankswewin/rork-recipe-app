@@ -284,7 +284,7 @@ class TTSService {
           }
           
           // Call chunk callback if provided
-          options.onChunk?.(value.buffer);
+          options.onChunk?.(value.buffer as ArrayBuffer);
           
           console.log(`Received audio chunk: ${value.length} bytes`);
         }
@@ -315,7 +315,7 @@ class TTSService {
       try {
         // Convert chunks to audio buffer and play immediately
         const firstChunk = audioChunks[0];
-        const audioBuffer = await this.audioContext.decodeAudioData(firstChunk.buffer.slice());
+        const audioBuffer = await this.audioContext.decodeAudioData(firstChunk.buffer.slice() as ArrayBuffer);
         
         const source = this.audioContext.createBufferSource();
         source.buffer = audioBuffer;

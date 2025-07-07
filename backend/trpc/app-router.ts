@@ -1,6 +1,6 @@
 import { router } from './create-context';
 import hiProcedure from './routes/example/hi/route';
-import { kyutaiTTSProcedure } from './routes/kyutai/tts/route';
+import { kyutaiTTSProcedure, kyutaiHealthProcedure } from './routes/kyutai/tts/route';
 
 export const appRouter = router({
   example: router({
@@ -8,6 +8,7 @@ export const appRouter = router({
   }),
   kyutai: router({
     tts: kyutaiTTSProcedure,
+    health: kyutaiHealthProcedure,
   }),
 });
 
