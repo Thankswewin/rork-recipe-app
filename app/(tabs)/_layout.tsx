@@ -1,6 +1,6 @@
 import React from "react";
 import { Tabs } from "expo-router";
-import { Home, Search, Heart, User, Bot } from "lucide-react-native";
+import { Home, Search, Heart, User, Bot, Mic } from "lucide-react-native";
 import { StyleSheet, View, Text } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/hooks/useTheme";

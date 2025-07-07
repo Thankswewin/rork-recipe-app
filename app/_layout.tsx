@@ -66,6 +66,7 @@ function RootLayoutNav() {
               <Stack.Screen name="followers/[id]" options={{ headerShown: false }} />
               <Stack.Screen name="messages" options={{ headerShown: false }} />
               <Stack.Screen name="chef-assistant" options={{ headerShown: false }} />
+              <Stack.Screen name="voice-chat" options={{ headerShown: false }} />
               <Stack.Screen name="modal" options={{ presentation: "modal" }} />
             </Stack>
             <DatabaseErrorHandler />

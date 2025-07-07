@@ -27,8 +27,8 @@ export const VoiceSettings: React.FC<VoiceSettingsProps> = ({ onClose }) => {
     setPushToTalk
   } = useVoiceChatStore();
 
-  const selectedVoiceData = KYUTAI_VOICES.find((v: any) => v.id === selectedVoice);
-  const selectedLanguageData = SUPPORTED_LANGUAGES.find((l: any) => l.code === selectedLanguage);
+  const selectedVoiceData = KYUTAI_VOICES.find((v) => v.id === selectedVoice);
+  const selectedLanguageData = SUPPORTED_LANGUAGES.find((l) => l.code === selectedLanguage);
 
   return (
     <View style={styles.container}>
@@ -58,7 +58,7 @@ export const VoiceSettings: React.FC<VoiceSettingsProps> = ({ onClose }) => {
           </Text>
 
           <View style={styles.voiceGrid}>
-            {KYUTAI_VOICES.map((voice: any) => (
+            {KYUTAI_VOICES.map((voice) => (
               <TouchableOpacity
                 key={voice.id}
                 style={[
@@ -109,7 +109,7 @@ export const VoiceSettings: React.FC<VoiceSettingsProps> = ({ onClose }) => {
           </TouchableOpacity>
 
           <View style={styles.languageList}>
-            {SUPPORTED_LANGUAGES.map((language: any) => (
+            {SUPPORTED_LANGUAGES.map((language) => (
               <TouchableOpacity
                 key={language.code}
                 style={[

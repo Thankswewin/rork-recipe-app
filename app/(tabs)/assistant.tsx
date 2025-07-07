@@ -1,428 +1,100 @@
-import React, { useState, useRef, useEffect } from "react";
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Camera, Mic, Brain, MessageCircle, Settings, Play, Square, ChefHat, Volume2, VolumeX } from "lucide-react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Stack, useRouter } from "expo-router";
-import { useTheme } from "@/hooks/useTheme";
-import { useChefAssistantStore } from "@/stores/chefAssistantStore";
-import BackButton from "@/components/BackButton";
-import GradientText from "@/components/GradientText";
-import ChatMessage from "@/components/chef-assistant/ChatMessage";
-import MultimodalChatInput from "@/components/chef-assistant/MultimodalChatInput";
-import EnhancedCameraView from "@/components/chef-assistant/EnhancedCameraView";
-import { TTSPlayer } from "@/components/TTSPlayer";
-import { useTTS } from "@/hooks/useTTS";
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import { Bot, Mic, MessageSquare, Settings, Zap } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function AssistantScreen() {
-  const { colors } = useTheme();
-  const router = useRouter();
-  const scrollViewRef = useRef<ScrollView>(null);
-  const [showCamera, setShowCamera] = useState(false);
-  const [showAgentSelector, setShowAgentSelector] = useState(false);
-  const [showTTSDemo, setShowTTSDemo] = useState(false);
-  const [ttsEnabled, setTtsEnabled] = useState(true);
-  
-  // TTS for assistant responses
-  const { speak, stop, isSpeaking } = useTTS({
-    lowLatency: true,
-    rate: 1.0,
-    pitch: 1.0,
-    language: 'en-US',
-  });
-
-  const {
-    currentSession,
-    isSessionActive,
-    messages,
-    isTyping,
-    selectedAgent,
-    availableAgents,
-    startSession,
-    endSession,
-    sendMessage,
-    selectAgent,
-    initializeStore,
-  } = useChefAssistantStore();
-
-  // Initialize store on mount
-  useEffect(() => {
-    initializeStore();
-  }, []);
-
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (messages.length > 0) {
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
-  }, [messages.length]);
-
-  const handleStartSession = () => {
-    Alert.prompt(
-      "Start Cooking Session",
-      "What are you cooking today?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Start",
-          onPress: (recipeName) => {
-            if (recipeName?.trim()) {
-              startSession(recipeName.trim());
-            }
-          },
-        },
-      ],
-      "plain-text",
-      "e.g., Jollof Rice, Egusi Soup..."
-    );
-  };
-
-  const handleEndSession = () => {
-    Alert.alert(
-      "End Session",
-      "Are you sure you want to end this cooking session?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "End Session", style: "destructive", onPress: endSession },
-      ]
-    );
-  };
-
-  const handleCameraCapture = async (imageUri: string) => {
-    setShowCamera(false);
-    await sendMessage("Please analyze this cooking image", imageUri);
-  };
-
-  const handleAgentSelect = (agent: any) => {
-    selectAgent(agent);
-    setShowAgentSelector(false);
-  };
-
-  const handleGoToChat = () => {
-    if (isSessionActive) {
-      router.push('/chef-assistant/chat');
-    }
-  };
-
-  const handleTTSToggle = () => {
-    if (isSpeaking) {
-      stop();
-    }
-    setTtsEnabled(!ttsEnabled);
-  };
-
-  const speakLastMessage = () => {
-    const lastAssistantMessage = messages
-      .filter(msg => msg.role === 'assistant')
-      .pop();
-    
-    if (lastAssistantMessage && ttsEnabled) {
-      speak(lastAssistantMessage.content);
-    }
-  };
-
-  // Auto-speak new assistant messages
-  useEffect(() => {
-    if (ttsEnabled && messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage.role === 'assistant' && lastMessage.content) {
-        // Small delay to ensure message is rendered
-        setTimeout(() => {
-          speak(lastMessage.content);
-        }, 500);
-      }
-    }
-  }, [messages.length, ttsEnabled]);
-
-  if (showCamera) {
-    return (
-      <EnhancedCameraView
-        onClose={() => setShowCamera(false)}
-        onCapture={handleCameraCapture}
-      />
-    );
-  }
-
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
-      <Stack.Screen options={{ headerShown: false }} />
-      
-      <View style={styles.content}>
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <BackButton />
-          <View style={styles.titleContainer}>
-            <GradientText
-              colors={["#EF4444", "#F59E0B", "#3B82F6"]}
-              style={styles.title}
-            >
-              MANU ASSIST
-            </GradientText>
-            {currentSession && (
-              <Text style={[styles.sessionTitle, { color: colors.muted }]}>
-                {currentSession.recipeName}
-              </Text>
-            )}
-          </View>
-          <View style={styles.headerButtons}>
-            <TouchableOpacity onPress={handleTTSToggle}>
-              <View style={[styles.headerButton, { 
-                backgroundColor: ttsEnabled ? '#10B981' : '#EF4444', 
-                borderColor: colors.iconBorder 
-              }]}>
-                {isSpeaking ? (
-                  <Volume2 size={18} color="black" />
-                ) : ttsEnabled ? (
-                  <Volume2 size={18} color="black" />
-                ) : (
-                  <VolumeX size={18} color="black" />
-                )}
-              </View>
-            </TouchableOpacity>
-            
-            <TouchableOpacity onPress={() => router.push('/tts-demo')}>
-              <View style={[styles.headerButton, { backgroundColor: '#FACC15', borderColor: colors.iconBorder }]}>
-                <Mic size={18} color="black" />
-              </View>
-            </TouchableOpacity>
-            
-            <TouchableOpacity onPress={() => setShowAgentSelector(!showAgentSelector)}>
-              <View style={[styles.headerButton, { backgroundColor: '#8B5CF6', borderColor: colors.iconBorder }]}>
-                <Brain size={18} color="black" />
-              </View>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.title}>AI Assistant</Text>
+          <Text style={styles.subtitle}>
+            Choose how you want to interact with our AI
+          </Text>
         </View>
 
-        {/* TTS Demo */}
-        {showTTSDemo && (
-          <View style={styles.ttsDemo}>
-            <TTSPlayer
-              initialText="Welcome to your cooking assistant! I'm here to help you create amazing dishes with step-by-step guidance and real-time tips."
-              showControls={true}
-              showSettings={true}
-              lowLatency={true}
-            />
-          </View>
-        )}
-
-        {/* Agent Selector */}
-        {showAgentSelector && (
-          <View style={[styles.agentSelector, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-            <Text style={[styles.agentSelectorTitle, { color: colors.text }]}>Choose Your Chef Assistant</Text>
-            {availableAgents.map((agent) => (
-              <TouchableOpacity
-                key={agent.id}
-                style={[
-                  styles.agentOption,
-                  selectedAgent?.id === agent.id && styles.selectedAgent,
-                  { borderColor: colors.border }
-                ]}
-                onPress={() => handleAgentSelect(agent)}
-              >
-                <Text style={styles.agentEmoji}>👨‍🍳</Text>
-                <View style={styles.agentInfo}>
-                  <Text style={[styles.agentName, { color: colors.text }]}>{agent.name}</Text>
-                  <Text style={[styles.agentSpecialty, { color: colors.muted }]}>{agent.specialty}</Text>
-                </View>
-                {selectedAgent?.id === agent.id && (
-                  <View style={[styles.selectedIndicator, { backgroundColor: '#10B981' }]}>
-                    <Text style={styles.checkmark}>✓</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {/* Session Controls */}
-        <View style={styles.sessionControls}>
-          {!isSessionActive ? (
-            <TouchableOpacity style={styles.sessionButtonContainer} onPress={handleStartSession}>
-              <LinearGradient
-                colors={["#10B981", "#059669"]}
-                style={styles.sessionButton}
-              >
-                <View style={[styles.sessionIconContainer, { backgroundColor: '#FACC15', borderColor: colors.iconBorder }]}>
-                  <Play size={16} color="black" />
-                </View>
-                <Text style={styles.sessionButtonText}>Start Cooking Session</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.activeSessionContainer}>
-              <TouchableOpacity style={styles.sessionButtonContainer} onPress={handleEndSession}>
-                <LinearGradient
-                  colors={["#EF4444", "#DC2626"]}
-                  style={styles.sessionButton}
-                >
-                  <View style={[styles.sessionIconContainer, { backgroundColor: 'white', borderColor: colors.iconBorder }]}>
-                    <Square size={16} color="black" />
-                  </View>
-                  <Text style={styles.sessionButtonText}>End Session</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={styles.cameraButtonContainer}
-                onPress={() => setShowCamera(true)}
-              >
-                <View style={[styles.cameraButton, { backgroundColor: '#3B82F6', borderColor: colors.iconBorder }]}>
-                  <Camera size={20} color="black" />
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={styles.chatButtonContainer}
-                onPress={handleGoToChat}
-              >
-                <View style={[styles.chatButton, { backgroundColor: '#10B981', borderColor: colors.iconBorder }]}>
-                  <MessageCircle size={20} color="black" />
-                </View>
-              </TouchableOpacity>
-              
-              {messages.length > 0 && (
-                <TouchableOpacity 
-                  style={styles.speakButtonContainer}
-                  onPress={speakLastMessage}
-                  disabled={!ttsEnabled}
-                >
-                  <View style={[styles.speakButton, { 
-                    backgroundColor: ttsEnabled ? '#F59E0B' : '#9CA3AF', 
-                    borderColor: colors.iconBorder 
-                  }]}>
-                    {isSpeaking ? (
-                      <Volume2 size={20} color="black" />
-                    ) : (
-                      <Volume2 size={20} color="black" />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              )}
+        {/* Voice Chat Card */}
+        <TouchableOpacity 
+          style={styles.card}
+          onPress={() => router.push('/voice-chat')}
+        >
+          <LinearGradient
+            colors={['#3B82F6', '#8B5CF6']}
+            style={styles.cardGradient}
+          >
+            <View style={styles.cardHeader}>
+              <View style={styles.cardIconContainer}>
+                <Mic size={24} color="#FFFFFF" />
+              </View>
+              <View style={styles.cardBadge}>
+                <Zap size={12} color="#10B981" />
+                <Text style={styles.badgeText}>Real-time</Text>
+              </View>
             </View>
-          )}
+            
+            <Text style={styles.cardTitle}>Voice Chat</Text>
+            <Text style={styles.cardDescription}>
+              Experience natural conversations with Kyutai's advanced voice AI. 
+              Ultra-low latency real-time speech interaction.
+            </Text>
+            
+            <View style={styles.cardFeatures}>
+              <Text style={styles.featureText}>• Natural speech recognition</Text>
+              <Text style={styles.featureText}>• Human-like responses</Text>
+              <Text style={styles.featureText}>• Multiple voice options</Text>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        {/* Text Chat Card */}
+        <TouchableOpacity 
+          style={styles.card}
+          onPress={() => router.push('/chef-assistant')}
+        >
+          <View style={styles.textCard}>
+            <View style={styles.cardHeader}>
+              <View style={[styles.cardIconContainer, styles.textCardIcon]}>
+                <MessageSquare size={24} color="#3B82F6" />
+              </View>
+              <View style={[styles.cardBadge, styles.textCardBadge]}>
+                <Bot size={12} color="#6B7280" />
+                <Text style={[styles.badgeText, styles.textBadgeText]}>Smart</Text>
+              </View>
+            </View>
+            
+            <Text style={[styles.cardTitle, styles.textCardTitle]}>Chef Assistant</Text>
+            <Text style={[styles.cardDescription, styles.textCardDescription]}>
+              Get cooking help, recipe suggestions, and culinary guidance 
+              through our intelligent text-based assistant.
+            </Text>
+            
+            <View style={styles.cardFeatures}>
+              <Text style={[styles.featureText, styles.textFeatureText]}>• Recipe recommendations</Text>
+              <Text style={[styles.featureText, styles.textFeatureText]}>• Cooking instructions</Text>
+              <Text style={[styles.featureText, styles.textFeatureText]}>• Ingredient substitutions</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        {/* Coming Soon Cards */}
+        <View style={styles.comingSoonSection}>
+          <Text style={styles.sectionTitle}>Coming Soon</Text>
+          
+          <View style={styles.comingSoonCard}>
+            <View style={styles.comingSoonHeader}>
+              <Settings size={20} color="#9CA3AF" />
+              <Text style={styles.comingSoonTitle}>Advanced Settings</Text>
+            </View>
+            <Text style={styles.comingSoonDescription}>
+              Customize AI behavior, voice preferences, and conversation styles
+            </Text>
+          </View>
         </View>
-
-        {/* Quick Chat Preview */}
-        {isSessionActive && messages.length > 0 && (
-          <View style={styles.quickChatPreview}>
-            <TouchableOpacity 
-              style={[styles.chatPreviewContainer, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
-              onPress={handleGoToChat}
-            >
-              <Text style={[styles.chatPreviewTitle, { color: colors.text }]}>Recent Messages</Text>
-              <ScrollView
-                ref={scrollViewRef}
-                style={styles.previewMessages}
-                showsVerticalScrollIndicator={false}
-              >
-                {messages.slice(-3).map((message) => (
-                  <ChatMessage
-                    key={message.id}
-                    message={message}
-                    onImagePress={(imageUri) => console.log('Image pressed:', imageUri)}
-                  />
-                ))}
-                
-                {isTyping && (
-                  <View style={styles.typingContainer}>
-                    <View style={[styles.typingBubble, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-                      <Text style={[styles.typingText, { color: colors.muted }]}>
-                        {selectedAgent?.name} is thinking...
-                      </Text>
-                      <View style={styles.typingDots}>
-                        <View style={[styles.dot, { backgroundColor: colors.muted }]} />
-                        <View style={[styles.dot, { backgroundColor: colors.muted }]} />
-                        <View style={[styles.dot, { backgroundColor: colors.muted }]} />
-                      </View>
-                    </View>
-                  </View>
-                )}
-              </ScrollView>
-              
-              <View style={styles.chatPreviewFooter}>
-                <Text style={[styles.tapToContinue, { color: colors.muted }]}>
-                  Tap to open full chat
-                </Text>
-                <MessageCircle size={16} color={colors.muted} />
-              </View>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Welcome Screen */}
-        {!isSessionActive && (
-          <ScrollView style={styles.welcomeContainer} showsVerticalScrollIndicator={false}>
-            <View style={styles.welcomeContent}>
-              <View style={styles.welcomeHeader}>
-                <Text style={styles.welcomeEmoji}>👨‍🍳</Text>
-                <Text style={[styles.welcomeTitle, { color: colors.text }]}>
-                  Meet {selectedAgent?.name}
-                </Text>
-                <Text style={[styles.welcomeDescription, { color: colors.muted }]}>
-                  {selectedAgent?.description}
-                </Text>
-              </View>
-
-              <View style={[styles.featuresGrid, { borderColor: colors.border }]}>
-                <View style={styles.featureRow}>
-                  <View style={[styles.featureCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-                    <View style={[styles.featureIcon, { backgroundColor: '#3B82F6' }]}>
-                      <Camera size={20} color="black" />
-                    </View>
-                    <Text style={[styles.featureTitle, { color: colors.text }]}>Real-time Analysis</Text>
-                    <Text style={[styles.featureDescription, { color: colors.muted }]}>
-                      Show me your ingredients and cooking progress
-                    </Text>
-                  </View>
-
-                  <View style={[styles.featureCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-                    <View style={[styles.featureIcon, { backgroundColor: '#10B981' }]}>
-                      <Mic size={20} color="black" />
-                    </View>
-                    <Text style={[styles.featureTitle, { color: colors.text }]}>Voice Commands</Text>
-                    <Text style={[styles.featureDescription, { color: colors.muted }]}>
-                      Hands-free cooking guidance
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.featureRow}>
-                  <View style={[styles.featureCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-                    <View style={[styles.featureIcon, { backgroundColor: '#FACC15' }]}>
-                      <Brain size={20} color="black" />
-                    </View>
-                    <Text style={[styles.featureTitle, { color: colors.text }]}>Smart Tips</Text>
-                    <Text style={[styles.featureDescription, { color: colors.muted }]}>
-                      Personalized cooking advice
-                    </Text>
-                  </View>
-
-                  <View style={[styles.featureCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-                    <View style={[styles.featureIcon, { backgroundColor: '#8B5CF6' }]}>
-                      <ChefHat size={20} color="black" />
-                    </View>
-                    <Text style={[styles.featureTitle, { color: colors.text }]}>Step-by-Step</Text>
-                    <Text style={[styles.featureDescription, { color: colors.muted }]}>
-                      Guided cooking instructions
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </ScrollView>
-        )}
-
-        {/* Quick Chat Input */}
-        {isSessionActive && (
-          <MultimodalChatInput
-            onSendMessage={sendMessage}
-            disabled={isTyping}
-          />
-        )}
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -430,277 +102,138 @@ export default function AssistantScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#FAFAFA',
   },
   content: {
     flex: 1,
+    paddingHorizontal: 20,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  titleContainer: {
-    flex: 1,
-    alignItems: 'center',
+    paddingVertical: 24,
   },
   title: {
-    fontSize: 18,
-    fontWeight: "700",
-    textAlign: 'center',
-  },
-  sessionTitle: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  headerButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  ttsDemo: {
-    marginHorizontal: 0,
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#111827',
     marginBottom: 8,
   },
-  agentSelector: {
-    margin: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-  },
-  agentSelectorTitle: {
+  subtitle: {
     fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 12,
+    color: '#6B7280',
+    lineHeight: 24,
   },
-  agentOption: {
+  card: {
+    marginBottom: 20,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  cardGradient: {
+    padding: 24,
+  },
+  textCard: {
+    padding: 24,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+  },
+  cardHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 8,
-  },
-  selectedAgent: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-  },
-  agentEmoji: {
-    fontSize: 24,
-    marginRight: 12,
-  },
-  agentInfo: {
-    flex: 1,
-  },
-  agentName: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  agentSpecialty: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  selectedIndicator: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkmark: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  sessionControls: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  sessionButtonContainer: {
-    borderRadius: 16,
-    flex: 1,
-  },
-  sessionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 16,
-    gap: 12,
-  },
-  sessionIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  sessionButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: 'white',
-  },
-  activeSessionContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'center',
-  },
-  cameraButtonContainer: {
-    borderRadius: 16,
-  },
-  cameraButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  chatButtonContainer: {
-    borderRadius: 16,
-  },
-  chatButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  speakButtonContainer: {
-    borderRadius: 16,
-  },
-  speakButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  quickChatPreview: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-  },
-  chatPreviewContainer: {
-    flex: 1,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-  },
-  chatPreviewTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  previewMessages: {
-    flex: 1,
-    maxHeight: 200,
-  },
-  chatPreviewFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 12,
-    gap: 8,
-  },
-  tapToContinue: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  typingContainer: {
-    paddingVertical: 8,
-  },
-  typingBubble: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignSelf: 'flex-start',
-    maxWidth: '80%',
-  },
-  typingText: {
-    fontSize: 14,
-    marginRight: 8,
-  },
-  typingDots: {
-    flexDirection: 'row',
-    gap: 2,
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-  },
-  welcomeContainer: {
-    flex: 1,
-  },
-  welcomeContent: {
-    padding: 16,
-  },
-  welcomeHeader: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  welcomeEmoji: {
-    fontSize: 48,
     marginBottom: 16,
   },
-  welcomeTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  welcomeDescription: {
-    fontSize: 16,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  featuresGrid: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
-  },
-  featureCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  featureIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  cardIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  textCardIcon: {
+    backgroundColor: '#EFF6FF',
+  },
+  cardBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    gap: 4,
+  },
+  textCardBadge: {
+    backgroundColor: '#F3F4F6',
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  textBadgeText: {
+    color: '#6B7280',
+  },
+  cardTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
     marginBottom: 8,
   },
-  featureTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-    textAlign: 'center',
+  textCardTitle: {
+    color: '#111827',
   },
-  featureDescription: {
-    fontSize: 12,
-    textAlign: 'center',
-    lineHeight: 16,
+  cardDescription: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.9)',
+    lineHeight: 24,
+    marginBottom: 16,
+  },
+  textCardDescription: {
+    color: '#6B7280',
+  },
+  cardFeatures: {
+    gap: 4,
+  },
+  featureText: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    lineHeight: 20,
+  },
+  textFeatureText: {
+    color: '#9CA3AF',
+  },
+  comingSoonSection: {
+    marginTop: 20,
+    marginBottom: 40,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 16,
+  },
+  comingSoonCard: {
+    padding: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    opacity: 0.7,
+  },
+  comingSoonHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  comingSoonTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#9CA3AF',
+  },
+  comingSoonDescription: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    lineHeight: 20,
   },
 });
