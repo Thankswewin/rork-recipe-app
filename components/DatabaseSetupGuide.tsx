@@ -151,30 +151,6 @@ CREATE TABLE notifications (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE conversations (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  title TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  last_message_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE messages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
-  sender_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
-  content TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE conversation_participants (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(conversation_id, user_id)
-);
-
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_profiles_username ON profiles(username);
 CREATE INDEX IF NOT EXISTS idx_recipes_user_id ON recipes(user_id);
@@ -186,11 +162,6 @@ CREATE INDEX IF NOT EXISTS idx_followers_follower_id ON followers(follower_id);
 CREATE INDEX IF NOT EXISTS idx_followers_following_id ON followers(following_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
-CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
-CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
-CREATE INDEX IF NOT EXISTS idx_conversation_participants_conversation_id ON conversation_participants(conversation_id);
-CREATE INDEX IF NOT EXISTS idx_conversation_participants_user_id ON conversation_participants(user_id);
-CREATE INDEX IF NOT EXISTS idx_conversations_last_message_at ON conversations(last_message_at);
 
 -- Enable RLS on all tables
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
@@ -198,9 +169,6 @@ ALTER TABLE recipes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE followers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
-ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE conversation_participants ENABLE ROW LEVEL SECURITY;
 
 -- Create storage bucket for avatars
 INSERT INTO storage.buckets (id, name, public) 
@@ -241,43 +209,6 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Function to find conversation between two users
-CREATE OR REPLACE FUNCTION find_conversation_between_users(user1_id UUID, user2_id UUID)
-RETURNS UUID AS $$
-DECLARE
-  conversation_id UUID;
-BEGIN
-  SELECT c.id INTO conversation_id
-  FROM conversations c
-  WHERE EXISTS (
-    SELECT 1 FROM conversation_participants cp1 
-    WHERE cp1.conversation_id = c.id AND cp1.user_id = user1_id
-  )
-  AND EXISTS (
-    SELECT 1 FROM conversation_participants cp2 
-    WHERE cp2.conversation_id = c.id AND cp2.user_id = user2_id
-  )
-  AND (
-    SELECT COUNT(*) FROM conversation_participants cp 
-    WHERE cp.conversation_id = c.id
-  ) = 2
-  LIMIT 1;
-  
-  RETURN conversation_id;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Function to update last_message_at on conversations
-CREATE OR REPLACE FUNCTION update_conversation_last_message()
-RETURNS TRIGGER AS $$
-BEGIN
-  UPDATE conversations
-  SET last_message_at = NEW.created_at
-  WHERE id = NEW.conversation_id;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- Create triggers
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
@@ -286,14 +217,6 @@ CREATE TRIGGER on_auth_user_created
 CREATE TRIGGER update_profiles_updated_at
   BEFORE UPDATE ON profiles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_conversations_updated_at
-  BEFORE UPDATE ON conversations
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_conversation_timestamp
-  AFTER INSERT ON messages
-  FOR EACH ROW EXECUTE FUNCTION update_conversation_last_message();
 
 -- RLS Policies
 
@@ -382,91 +305,6 @@ CREATE POLICY "System can insert notifications"
   ON notifications
   FOR INSERT
   WITH CHECK (true);
-
--- Conversation policies
-CREATE POLICY "Users can only view conversations they participate in"
-  ON conversations
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM conversation_participants
-      WHERE conversation_participants.conversation_id = conversations.id
-      AND conversation_participants.user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can update conversations they participate in"
-  ON conversations
-  FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM conversation_participants
-      WHERE conversation_participants.conversation_id = conversations.id
-      AND conversation_participants.user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can insert conversations"
-  ON conversations
-  FOR INSERT
-  WITH CHECK (true);
-
--- Message policies
-CREATE POLICY "Users can only view messages in conversations they participate in"
-  ON messages
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM conversation_participants
-      WHERE conversation_participants.conversation_id = messages.conversation_id
-      AND conversation_participants.user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can send messages"
-  ON messages
-  FOR INSERT
-  WITH CHECK (
-    sender_id = auth.uid() AND
-    EXISTS (
-      SELECT 1
-      FROM conversation_participants
-      WHERE conversation_participants.conversation_id = messages.conversation_id
-      AND conversation_participants.user_id = auth.uid()
-    )
-  );
-
--- Conversation participant policies
-CREATE POLICY "Users can only view participants in conversations they participate in"
-  ON conversation_participants
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM conversation_participants cp2
-      WHERE cp2.conversation_id = conversation_participants.conversation_id
-      AND cp2.user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can add participants to conversations"
-  ON conversation_participants
-  FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1
-      FROM conversation_participants cp2
-      WHERE cp2.conversation_id = conversation_participants.conversation_id
-      AND cp2.user_id = auth.uid()
-    ) OR NOT EXISTS (
-      SELECT 1
-      FROM conversation_participants cp3
-      WHERE cp3.conversation_id = conversation_participants.conversation_id
-    )
-  );
 
 -- Storage policies for avatar images
 CREATE POLICY "Avatar images are publicly accessible"
