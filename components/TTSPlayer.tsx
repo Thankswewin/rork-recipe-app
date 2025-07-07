@@ -56,7 +56,7 @@ export const TTSPlayer: React.FC<TTSPlayerProps> = ({
           style={styles.textInput}
           value={text}
           onChangeText={setText}
-          placeholder='Enter text to speak...'
+          placeholder="Enter text to speak..."
           multiline
           numberOfLines={4}
           textAlignVertical="top"
