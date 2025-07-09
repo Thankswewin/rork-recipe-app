@@ -1,6 +1,6 @@
 import React from "react";
 import { Tabs } from "expo-router";
-import { Home, Search, Heart, User, Bot, Mic } from "lucide-react-native";
+import { Home, Search, Heart, User, Bot, Server } from "lucide-react-native";
 import { StyleSheet, View, Text } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/hooks/useTheme";
@@ -44,6 +44,15 @@ export default function TabLayout() {
           title: "Assistant",
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon icon={Bot} color={color} focused={focused} label="Assistant" />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="unmute"
+        options={{
+          title: "Unmute",
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon icon={Server} color={color} focused={focused} label="Unmute" />
           ),
         }}
       />
