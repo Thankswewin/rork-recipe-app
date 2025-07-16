@@ -103,7 +103,7 @@ export class UnmuteClient {
   private isPlayingAudio = false;
 
   private config: UnmuteConfig = {
-    serverUrl: 'ws://localhost:8000/ws', // Default Unmute server
+    serverUrl: 'ws://localhost:8000/ws', // Will be updated with RunPod URL
     voice: 'alloy',
     language: 'en',
     instructions: 'You are a helpful voice assistant. Respond naturally and conversationally.',

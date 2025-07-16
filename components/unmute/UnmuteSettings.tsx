@@ -158,8 +158,14 @@ export const UnmuteSettings: React.FC<UnmuteSettingsProps> = ({ onClose }) => {
               autoCorrect={false}
             />
             <Text style={styles.inputHint}>
-              WebSocket URL of your Unmute server
+              WebSocket URL of your Unmute server (e.g., ws://your-runpod-url:80/ws)
             </Text>
+            <View style={styles.urlExamples}>
+              <Text style={styles.urlExampleTitle}>Common formats:</Text>
+              <Text style={styles.urlExample}>• Local: ws://localhost:8000/ws</Text>
+              <Text style={styles.urlExample}>• RunPod: ws://your-pod-id-8000.proxy.runpod.net/ws</Text>
+              <Text style={styles.urlExample}>• Custom: ws://your-domain.com:80/ws</Text>
+            </View>
           </View>
         </View>
 
@@ -566,5 +572,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  urlExamples: {
+    marginTop: 8,
+    padding: 12,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  urlExampleTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 4,
+  },
+  urlExample: {
+    fontSize: 11,
+    color: '#6B7280',
+    fontFamily: 'monospace',
+    lineHeight: 16,
   },
 });

@@ -27,6 +27,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useUnmuteStore } from '@/stores/unmuteStore';
 import { VoiceMessage } from '@/lib/unmute-client';
+import { RunPodSetupHelper } from './RunPodSetupHelper';
 
 interface UnmuteInterfaceProps {
   onSettingsPress?: () => void;
@@ -56,6 +57,7 @@ export const UnmuteInterface: React.FC<UnmuteInterfaceProps> = ({
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [textInput, setTextInput] = useState('');
   const [showTextInput, setShowTextInput] = useState(false);
+  const [showSetupHelper, setShowSetupHelper] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const debugScrollRef = useRef<ScrollView>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -193,6 +195,12 @@ export const UnmuteInterface: React.FC<UnmuteInterfaceProps> = ({
     }
   };
 
+  if (showSetupHelper) {
+    return (
+      <RunPodSetupHelper onClose={() => setShowSetupHelper(false)} />
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -315,15 +323,24 @@ export const UnmuteInterface: React.FC<UnmuteInterfaceProps> = ({
               Connect to your Unmute server and experience{'\n'}
               low-latency voice conversation with AI.
             </Text>
-            {!showDebugPanel && (
+            <View style={styles.emptyStateButtons}>
               <TouchableOpacity 
-                style={styles.showDebugButton}
-                onPress={() => setShowDebugPanel(true)}
+                style={styles.setupButton}
+                onPress={() => setShowSetupHelper(true)}
               >
-                <Bug size={16} color="#8B5CF6" />
-                <Text style={styles.showDebugText}>Show Debug Console</Text>
+                <Server size={16} color="#FFFFFF" />
+                <Text style={styles.setupButtonText}>Setup Server</Text>
               </TouchableOpacity>
-            )}
+              {!showDebugPanel && (
+                <TouchableOpacity 
+                  style={styles.showDebugButton}
+                  onPress={() => setShowDebugPanel(true)}
+                >
+                  <Bug size={16} color="#8B5CF6" />
+                  <Text style={styles.showDebugText}>Debug Console</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         )}
 
@@ -692,9 +709,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
     backgroundColor: '#F3F4F6',
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
@@ -702,6 +719,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#8B5CF6',
     fontWeight: '500',
+  },
+  emptyStateButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  setupButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#8B5CF6',
+    borderRadius: 12,
+  },
+  setupButtonText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   messageBubble: {
     maxWidth: '85%',
