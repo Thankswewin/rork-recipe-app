@@ -4,21 +4,25 @@
 ✅ Docker installed
 ✅ Docker Compose installed  
 ✅ NVIDIA Container Toolkit installed
-❌ Docker daemon needs to be started manually (no systemd)
+❌ Docker daemon startup failed (iptables/networking issues in container)
 
-## Next Steps
+## Solution: Start Docker with Container-Friendly Flags
 
-### 1. Start Docker Daemon Manually
-Since RunPod doesn't use systemd, start Docker manually:
+### 1. Start Docker Daemon with Proper Configuration
+The error you're seeing is because RunPod containers have restricted networking. Use these flags:
 ```bash
-# Start Docker daemon in background
-dockerd &
+# Kill any existing Docker processes
+pkill dockerd 2>/dev/null || true
 
-# Wait a few seconds for it to start
-sleep 5
+# Start Docker daemon with container-friendly settings
+dockerd --host=unix:///var/run/docker.sock --iptables=false --storage-driver=vfs &
+
+# Wait for daemon to start
+sleep 10
 
 # Test Docker is working
 docker --version
+docker ps
 ```
 
 ### 2. Test NVIDIA GPU Access
