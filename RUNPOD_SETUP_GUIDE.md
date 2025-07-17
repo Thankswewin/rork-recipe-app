@@ -6,18 +6,19 @@
 ✅ NVIDIA Container Toolkit installed
 ✅ Docker daemon is now running successfully!
 
-## Solution: Start Docker with Container-Friendly Flags
+## Solution: Fix "unshare: operation not permitted" Error
 
-### 1. Start Docker Daemon with Proper Configuration
-The error you're seeing is because RunPod containers have restricted networking. Try these commands in order:
+### 1. Start Docker Daemon with User Namespace Disabled
+The error you're seeing is because Docker is trying to use user namespaces which are restricted in RunPod containers. Here's the fix:
 
-**Option A - Basic container-friendly setup:**
+**Step 1 - Kill existing Docker and restart with proper flags:**
 ```bash
 # Kill any existing Docker processes
 pkill dockerd 2>/dev/null || true
+pkill containerd 2>/dev/null || true
 
-# Start Docker daemon with container-friendly settings
-dockerd --host=unix:///var/run/docker.sock --iptables=false --storage-driver=vfs &
+# Start Docker daemon with user namespaces disabled
+dockerd --storage-driver=vfs --iptables=false --userns-remap="" --disable-legacy-registry=false &
 
 # Wait for daemon to start
 sleep 10
@@ -27,19 +28,25 @@ docker --version
 docker ps
 ```
 
-**Option B - If Option A fails, try with more restrictions:**
+**Step 2 - Test with hello-world:**
+```bash
+# This should now work without the unshare error
+docker run --rm hello-world
+```
+
+**If Step 1 fails, try this alternative:**
 ```bash
 # Kill any existing Docker processes
 pkill dockerd 2>/dev/null || true
 
-# Start with minimal networking and bridge disabled
-dockerd --iptables=false --bridge=none --storage-driver=vfs &
+# Start with even more restrictions
+dockerd --storage-driver=vfs --iptables=false --bridge=none --userns-remap="" &
 
 # Wait for daemon to start
 sleep 10
 
 # Test Docker is working
-docker ps
+docker run --rm hello-world
 ```
 
 ### 2. Test NVIDIA GPU Access
