@@ -9,7 +9,9 @@
 ## Solution: Start Docker with Container-Friendly Flags
 
 ### 1. Start Docker Daemon with Proper Configuration
-The error you're seeing is because RunPod containers have restricted networking. Use these flags:
+The error you're seeing is because RunPod containers have restricted networking. Try these commands in order:
+
+**Option A - Basic container-friendly setup:**
 ```bash
 # Kill any existing Docker processes
 pkill dockerd 2>/dev/null || true
@@ -22,6 +24,21 @@ sleep 10
 
 # Test Docker is working
 docker --version
+docker ps
+```
+
+**Option B - If Option A fails, try with more restrictions:**
+```bash
+# Kill any existing Docker processes
+pkill dockerd 2>/dev/null || true
+
+# Start with minimal networking and bridge disabled
+dockerd --iptables=false --bridge=none --storage-driver=vfs &
+
+# Wait for daemon to start
+sleep 10
+
+# Test Docker is working
 docker ps
 ```
 
