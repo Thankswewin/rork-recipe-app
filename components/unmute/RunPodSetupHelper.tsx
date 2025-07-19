@@ -89,7 +89,7 @@ export const RunPodSetupHelper: React.FC<RunPodSetupHelperProps> = ({ onClose })
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.titleRow}>
-          <Server size={24} color=\"#8B5CF6\" />
+          <Server size={24} color="#8B5CF6" />
           <Text style={styles.title}>RunPod Setup Helper</Text>
         </View>
         <Text style={styles.subtitle}>
@@ -121,7 +121,7 @@ export const RunPodSetupHelper: React.FC<RunPodSetupHelperProps> = ({ onClose })
                 </Text>
               </View>
               {selectedOption === 'runpod' && (
-                <CheckCircle size={20} color=\"#10B981\" />
+                <CheckCircle size={20} color="#10B981" />
               )}
             </View>
             <Text style={styles.optionDescription}>
@@ -135,9 +135,9 @@ export const RunPodSetupHelper: React.FC<RunPodSetupHelperProps> = ({ onClose })
                   style={styles.textInput}
                   value={podId}
                   onChangeText={setPodId}
-                  placeholder=\"e.g., abc123def456\"
-                  placeholderTextColor=\"#9CA3AF\"
-                  autoCapitalize=\"none\"
+                  placeholder="e.g., abc123def456"
+                  placeholderTextColor="#9CA3AF"
+                  autoCapitalize="none"
                   autoCorrect={false}
                 />
                 <Text style={styles.inputHint}>
@@ -155,7 +155,7 @@ export const RunPodSetupHelper: React.FC<RunPodSetupHelperProps> = ({ onClose })
                         style={styles.copyButton}
                         onPress={() => copyToClipboard(generateRunPodUrl(podId))}
                       >
-                        <Copy size={16} color=\"#8B5CF6\" />
+                        <Copy size={16} color="#8B5CF6" />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -183,7 +183,7 @@ export const RunPodSetupHelper: React.FC<RunPodSetupHelperProps> = ({ onClose })
                 </Text>
               </View>
               {selectedOption === 'custom' && (
-                <CheckCircle size={20} color=\"#10B981\" />
+                <CheckCircle size={20} color="#10B981" />
               )}
             </View>
             <Text style={styles.optionDescription}>
@@ -197,9 +197,9 @@ export const RunPodSetupHelper: React.FC<RunPodSetupHelperProps> = ({ onClose })
                   style={styles.textInput}
                   value={customUrl}
                   onChangeText={setCustomUrl}
-                  placeholder=\"ws://your-server.com:8000/ws\"
-                  placeholderTextColor=\"#9CA3AF\"
-                  autoCapitalize=\"none\"
+                  placeholder="ws://your-server.com:8000/ws"
+                  placeholderTextColor="#9CA3AF"
+                  autoCapitalize="none"
                   autoCorrect={false}
                 />
                 <Text style={styles.inputHint}>
@@ -228,7 +228,7 @@ export const RunPodSetupHelper: React.FC<RunPodSetupHelperProps> = ({ onClose })
                 </Text>
               </View>
               {selectedOption === 'local' && (
-                <CheckCircle size={20} color=\"#10B981\" />
+                <CheckCircle size={20} color="#10B981" />
               )}
             </View>
             <Text style={styles.optionDescription}>
@@ -255,7 +255,7 @@ export const RunPodSetupHelper: React.FC<RunPodSetupHelperProps> = ({ onClose })
           <Text style={styles.sectionTitle}>Need Help Setting Up?</Text>
           
           <View style={styles.helpCard}>
-            <AlertCircle size={20} color=\"#F59E0B\" />
+            <AlertCircle size={20} color="#F59E0B" />
             <View style={styles.helpContent}>
               <Text style={styles.helpTitle}>RunPod Setup Guide</Text>
               <Text style={styles.helpText}>
@@ -265,7 +265,7 @@ export const RunPodSetupHelper: React.FC<RunPodSetupHelperProps> = ({ onClose })
                 style={styles.helpButton}
                 onPress={() => openLink('https://github.com/kyutai-labs/unmute')}
               >
-                <ExternalLink size={16} color=\"#8B5CF6\" />
+                <ExternalLink size={16} color="#8B5CF6" />
                 <Text style={styles.helpButtonText}>View Setup Guide</Text>
               </TouchableOpacity>
             </View>
@@ -304,7 +304,7 @@ export const RunPodSetupHelper: React.FC<RunPodSetupHelperProps> = ({ onClose })
             colors={['#8B5CF6', '#7C3AED']}
             style={styles.setUrlButton}
           >
-            <CheckCircle size={18} color=\"#FFFFFF\" />
+            <CheckCircle size={18} color="#FFFFFF" />
             <Text style={styles.setUrlButtonText}>Set Server URL</Text>
           </LinearGradient>
         </TouchableOpacity>
