@@ -1,41 +1,55 @@
 #!/bin/bash
 
-echo "🚀 Complete RunPod Setup for React Native App..."
+echo "🚀 Complete RunPod Setup for Rork App"
+echo "======================================"
 
-# Update system
-echo "📦 Updating system packages..."
-apt update -y
+# Step 1: Install system dependencies
+echo "📦 Installing system dependencies..."
+apt-get update && apt-get install -y unzip curl lsof psmisc
 
-# Install Node.js (using NodeSource repository for latest LTS)
-echo "📥 Installing Node.js..."
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-apt-get install -y nodejs
+# Step 2: Kill any existing processes
+echo "🚫 Cleaning up existing processes..."
+pkill -f node 2>/dev/null || true
+pkill -f bun 2>/dev/null || true
+pkill -f expo 2>/dev/null || true
+pkill -f rork 2>/dev/null || true
 
-# Install Bun
-echo "📥 Installing Bun..."
+# Kill processes on common ports
+for port in 8081 3000 19000 19001 19002 8000 8080 4000; do
+    pid=$(lsof -ti:$port 2>/dev/null)
+    if [ ! -z "$pid" ]; then
+        echo "Killing process on port $port (PID: $pid)"
+        kill -9 $pid 2>/dev/null || true
+    fi
+done
+
+# Step 3: Install Bun
+echo "🔧 Installing Bun..."
 curl -fsSL https://bun.sh/install | bash
+
+# Step 4: Setup PATH
+echo "🛠️ Setting up PATH..."
 export PATH="$HOME/.bun/bin:$PATH"
 echo 'export PATH="$HOME/.bun/bin:$PATH"' >> ~/.bashrc
 
-# Install additional dependencies
-echo "📦 Installing additional dependencies..."
-apt-get install -y \
-    curl \
-    wget \
-    unzip \
-    build-essential \
-    python3 \
-    python3-pip
-
-# Install Expo CLI globally
-echo "📱 Installing Expo CLI..."
-npm install -g @expo/cli
-
-# Install app dependencies if package.json exists
-if [ -f "package.json" ]; then
-    echo "📦 Installing app dependencies..."
-    ~/.bun/bin/bun install
+# Step 5: Verify Bun installation
+echo "✅ Verifying Bun installation..."
+if [ -f "$HOME/.bun/bin/bun" ]; then
+    echo "Bun installed successfully at: $HOME/.bun/bin/bun"
+    $HOME/.bun/bin/bun --version
+else
+    echo "❌ Bun installation failed"
+    exit 1
 fi
+
+# Step 6: Install dependencies
+echo "📦 Installing project dependencies..."
+cd /workspace/rork-recipe-app 2>/dev/null || cd /home/user/rork-app
+$HOME/.bun/bin/bun install
+
+# Step 7: Add Expo CLI if missing
+echo "🔧 Adding Expo CLI..."
+$HOME/.bun/bin/bun add -D @expo/cli
 
 # Verify installations
 echo ""

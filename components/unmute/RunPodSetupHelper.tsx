@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: '700' as const,
     color: '#111827',
   },
   subtitle: {
@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '600' as const,
     color: '#374151',
     marginBottom: 16,
   },
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
   },
   optionTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
     color: '#374151',
   },
   optionTitleSelected: {
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '600' as const,
     color: '#374151',
     marginBottom: 8,
   },
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
   },
   generatedUrlLabel: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '600' as const,
     color: '#374151',
     marginBottom: 4,
   },
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
   },
   helpTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
     color: '#374151',
     marginBottom: 4,
   },
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   helpButtonText: {
     fontSize: 14,
     color: '#8B5CF6',
-    fontWeight: '500',
+    fontWeight: '500' as const,
   },
   urlExamples: {
     backgroundColor: '#FFFFFF',
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
   },
   urlExampleLabel: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '600' as const,
     color: '#374151',
     marginBottom: 2,
   },
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '500' as const,
     color: '#6B7280',
   },
   setUrlButtonContainer: {
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
   },
   setUrlButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
     color: '#FFFFFF',
   },
 });
