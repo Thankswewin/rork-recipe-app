@@ -2,6 +2,9 @@
 
 echo "🚀 Installing Bun..."
 
+# Install required dependencies
+apt-get update && apt-get install -y unzip curl
+
 # Install Bun
 curl -fsSL https://bun.sh/install | bash
 
