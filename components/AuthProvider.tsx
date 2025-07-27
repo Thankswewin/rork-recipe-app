@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { useAuthStore } from '@/stores/authStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 import { supabase, testSupabaseConnection } from '@/lib/supabase';
 
 interface AuthProviderProps {
@@ -8,7 +9,8 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const { setSession, setUser, initialize, fetchProfile, setupRealtimeSubscriptions } = useAuthStore();
+  const { setSession, setUser, initialize, fetchProfile } = useAuthStore();
+  const { setupRealtimeSubscriptions } = useNotificationStore();
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
@@ -39,7 +41,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         await initialize();
 
         // Set up realtime subscriptions
-        unsubscribeRealtime = await setupRealtimeSubscriptions();
+        const { user } = await supabase.auth.getUser();
+        if (user.data.user) {
+          unsubscribeRealtime = await setupRealtimeSubscriptions(user.data.user.id);
+        }
 
         // Listen for auth changes
         const { data } = supabase.auth.onAuthStateChange(
@@ -58,7 +63,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 if (unsubscribeRealtime) {
                   unsubscribeRealtime();
                 }
-                unsubscribeRealtime = await setupRealtimeSubscriptions();
+                unsubscribeRealtime = await setupRealtimeSubscriptions(session.user.id);
               } catch (profileError) {
                 console.error('AuthProvider: Error fetching profile:', profileError);
                 // Don't fail initialization if profile fetch fails
