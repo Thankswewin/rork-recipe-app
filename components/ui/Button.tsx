@@ -159,7 +159,7 @@ export const Button: React.FC<ButtonProps> = ({
   
   const textStyleComputed: TextStyle = {
     color: buttonColors.color,
-    fontSize: sizeStyle.fontSize || typography.base,
+    fontSize: (sizeStyle as any).fontSize || typography.base,
     fontWeight: typography.weights.semibold,
     ...textStyle,
   };
@@ -228,7 +228,7 @@ export const Button: React.FC<ButtonProps> = ({
         style={[{ borderRadius: sizeStyle.borderRadius }, style]}
       >
         <LinearGradient
-          colors={getGradientColors()}
+          colors={getGradientColors() as [string, string, ...string[]]}
           style={[buttonStyle, { backgroundColor: 'transparent' }]}
         >
           {renderContent()}
