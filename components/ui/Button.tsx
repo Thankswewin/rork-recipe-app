@@ -159,7 +159,7 @@ export const Button: React.FC<ButtonProps> = ({
   
   const textStyleComputed: TextStyle = {
     color: buttonColors.color,
-    fontSize: sizeStyle.fontSize,
+    fontSize: sizeStyle.fontSize || typography.base,
     fontWeight: typography.weights.semibold,
     ...textStyle,
   };
