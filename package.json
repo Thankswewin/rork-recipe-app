@@ -5,7 +5,10 @@
   "scripts": {
     "start": "bunx rork start -p vt7djdplktpom88t3n578 --tunnel",
     "start-web": "bunx rork start -p vt7djdplktpom88t3n578 --web --tunnel",
-    "start-web-dev": "DEBUG=expo* bunx rork start -p vt7djdplktpom88t3n578 --web --tunnel"
+    "start-web-dev": "DEBUG=expo* bunx rork start -p vt7djdplktpom88t3n578 --web --tunnel",
+    "start-expo": "npx expo start --port 8081 --host 0.0.0.0",
+    "start-runpod": "npx expo start --port 8081 --host 0.0.0.0 --web",
+    "dev": "npx expo start --dev-client --port 8081 --host 0.0.0.0"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
