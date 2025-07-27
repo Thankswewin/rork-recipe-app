@@ -12,6 +12,15 @@ import { Mic, MicOff, Settings, Volume2, Zap, Radio, Bug, ChevronDown, ChevronUp
 import { LinearGradient } from 'expo-linear-gradient';
 import { useVoiceChatStore } from '@/stores/voiceChatStore';
 import { VoiceMessage } from '@/lib/realtime-voice';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import {
+  spacing,
+  typography,
+  borderRadius,
+  colorPalette,
+  shadows,
+} from '@/constants/designSystem';
 
 interface VoiceChatInterfaceProps {
   onSettingsPress?: () => void;
@@ -191,19 +200,21 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
           </View>
           
           <View style={styles.headerButtons}>
-            <TouchableOpacity 
-              style={[styles.debugButton, showDebugPanel && styles.debugButtonActive]}
+            <Button
+              variant={showDebugPanel ? 'purple' : 'ghost'}
+              size="icon"
+              icon={Bug}
+              iconSize={18}
               onPress={() => setShowDebugPanel(!showDebugPanel)}
-            >
-              <Bug size={18} color={showDebugPanel ? "#FFFFFF" : "#6B7280"} />
-            </TouchableOpacity>
+            />
             
-            <TouchableOpacity 
-              style={styles.settingsButton}
+            <Button
+              variant="ghost"
+              size="icon"
+              icon={Settings}
+              iconSize={22}
               onPress={onSettingsPress}
-            >
-              <Settings size={22} color="#6B7280" />
-            </TouchableOpacity>
+            />
           </View>
         </View>
       </View>
@@ -215,19 +226,21 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
             <View style={styles.debugTitleRow}>
               <Bug size={16} color="#3B82F6" />
               <Text style={styles.debugTitle}>Debug Console</Text>
-              <TouchableOpacity 
-                style={styles.clearLogsButton}
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Clear"
                 onPress={clearDebugLogs}
-              >
-                <Text style={styles.clearLogsText}>Clear</Text>
-              </TouchableOpacity>
+                style={styles.clearLogsButton}
+              />
             </View>
-            <TouchableOpacity 
-              style={styles.collapseButton}
+            <Button
+              variant="ghost"
+              size="icon"
+              icon={ChevronUp}
+              iconSize={16}
               onPress={() => setShowDebugPanel(false)}
-            >
-              <ChevronUp size={16} color="#6B7280" />
-            </TouchableOpacity>
+            />
           </View>
           
           <ScrollView 
@@ -286,13 +299,15 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
               Experience real-time voice interaction.
             </Text>
             {!showDebugPanel && (
-              <TouchableOpacity 
-                style={styles.showDebugButton}
+              <Button
+                variant="outline"
+                size="sm"
+                icon={Bug}
+                iconSize={16}
+                title="Show Debug Console"
                 onPress={() => setShowDebugPanel(true)}
-              >
-                <Bug size={16} color="#3B82F6" />
-                <Text style={styles.showDebugText}>Show Debug Console</Text>
-              </TouchableOpacity>
+                style={styles.showDebugButton}
+              />
             )}
           </View>
         )}
@@ -332,55 +347,41 @@ export const VoiceChatInterface: React.FC<VoiceChatInterfaceProps> = ({
       {/* Controls */}
       <View style={styles.controls}>
         {!isConnected ? (
-          <TouchableOpacity
-            style={styles.connectButtonContainer}
+          <Button
+            variant="purple"
+            size="lg"
+            icon={Radio}
+            iconSize={24}
+            title={isConnecting ? 'Connecting...' : 'Connect Voice Assistant'}
+            loading={isConnecting}
+            gradient
+            fullWidth
             onPress={handleConnectionToggle}
             disabled={isConnecting}
-          >
-            <LinearGradient
-              colors={isConnecting ? ['#9CA3AF', '#6B7280'] : ['#3B82F6', '#2563EB']}
-              style={styles.connectButton}
-            >
-              <Radio size={24} color="#FFFFFF" />
-              <Text style={styles.connectButtonText}>
-                {isConnecting ? 'Connecting...' : 'Connect Voice Assistant'}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
+            style={styles.connectButton}
+          />
         ) : (
           <View style={styles.connectedControls}>
-            <TouchableOpacity
-              style={styles.disconnectButton}
+            <Button
+              variant="secondary"
+              size="sm"
+              title="Disconnect"
               onPress={handleConnectionToggle}
-            >
-              <Text style={styles.disconnectButtonText}>Disconnect</Text>
-            </TouchableOpacity>
+            />
 
             <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-              <TouchableOpacity
-                style={[
-                  styles.micButton,
-                  isRecording ? styles.recordingButton : styles.idleButton
-                ]}
+              <Button
+                variant={isRecording ? 'primary' : 'purple'}
+                size="iconLg"
+                icon={isRecording ? MicOff : Mic}
+                iconSize={28}
+                gradient
+                shadow
                 onPress={pushToTalk ? undefined : handleMicToggle}
                 onPressIn={pushToTalk ? handleMicPressIn : undefined}
                 onPressOut={pushToTalk ? handleMicPressOut : undefined}
-                activeOpacity={0.8}
-              >
-                <LinearGradient
-                  colors={isRecording 
-                    ? ['#EF4444', '#DC2626'] 
-                    : ['#10B981', '#059669']
-                  }
-                  style={styles.micButtonGradient}
-                >
-                  {isRecording ? (
-                    <MicOff size={28} color="#FFFFFF" />
-                  ) : (
-                    <Mic size={28} color="#FFFFFF" />
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
+                style={styles.micButton}
+              />
             </Animated.View>
           </View>
         )}
@@ -433,19 +434,19 @@ const MessageBubble: React.FC<{ message: VoiceMessage }> = ({ message }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: colorPalette.gray[50],
   },
   header: {
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: colorPalette.gray[200],
   },
   headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
   },
   titleSection: {
     flex: 1,
@@ -453,18 +454,18 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
+    fontSize: typography.xl,
+    fontWeight: typography.weights.bold,
+    color: colorPalette.gray[900],
   },
   statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.xs,
   },
   statusDot: {
     width: 6,
@@ -472,108 +473,85 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   statusText: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: typography.sm,
+    fontWeight: typography.weights.medium,
   },
   headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  debugButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
-  },
-  debugButtonActive: {
-    backgroundColor: '#3B82F6',
-  },
-  settingsButton: {
-    padding: 8,
-    borderRadius: 8,
+    gap: spacing.sm,
   },
   debugPanel: {
-    backgroundColor: '#1F2937',
+    backgroundColor: colorPalette.gray[800],
     borderBottomWidth: 1,
-    borderBottomColor: '#374151',
+    borderBottomColor: colorPalette.gray[700],
     maxHeight: 200,
   },
   debugHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#374151',
+    borderBottomColor: colorPalette.gray[700],
   },
   debugTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
     flex: 1,
   },
   debugTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: typography.base,
+    fontWeight: typography.weights.semibold,
     color: '#FFFFFF',
   },
   clearLogsButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    backgroundColor: '#374151',
-    borderRadius: 6,
-  },
-  clearLogsText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    fontWeight: '500',
-  },
-  collapseButton: {
-    padding: 4,
+    backgroundColor: colorPalette.gray[700],
   },
   debugLogs: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
   },
   noLogsText: {
-    color: '#9CA3AF',
-    fontSize: 14,
+    color: colorPalette.gray[400],
+    fontSize: typography.base,
     textAlign: 'center',
-    paddingVertical: 20,
+    paddingVertical: spacing.xl,
     fontStyle: 'italic',
   },
   debugLogItem: {
-    paddingVertical: 8,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#374151',
+    borderBottomColor: colorPalette.gray[700],
   },
   debugLogHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   debugLogLevel: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: typography.xs,
+    fontWeight: typography.weights.bold,
     letterSpacing: 0.5,
   },
   debugLogTime: {
-    fontSize: 11,
-    color: '#6B7280',
+    fontSize: typography.xs,
+    color: colorPalette.gray[500],
   },
   debugLogMessage: {
-    fontSize: 13,
-    color: '#E5E7EB',
-    lineHeight: 18,
+    fontSize: typography.sm,
+    color: colorPalette.gray[200],
+    lineHeight: typography.lineHeights.normal * typography.sm,
   },
   debugLogData: {
-    fontSize: 11,
-    color: '#9CA3AF',
+    fontSize: typography.xs,
+    color: colorPalette.gray[400],
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    marginTop: 4,
-    paddingLeft: 8,
+    marginTop: spacing.xs,
+    paddingLeft: spacing.sm,
   },
   messagesContainer: {
     flex: 1,
@@ -695,73 +673,33 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   controls: {
-    paddingHorizontal: 20,
-    paddingVertical: 24,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xxl,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-  },
-  connectButtonContainer: {
-    borderRadius: 16,
+    borderTopColor: colorPalette.gray[200],
   },
   connectButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 24,
-    borderRadius: 16,
-    gap: 12,
-  },
-  connectButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    borderRadius: borderRadius.xl,
   },
   connectedControls: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  disconnectButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-  },
-  disconnectButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
-  },
   micButton: {
     width: 72,
     height: 72,
-    borderRadius: 36,
   },
-  micButtonGradient: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
-  idleButton: {},
-  recordingButton: {},
   instructions: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xl,
     backgroundColor: '#FFFFFF',
   },
   instructionText: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: typography.base,
+    color: colorPalette.gray[500],
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: typography.lineHeights.relaxed * typography.base,
   },
 });

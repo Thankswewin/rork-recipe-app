@@ -257,16 +257,22 @@ export const RunPodSetupHelper: React.FC<RunPodSetupHelperProps> = ({ onClose })
           <View style={styles.helpCard}>
             <AlertCircle size={20} color="#F59E0B" />
             <View style={styles.helpContent}>
-              <Text style={styles.helpTitle}>RunPod Setup Guide</Text>
+              <Text style={styles.helpTitle}>RunPod Deployment Guide</Text>
               <Text style={styles.helpText}>
-                Follow our comprehensive guide to set up Unmute on RunPod with GPU support.
+                We've created automated deployment scripts for easy RunPod setup. Check the RUNPOD_DEPLOYMENT.md file in your project for complete instructions.
               </Text>
+              <View style={styles.helpSteps}>
+                <Text style={styles.helpStepText}>1. Create RunPod GPU instance (RTX 4090/A100)</Text>
+                <Text style={styles.helpStepText}>2. SSH into your pod</Text>
+                <Text style={styles.helpStepText}>3. Run: wget [repo]/runpod-setup.sh && chmod +x runpod-setup.sh && ./runpod-setup.sh</Text>
+                <Text style={styles.helpStepText}>4. Copy the WebSocket URL and enter it above</Text>
+              </View>
               <TouchableOpacity
                 style={styles.helpButton}
                 onPress={() => openLink('https://github.com/kyutai-labs/unmute')}
               >
                 <ExternalLink size={16} color="#8B5CF6" />
-                <Text style={styles.helpButtonText}>View Setup Guide</Text>
+                <Text style={styles.helpButtonText}>View Full Guide</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -278,8 +284,12 @@ export const RunPodSetupHelper: React.FC<RunPodSetupHelperProps> = ({ onClose })
           
           <View style={styles.urlExamples}>
             <View style={styles.urlExample}>
-              <Text style={styles.urlExampleLabel}>RunPod:</Text>
+              <Text style={styles.urlExampleLabel}>RunPod (Auto-generated):</Text>
               <Text style={styles.urlExampleText}>ws://pod-id-8000.proxy.runpod.net/ws</Text>
+            </View>
+            <View style={styles.urlExample}>
+              <Text style={styles.urlExampleLabel}>RunPod (Direct):</Text>
+              <Text style={styles.urlExampleText}>ws://your-pod-ip:8000/ws</Text>
             </View>
             <View style={styles.urlExample}>
               <Text style={styles.urlExampleLabel}>Local:</Text>
@@ -482,6 +492,16 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     lineHeight: 20,
     marginBottom: 12,
+  },
+  helpSteps: {
+    marginBottom: 12,
+  },
+  helpStepText: {
+    fontSize: 12,
+    color: '#6B7280',
+    lineHeight: 18,
+    marginBottom: 4,
+    paddingLeft: 8,
   },
   helpButton: {
     flexDirection: 'row',

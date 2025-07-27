@@ -28,6 +28,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useUnmuteStore } from '@/stores/unmuteStore';
 import { VoiceMessage } from '@/lib/unmute-client';
 import { RunPodSetupHelper } from './RunPodSetupHelper';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Card } from '@/components/ui/Card';
+import {
+  spacing,
+  typography,
+  borderRadius,
+  colorPalette,
+  shadows,
+} from '@/constants/designSystem';
 
 interface UnmuteInterfaceProps {
   onSettingsPress?: () => void;
@@ -229,19 +239,21 @@ export const UnmuteInterface: React.FC<UnmuteInterfaceProps> = ({
           </View>
           
           <View style={styles.headerButtons}>
-            <TouchableOpacity 
-              style={[styles.debugButton, showDebugPanel && styles.debugButtonActive]}
+            <Button
+              variant={showDebugPanel ? 'purple' : 'ghost'}
+              size="icon"
+              icon={Bug}
+              iconSize={18}
               onPress={() => setShowDebugPanel(!showDebugPanel)}
-            >
-              <Bug size={18} color={showDebugPanel ? "#FFFFFF" : "#6B7280"} />
-            </TouchableOpacity>
+            />
             
-            <TouchableOpacity 
-              style={styles.settingsButton}
+            <Button
+              variant="ghost"
+              size="icon"
+              icon={Settings}
+              iconSize={22}
               onPress={onSettingsPress}
-            >
-              <Settings size={22} color="#6B7280" />
-            </TouchableOpacity>
+            />
           </View>
         </View>
       </View>
@@ -253,19 +265,21 @@ export const UnmuteInterface: React.FC<UnmuteInterfaceProps> = ({
             <View style={styles.debugTitleRow}>
               <Bug size={16} color="#8B5CF6" />
               <Text style={styles.debugTitle}>Debug Console</Text>
-              <TouchableOpacity 
-                style={styles.clearLogsButton}
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Clear"
                 onPress={clearDebugLogs}
-              >
-                <Text style={styles.clearLogsText}>Clear</Text>
-              </TouchableOpacity>
+                style={styles.clearLogsButton}
+              />
             </View>
-            <TouchableOpacity 
-              style={styles.collapseButton}
+            <Button
+              variant="ghost"
+              size="icon"
+              icon={ChevronUp}
+              iconSize={16}
               onPress={() => setShowDebugPanel(false)}
-            >
-              <ChevronUp size={16} color="#6B7280" />
-            </TouchableOpacity>
+            />
           </View>
           
           <ScrollView 
@@ -332,13 +346,15 @@ export const UnmuteInterface: React.FC<UnmuteInterfaceProps> = ({
                 <Text style={styles.setupButtonText}>Setup Server</Text>
               </TouchableOpacity>
               {!showDebugPanel && (
-                <TouchableOpacity 
-                  style={styles.showDebugButton}
-                  onPress={() => setShowDebugPanel(true)}
-                >
-                  <Bug size={16} color="#8B5CF6" />
-                  <Text style={styles.showDebugText}>Debug Console</Text>
-                </TouchableOpacity>
+                <Button
+                variant="outline"
+                size="sm"
+                icon={Bug}
+                iconSize={16}
+                title="Debug Console"
+                onPress={() => setShowDebugPanel(true)}
+                style={styles.showDebugButton}
+              />
               )}
             </View>
           </View>
@@ -379,56 +395,49 @@ export const UnmuteInterface: React.FC<UnmuteInterfaceProps> = ({
       {/* Text Input */}
       {showTextInput && (
         <View style={styles.textInputContainer}>
-          <TextInput
-            style={styles.textInput}
+          <Input
             value={textInput}
             onChangeText={setTextInput}
             placeholder="Type a message..."
-            placeholderTextColor="#9CA3AF"
             multiline
             maxLength={500}
+            style={styles.textInput}
+            rightIcon={Send}
+            rightIconProps={{
+              size: 20,
+              color: textInput.trim() ? colorPalette.purple[600] : colorPalette.gray[400],
+              onPress: textInput.trim() ? handleSendText : undefined,
+            }}
           />
-          <TouchableOpacity
-            style={styles.sendButton}
-            onPress={handleSendText}
-            disabled={!textInput.trim() || !isConnected}
-          >
-            <Send size={20} color={textInput.trim() && isConnected ? "#8B5CF6" : "#9CA3AF"} />
-          </TouchableOpacity>
         </View>
       )}
 
       {/* Controls */}
       <View style={styles.controls}>
         {!isConnected ? (
-          <TouchableOpacity
-            style={styles.connectButtonContainer}
+          <Button
+            variant="purple"
+            size="lg"
+            icon={isConnecting ? Wifi : Server}
+            iconSize={24}
+            title={isConnecting ? 'Connecting...' : 'Connect to Unmute'}
+            loading={isConnecting}
+            gradient
+            fullWidth
             onPress={handleConnectionToggle}
             disabled={isConnecting}
-          >
-            <LinearGradient
-              colors={isConnecting ? ['#9CA3AF', '#6B7280'] : ['#8B5CF6', '#7C3AED']}
-              style={styles.connectButton}
-            >
-              {isConnecting ? (
-                <Wifi size={24} color="#FFFFFF" />
-              ) : (
-                <Server size={24} color="#FFFFFF" />
-              )}
-              <Text style={styles.connectButtonText}>
-                {isConnecting ? 'Connecting...' : 'Connect to Unmute'}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
+            style={styles.connectButton}
+          />
         ) : (
           <View style={styles.connectedControls}>
-            <TouchableOpacity
-              style={styles.disconnectButton}
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={WifiOff}
+              iconSize={16}
+              title="Disconnect"
               onPress={handleConnectionToggle}
-            >
-              <WifiOff size={16} color="#6B7280" />
-              <Text style={styles.disconnectButtonText}>Disconnect</Text>
-            </TouchableOpacity>
+            />
 
             <TouchableOpacity
               style={styles.textButton}
@@ -438,30 +447,18 @@ export const UnmuteInterface: React.FC<UnmuteInterfaceProps> = ({
             </TouchableOpacity>
 
             <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-              <TouchableOpacity
-                style={[
-                  styles.micButton,
-                  isRecording ? styles.recordingButton : styles.idleButton
-                ]}
+              <Button
+                variant={isRecording ? 'primary' : 'purple'}
+                size="iconLg"
+                icon={isRecording ? MicOff : Mic}
+                iconSize={28}
+                gradient
+                shadow
                 onPress={pushToTalk ? undefined : handleMicToggle}
                 onPressIn={pushToTalk ? handleMicPressIn : undefined}
                 onPressOut={pushToTalk ? handleMicPressOut : undefined}
-                activeOpacity={0.8}
-              >
-                <LinearGradient
-                  colors={isRecording 
-                    ? ['#EF4444', '#DC2626'] 
-                    : ['#8B5CF6', '#7C3AED']
-                  }
-                  style={styles.micButtonGradient}
-                >
-                  {isRecording ? (
-                    <MicOff size={28} color="#FFFFFF" />
-                  ) : (
-                    <Mic size={28} color="#FFFFFF" />
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
+                style={styles.micButton}
+              />
             </Animated.View>
           </View>
         )}
@@ -514,19 +511,19 @@ const MessageBubble: React.FC<{ message: VoiceMessage }> = ({ message }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: colorPalette.gray[50],
   },
   header: {
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: colorPalette.gray[200],
   },
   headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
   },
   titleSection: {
     flex: 1,
@@ -534,18 +531,18 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
+    fontSize: typography.xl,
+    fontWeight: typography.weights.bold,
+    color: colorPalette.gray[900],
   },
   statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.xs,
     marginBottom: 2,
   },
   statusDot: {
@@ -554,8 +551,8 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   statusText: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: typography.sm,
+    fontWeight: typography.weights.medium,
   },
   serverInfo: {
     marginTop: 2,
@@ -568,19 +565,7 @@ const styles = StyleSheet.create({
   headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  debugButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
-  },
-  debugButtonActive: {
-    backgroundColor: '#8B5CF6',
-  },
-  settingsButton: {
-    padding: 8,
-    borderRadius: 8,
+    gap: spacing.sm,
   },
   debugPanel: {
     backgroundColor: '#1F2937',
@@ -804,73 +789,29 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   textInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    gap: 12,
+    borderTopColor: colorPalette.gray[200],
   },
   textInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#374151',
     maxHeight: 100,
   },
-  sendButton: {
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-  },
   controls: {
-    paddingHorizontal: 20,
-    paddingVertical: 24,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xxl,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-  },
-  connectButtonContainer: {
-    borderRadius: 16,
+    borderTopColor: colorPalette.gray[200],
   },
   connectButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 24,
-    borderRadius: 16,
-    gap: 12,
-  },
-  connectButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    borderRadius: borderRadius.xl,
   },
   connectedControls: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  disconnectButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-  },
-  disconnectButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
   },
   textButton: {
     padding: 12,
@@ -880,22 +821,7 @@ const styles = StyleSheet.create({
   micButton: {
     width: 72,
     height: 72,
-    borderRadius: 36,
   },
-  micButtonGradient: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
-  idleButton: {},
-  recordingButton: {},
   instructions: {
     paddingHorizontal: 20,
     paddingBottom: 20,
