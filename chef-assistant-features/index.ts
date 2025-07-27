@@ -55,24 +55,24 @@ export interface TrainingVideo {
   status: "pending" | "processing" | "completed" | "failed";
 }
 
-export interface Recipe {
-  id: string;
-  name: string;
-  description: string;
-  image: string;
-  difficulty: "easy" | "medium" | "hard";
-  cookTime: number;
-  servings: number;
-  ingredients: string[];
-  instructions: string[];
-  tags: string[];
-  cuisine: string;
-  nutrition?: {
-    calories: number;
-    protein: number;
-    carbs: number;
-    fat: number;
-  };
+// Import unified Recipe type from main types file
+import type { Recipe } from '../types';
+
+// Export for backward compatibility
+export type { Recipe };
+
+// Additional recipe-related types specific to chef assistant
+export interface RecipeNutrition {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+export interface EnhancedRecipe extends Recipe {
+  tags?: string[];
+  cuisine?: string;
+  nutrition?: RecipeNutrition;
 }
 
 export interface Message {

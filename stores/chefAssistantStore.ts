@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { errorHandler, handleAsync, AppError } from '../lib/error-handler';
 
 export interface ChatMessage {
   id: string;
@@ -65,6 +66,9 @@ interface ChefAssistantState {
   voiceEnabled: boolean;
   cameraAnalysisEnabled: boolean;
   
+  // Error handling
+  error: AppError | null;
+  
   // Actions
   initializeStore: () => void;
   startSession: (recipeName: string) => void;
@@ -78,6 +82,11 @@ interface ChefAssistantState {
   selectAgent: (agent: ChefAgent) => void;
   updateSettings: (settings: Partial<Pick<ChefAssistantState, 'language' | 'voiceEnabled' | 'cameraAnalysisEnabled'>>) => void;
   clearMessages: () => void;
+  
+  // Error handling actions
+  setError: (error: AppError | null) => void;
+  clearError: () => void;
+  handleError: (error: unknown) => void;
   analyzeImage: (imageUri: string) => Promise<any>;
   processVoiceCommand: (audioUri: string) => Promise<void>;
   sendMessage: (content: string, imageUri?: string) => Promise<void>;
@@ -131,6 +140,7 @@ export const useChefAssistantStore = create<ChefAssistantState>()(
       language: 'en',
       voiceEnabled: true,
       cameraAnalysisEnabled: true,
+      error: null,
 
       // Actions
       initializeStore: () => {
@@ -228,84 +238,102 @@ What would you like to do first?`,
 
       clearMessages: () => set({ messages: [] }),
 
+      setError: (error) => set({ error }),
+      
+      clearError: () => set({ error: null }),
+      
+      handleError: (error) => {
+        console.error('Chef Assistant Error:', error);
+        const appError = error && typeof error === 'object' && 'type' in error && 'severity' in error 
+          ? error as AppError 
+          : errorHandler.handle(error, {
+              details: { context: 'Chef Assistant' }
+            });
+        set({ error: appError });
+      },
+
       analyzeImage: async (imageUri: string) => {
-        console.log('Starting image analysis for:', imageUri);
-        set({ isAnalyzing: true });
-        
-        try {
-          // Convert image to base64
-          const response = await fetch(imageUri);
-          const blob = await response.blob();
-          const base64 = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              const result = reader.result as string;
-              resolve(result.split(',')[1]); // Remove data:image/jpeg;base64, prefix
+        return handleAsync(async () => {
+          console.log('Starting image analysis for:', imageUri);
+          set({ isAnalyzing: true, error: null });
+          
+          try {
+            // Convert image to base64
+            const response = await fetch(imageUri);
+            const blob = await response.blob();
+            const base64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const result = reader.result as string;
+                resolve(result.split(',')[1]); // Remove data:image/jpeg;base64, prefix
+              };
+              reader.readAsDataURL(blob);
+            });
+
+            console.log('Image converted to base64, sending to AI...');
+
+            // Send to AI for analysis
+            const aiResponse = await fetch('https://toolkit.rork.com/text/llm/', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                messages: [
+                  {
+                    role: 'system',
+                    content: `You are ${get().selectedAgent?.name}, a professional chef assistant. Analyze cooking images and provide helpful guidance. Focus on:
+                    1. Identifying ingredients and their quality
+                    2. Cooking technique assessment
+                    3. Next steps or improvements
+                    4. Safety considerations
+                    5. Nigerian cuisine expertise when relevant
+                    
+                    Respond in a warm, encouraging tone with specific, actionable advice. Keep responses concise but helpful.`,
+                  },
+                  {
+                    role: 'user',
+                    content: [
+                      {
+                        type: 'text',
+                        text: 'Please analyze this cooking image and provide guidance.',
+                      },
+                      {
+                        type: 'image',
+                        image: base64,
+                      },
+                    ],
+                  },
+                ],
+              }),
+            });
+
+            const result = await aiResponse.json();
+            console.log('AI analysis completed');
+
+            const analysis = {
+              confidence: 0.9,
+              detectedIngredients: [], // Would be populated by more sophisticated AI
+              cookingTips: [],
+              guidance: result.completion,
             };
-            reader.readAsDataURL(blob);
-          });
 
-          console.log('Image converted to base64, sending to AI...');
+            set({ lastAnalysis: analysis, isAnalyzing: false });
 
-          // Send to AI for analysis
-          const aiResponse = await fetch('https://toolkit.rork.com/text/llm/', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              messages: [
-                {
-                  role: 'system',
-                  content: `You are ${get().selectedAgent?.name}, a professional chef assistant. Analyze cooking images and provide helpful guidance. Focus on:
-                  1. Identifying ingredients and their quality
-                  2. Cooking technique assessment
-                  3. Next steps or improvements
-                  4. Safety considerations
-                  5. Nigerian cuisine expertise when relevant
-                  
-                  Respond in a warm, encouraging tone with specific, actionable advice. Keep responses concise but helpful.`,
-                },
-                {
-                  role: 'user',
-                  content: [
-                    {
-                      type: 'text',
-                      text: 'Please analyze this cooking image and provide guidance.',
-                    },
-                    {
-                      type: 'image',
-                      image: base64,
-                    },
-                  ],
-                },
-              ],
-            }),
-          });
+            // Add AI response as message
+            get().addMessage({
+              type: 'assistant',
+              content: result.completion,
+              metadata: analysis,
+            });
 
-          const result = await aiResponse.json();
-          console.log('AI analysis completed');
-
-          const analysis = {
-            confidence: 0.9,
-            detectedIngredients: [], // Would be populated by more sophisticated AI
-            cookingTips: [],
-            guidance: result.completion,
-          };
-
-          set({ lastAnalysis: analysis, isAnalyzing: false });
-
-          // Add AI response as message
-          get().addMessage({
-            type: 'assistant',
-            content: result.completion,
-            metadata: analysis,
-          });
-
-          return analysis;
-        } catch (error) {
-          console.error('Image analysis error:', error);
-          set({ isAnalyzing: false });
+            return analysis;
+          } catch (error) {
+            set({ isAnalyzing: false });
+            throw error;
+          }
+        }, (error) => {
+          get().handleError(error);
           
           get().addMessage({
             type: 'assistant',
@@ -313,7 +341,7 @@ What would you like to do first?`,
           });
           
           return null;
-        }
+        });
       },
 
       processVoiceCommand: async (audioUri: string) => {
@@ -348,95 +376,101 @@ What would you like to do first?`,
       },
 
       sendMessage: async (content: string, imageUri?: string) => {
-        console.log('Sending message:', content, imageUri ? 'with image' : 'text only');
-        
-        // Add user message
-        get().addMessage({
-          type: 'user',
-          content,
-          imageUri,
-        });
-
-        set({ isTyping: true });
-
-        try {
-          const currentSession = get().currentSession;
-          const selectedAgent = get().selectedAgent;
-
-          let messages: any[] = [
-            {
-              role: 'system' as const,
-              content: `You are ${selectedAgent?.name}, a professional chef assistant specializing in ${selectedAgent?.specialty}. 
-              
-              Your personality: ${selectedAgent?.personality}
-              
-              You are helping with cooking in real-time. Provide:
-              1. Clear, step-by-step guidance
-              2. Safety tips when relevant
-              3. Ingredient substitutions if needed
-              4. Cooking techniques and tips
-              5. Encouragement and support
-              
-              Keep responses concise but helpful (2-3 paragraphs max). If the user is cooking Nigerian food, incorporate traditional techniques and cultural context.
-              
-              Current session: ${currentSession?.recipeName || 'General cooking assistance'}
-              Current step: ${currentSession?.currentStep || 1} of ${currentSession?.totalSteps || 10}`,
-            },
-          ];
-
-          if (imageUri) {
-            // If there's an image, analyze it
-            await get().analyzeImage(imageUri);
-            return; // analyzeImage already adds the response
-          } else {
-            messages.push({
-              role: 'user' as const,
-              content: content,
-            });
-          }
-
-          console.log('Sending request to AI...');
-
-          const response = await fetch('https://toolkit.rork.com/text/llm/', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ messages }),
-          });
-
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-          const result = await response.json();
-          console.log('AI response received');
-
-          // Add AI response
+        return handleAsync(async () => {
+          console.log('Sending message:', content, imageUri ? 'with image' : 'text only');
+          
+          // Add user message
           get().addMessage({
-            type: 'assistant',
-            content: result.completion,
+            type: 'user',
+            content,
+            imageUri,
           });
 
-          // Update session step if applicable
-          if (currentSession && content.toLowerCase().includes('next step')) {
-            set(state => ({
-              currentSession: state.currentSession ? {
-                ...state.currentSession,
-                currentStep: Math.min(state.currentSession.currentStep + 1, state.currentSession.totalSteps)
-              } : null
-            }));
-          }
+          set({ isTyping: true, error: null });
 
-        } catch (error) {
-          console.error('Send message error:', error);
+          try {
+            const currentSession = get().currentSession;
+            const selectedAgent = get().selectedAgent;
+
+            let messages: any[] = [
+              {
+                role: 'system' as const,
+                content: `You are ${selectedAgent?.name}, a professional chef assistant specializing in ${selectedAgent?.specialty}. 
+                
+                Your personality: ${selectedAgent?.personality}
+                
+                You are helping with cooking in real-time. Provide:
+                1. Clear, step-by-step guidance
+                2. Safety tips when relevant
+                3. Ingredient substitutions if needed
+                4. Cooking techniques and tips
+                5. Encouragement and support
+                
+                Keep responses concise but helpful (2-3 paragraphs max). If the user is cooking Nigerian food, incorporate traditional techniques and cultural context.
+                
+                Current session: ${currentSession?.recipeName || 'General cooking assistance'}
+                Current step: ${currentSession?.currentStep || 1} of ${currentSession?.totalSteps || 10}`,
+              },
+            ];
+
+            if (imageUri) {
+              // If there's an image, analyze it
+              await get().analyzeImage(imageUri);
+              return; // analyzeImage already adds the response
+            } else {
+              messages.push({
+                role: 'user' as const,
+                content: content,
+              });
+            }
+
+            console.log('Sending request to AI...');
+
+            const response = await fetch('https://toolkit.rork.com/text/llm/', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ messages }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            console.log('AI response received');
+
+            // Add AI response
+            get().addMessage({
+              type: 'assistant',
+              content: result.completion,
+            });
+
+            // Update session step if applicable
+            if (currentSession && content.toLowerCase().includes('next step')) {
+              set(state => ({
+                currentSession: state.currentSession ? {
+                  ...state.currentSession,
+                  currentStep: Math.min(state.currentSession.currentStep + 1, state.currentSession.totalSteps)
+                } : null
+              }));
+            }
+
+          } catch (error) {
+            set({ isTyping: false });
+            throw error;
+          } finally {
+            set({ isTyping: false });
+          }
+        }, (error) => {
+          get().handleError(error);
+          
           get().addMessage({
             type: 'assistant',
             content: "I'm having trouble responding right now. Please check your internet connection and try again.",
           });
-        } finally {
-          set({ isTyping: false });
-        }
+        });
       },
     }),
     {

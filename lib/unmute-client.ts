@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { DebugLog } from '@/stores/unmuteStore';
+import { DebugLog } from '../stores/unmuteStore';
 
 // Unmute WebSocket Protocol Events (based on OpenAI Realtime API)
 export interface UnmuteEvent {
@@ -93,7 +93,7 @@ export class UnmuteClient {
   private isConnecting = false;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 3;
-  private reconnectTimeout: NodeJS.Timeout | null = null;
+  private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private mediaRecorder: MediaRecorder | null = null;
   private audioContext: AudioContext | null = null;
   private isRecording = false;
@@ -612,7 +612,7 @@ export class UnmuteClient {
     try {
       // Convert blob to base64
       const arrayBuffer = await audioBlob.arrayBuffer();
-      const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+      const base64Audio = btoa(String.fromCharCode(...Array.from(new Uint8Array(arrayBuffer))));
 
       const event: InputAudioBufferAppendEvent = {
         type: 'input_audio_buffer.append',

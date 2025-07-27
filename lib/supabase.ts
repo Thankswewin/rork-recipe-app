@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+// Add to package.json: npm install @supabase/supabase-js
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
@@ -11,9 +12,9 @@ const isWeb = () => {
   }
 };
 
-// Use the provided credentials as fallbacks
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://qczagsahfjpzottzamwk.supabase.co';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjemFnc2FoZmpwem90dHphbXdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEyODYzNjksImV4cCI6MjA2Njg2MjM2OX0.bNu5mt1OEkUrYHop7nvQcJHX4ouD12npL0yfhUnOaGA';
+// Get Supabase configuration from environment variables
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 console.log('Supabase config:', { 
   url: supabaseUrl, 
@@ -24,8 +25,13 @@ console.log('Supabase config:', {
 
 // Validate configuration
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase configuration');
-  throw new Error('Missing Supabase URL or API key');
+  const missingVars = [];
+  if (!supabaseUrl) missingVars.push('EXPO_PUBLIC_SUPABASE_URL');
+  if (!supabaseAnonKey) missingVars.push('EXPO_PUBLIC_SUPABASE_ANON_KEY');
+  
+  const errorMessage = `Missing required environment variables: ${missingVars.join(', ')}. Please check your .env file and ensure these variables are set.`;
+  console.error('Supabase configuration error:', errorMessage);
+  throw new Error(errorMessage);
 }
 
 // Create a custom storage adapter for React Native
@@ -162,244 +168,8 @@ setTimeout(() => {
   });
 }, 1000);
 
-export type Database = {
-  public: {
-    Tables: {
-      profiles: {
-        Row: {
-          id: string;
-          email?: string;
-          username: string | null;
-          full_name: string | null;
-          avatar_url: string | null;
-          bio: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id: string;
-          email?: string;
-          username?: string | null;
-          full_name?: string | null;
-          avatar_url?: string | null;
-          bio?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          email?: string;
-          username?: string | null;
-          full_name?: string | null;
-          avatar_url?: string | null;
-          bio?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-      recipes: {
-        Row: {
-          id: string;
-          title: string;
-          description: string | null;
-          image_url: string | null;
-          category: string;
-          difficulty: string;
-          prep_time: number;
-          cook_time: number;
-          servings: number;
-          ingredients: string[];
-          instructions: string[];
-          user_id: string;
-          likes_count: number;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          title: string;
-          description?: string | null;
-          image_url?: string | null;
-          category: string;
-          difficulty: string;
-          prep_time: number;
-          cook_time: number;
-          servings: number;
-          ingredients: string[];
-          instructions: string[];
-          user_id: string;
-          likes_count?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          title?: string;
-          description?: string | null;
-          image_url?: string | null;
-          category?: string;
-          difficulty?: string;
-          prep_time?: number;
-          cook_time?: number;
-          servings?: number;
-          ingredients?: string[];
-          instructions?: string[];
-          user_id?: string;
-          likes_count?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-      favorites: {
-        Row: {
-          id: string;
-          user_id: string;
-          recipe_id: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          recipe_id: string;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          recipe_id?: string;
-          created_at?: string;
-        };
-      };
-      followers: {
-        Row: {
-          id: string;
-          follower_id: string;
-          following_id: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          follower_id: string;
-          following_id: string;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          follower_id?: string;
-          following_id?: string;
-          created_at?: string;
-        };
-      };
-      notifications: {
-        Row: {
-          id: string;
-          user_id: string;
-          actor_id: string;
-          type: 'follow' | 'like' | 'comment' | 'recipe_created';
-          title: string;
-          message: string;
-          data: any;
-          read: boolean;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          actor_id: string;
-          type: 'follow' | 'like' | 'comment' | 'recipe_created';
-          title: string;
-          message: string;
-          data?: any;
-          read?: boolean;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          actor_id?: string;
-          type?: 'follow' | 'like' | 'comment' | 'recipe_created';
-          title?: string;
-          message?: string;
-          data?: any;
-          read?: boolean;
-          created_at?: string;
-        };
-      };
-      conversations: {
-        Row: {
-          id: string;
-          title: string | null;
-          created_at: string;
-          updated_at: string;
-          last_message_at: string;
-        };
-        Insert: {
-          id?: string;
-          title?: string | null;
-          created_at?: string;
-          updated_at?: string;
-          last_message_at?: string;
-        };
-        Update: {
-          id?: string;
-          title?: string | null;
-          created_at?: string;
-          updated_at?: string;
-          last_message_at?: string;
-        };
-      };
-      conversation_participants: {
-        Row: {
-          id: string;
-          conversation_id: string;
-          user_id: string;
-          joined_at: string;
-        };
-        Insert: {
-          id?: string;
-          conversation_id: string;
-          user_id: string;
-          joined_at?: string;
-        };
-        Update: {
-          id?: string;
-          conversation_id?: string;
-          user_id?: string;
-          joined_at?: string;
-        };
-      };
-      messages: {
-        Row: {
-          id: string;
-          conversation_id: string;
-          sender_id: string | null;
-          content: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          conversation_id: string;
-          sender_id?: string | null;
-          content: string;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          conversation_id?: string;
-          sender_id?: string | null;
-          content?: string;
-          created_at?: string;
-        };
-      };
-    };
-    Functions: {
-      find_conversation_between_users: {
-        Args: {
-          user1_id: string;
-          user2_id: string;
-        };
-        Returns: string | null;
-      };
-    };
-  };
-};
+// Import unified types from the main types file
+import type { Database } from '../types';
+
+// Re-export the Database type for backward compatibility
+export type { Database };

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { UnmuteClient, VoiceMessage, UnmuteConfig } from '@/lib/unmute-client';
+import { UnmuteClient, VoiceMessage, UnmuteConfig } from '../lib/unmute-client';
+import { errorHandler, handleAsync, AppError } from '../lib/error-handler';
 
 export interface DebugLog {
   level: 'info' | 'warn' | 'error' | 'success';
@@ -36,6 +37,9 @@ interface UnmuteState {
   // Unmute client instance
   unmuteClient: UnmuteClient | null;
   
+  // Error handling
+  error: AppError | null;
+  
   // Actions
   connect: () => Promise<void>;
   disconnect: () => void;
@@ -55,6 +59,11 @@ interface UnmuteState {
   setMaxTokens: (maxTokens: number) => void;
   setPushToTalk: (enabled: boolean) => void;
   setConnectionStatus: (status: 'connecting' | 'connected' | 'disconnected' | 'error') => void;
+  
+  // Error handling actions
+  setError: (error: AppError | null) => void;
+  clearError: () => void;
+  handleError: (error: unknown) => void;
 }
 
 export const useUnmuteStore = create<UnmuteState>((set, get) => ({
@@ -74,75 +83,79 @@ export const useUnmuteStore = create<UnmuteState>((set, get) => ({
   maxTokens: 150,
   pushToTalk: false,
   unmuteClient: null,
+  error: null,
 
   // Actions
   connect: async () => {
-    const state = get();
-    if (state.isConnected || state.isConnecting) return;
-
-    get().addDebugLog({
-      level: 'info',
-      message: 'Initializing Unmute connection...'
-    });
-
-    set({ isConnecting: true, connectionStatus: 'connecting' });
-
-    try {
-      const config: UnmuteConfig = {
-        serverUrl: state.serverUrl,
-        voice: state.selectedVoice,
-        language: state.selectedLanguage,
-        instructions: state.instructions,
-        temperature: state.temperature,
-        maxTokens: state.maxTokens
-      };
-
-      const unmuteClient = new UnmuteClient(
-        (message: VoiceMessage) => {
-          get().addMessage(message);
-          get().addDebugLog({
-            level: 'success',
-            message: `Received ${message.type} message: "${message.text.substring(0, 50)}${message.text.length > 50 ? '...' : ''}"`
-          });
-        },
-        (status: 'connecting' | 'connected' | 'disconnected' | 'error') => {
-          get().setConnectionStatus(status);
-          get().addDebugLog({
-            level: status === 'error' ? 'error' : 'info',
-            message: `Connection status changed to: ${status}`
-          });
-        },
-        (log: Omit<DebugLog, 'timestamp'>) => {
-          get().addDebugLog(log);
-        },
-        config
-      );
-
-      await unmuteClient.connect();
-      
-      set({ 
-        unmuteClient,
-        isConnecting: false 
-      });
+    return handleAsync(async () => {
+      const state = get();
+      if (state.isConnected || state.isConnecting) return;
 
       get().addDebugLog({
-        level: 'success',
-        message: 'Successfully connected to Unmute server'
+        level: 'info',
+        message: 'Initializing Unmute connection...'
       });
 
-    } catch (error) {
-      console.error('Failed to connect to Unmute:', error);
+      set({ isConnecting: true, connectionStatus: 'connecting', error: null });
+
+      try {
+        const config: UnmuteConfig = {
+          serverUrl: state.serverUrl,
+          voice: state.selectedVoice,
+          language: state.selectedLanguage,
+          instructions: state.instructions,
+          temperature: state.temperature,
+          maxTokens: state.maxTokens
+        };
+
+        const unmuteClient = new UnmuteClient(
+          (message: VoiceMessage) => {
+            get().addMessage(message);
+            get().addDebugLog({
+              level: 'success',
+              message: `Received ${message.type} message: "${message.text.substring(0, 50)}${message.text.length > 50 ? '...' : ''}"`
+            });
+          },
+          (status: 'connecting' | 'connected' | 'disconnected' | 'error') => {
+            get().setConnectionStatus(status);
+            get().addDebugLog({
+              level: status === 'error' ? 'error' : 'info',
+              message: `Connection status changed to: ${status}`
+            });
+          },
+          (log: Omit<DebugLog, 'timestamp'>) => {
+            get().addDebugLog(log);
+          },
+          config
+        );
+
+        await unmuteClient.connect();
+        
+        set({ 
+          unmuteClient,
+          isConnecting: false 
+        });
+
+        get().addDebugLog({
+          level: 'success',
+          message: 'Successfully connected to Unmute server'
+        });
+
+      } catch (error) {
+        set({ 
+          isConnecting: false,
+          connectionStatus: 'error'
+        });
+        throw error;
+      }
+    }, (error) => {
+      get().handleError(error);
       get().addDebugLog({
         level: 'error',
         message: 'Failed to connect to Unmute server',
         data: error instanceof Error ? error.message : String(error)
       });
-      
-      set({ 
-        isConnecting: false,
-        connectionStatus: 'error'
-      });
-    }
+    });
   },
 
   disconnect: () => {
@@ -379,5 +392,15 @@ export const useUnmuteStore = create<UnmuteState>((set, get) => ({
       isConnected: status === 'connected',
       isConnecting: status === 'connecting'
     });
+  },
+  
+  setError: (error) => set({ error }),
+  
+  clearError: () => set({ error: null }),
+  
+  handleError: (error) => {
+    console.error('Unmute Store Error:', error);
+    const appError = errorHandler.handle(error);
+    set({ error: appError });
   }
 }));

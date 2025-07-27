@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { VoiceMessage, RealtimeVoiceChat, KYUTAI_VOICES } from '@/lib/realtime-voice';
+import { VoiceMessage, RealtimeVoiceChat, KYUTAI_VOICES } from '../lib/realtime-voice';
+import { errorHandler, handleAsync, AppError } from '../lib/error-handler';
 
 export interface DebugLog {
   level: 'info' | 'warn' | 'error' | 'success';
@@ -33,6 +34,9 @@ interface VoiceChatState {
   // Voice chat instance
   voiceChat: RealtimeVoiceChat | null;
   
+  // Error handling
+  error: AppError | null;
+  
   // Actions
   connect: () => Promise<void>;
   disconnect: () => void;
@@ -48,6 +52,11 @@ interface VoiceChatState {
   setAutoPlay: (enabled: boolean) => void;
   setPushToTalk: (enabled: boolean) => void;
   setConnectionStatus: (status: 'connecting' | 'connected' | 'disconnected' | 'error') => void;
+  
+  // Error handling actions
+  setError: (error: AppError | null) => void;
+  clearError: () => void;
+  handleError: (error: unknown) => void;
 }
 
 export const useVoiceChatStore = create<VoiceChatState>((set, get) => ({
@@ -64,65 +73,69 @@ export const useVoiceChatStore = create<VoiceChatState>((set, get) => ({
   autoPlay: true,
   pushToTalk: false,
   voiceChat: null,
+  error: null,
 
   // Actions
   connect: async () => {
-    const state = get();
-    if (state.isConnected || state.isConnecting) return;
-
-    get().addDebugLog({
-      level: 'info',
-      message: 'Starting connection to voice assistant...'
-    });
-
-    set({ isConnecting: true, connectionStatus: 'connecting' });
-
-    try {
-      const voiceChat = new RealtimeVoiceChat(
-        (message: VoiceMessage) => {
-          get().addMessage(message);
-          get().addDebugLog({
-            level: 'success',
-            message: `Received ${message.type} message: "${message.text.substring(0, 50)}${message.text.length > 50 ? '...' : ''}"`
-          });
-        },
-        (status: 'connecting' | 'connected' | 'disconnected' | 'error') => {
-          get().setConnectionStatus(status);
-          get().addDebugLog({
-            level: status === 'error' ? 'error' : 'info',
-            message: `Connection status changed to: ${status}`
-          });
-        },
-        (log: Omit<DebugLog, 'timestamp'>) => {
-          get().addDebugLog(log);
-        }
-      );
-
-      await voiceChat.connect();
-      
-      set({ 
-        voiceChat,
-        isConnecting: false 
-      });
+    return handleAsync(async () => {
+      const state = get();
+      if (state.isConnected || state.isConnecting) return;
 
       get().addDebugLog({
-        level: 'success',
-        message: 'Successfully connected to voice assistant'
+        level: 'info',
+        message: 'Starting connection to voice assistant...'
       });
 
-    } catch (error) {
-      console.error('Failed to connect to voice chat:', error);
+      set({ isConnecting: true, connectionStatus: 'connecting', error: null });
+
+      try {
+        const voiceChat = new RealtimeVoiceChat(
+          (message: VoiceMessage) => {
+            get().addMessage(message);
+            get().addDebugLog({
+              level: 'success',
+              message: `Received ${message.type} message: "${message.text.substring(0, 50)}${message.text.length > 50 ? '...' : ''}"`
+            });
+          },
+          (status: 'connecting' | 'connected' | 'disconnected' | 'error') => {
+            get().setConnectionStatus(status);
+            get().addDebugLog({
+              level: status === 'error' ? 'error' : 'info',
+              message: `Connection status changed to: ${status}`
+            });
+          },
+          (log: Omit<DebugLog, 'timestamp'>) => {
+            get().addDebugLog(log);
+          }
+        );
+
+        await voiceChat.connect();
+        
+        set({ 
+          voiceChat,
+          isConnecting: false 
+        });
+
+        get().addDebugLog({
+          level: 'success',
+          message: 'Successfully connected to voice assistant'
+        });
+
+      } catch (error) {
+        set({ 
+          isConnecting: false,
+          connectionStatus: 'error'
+        });
+        throw error;
+      }
+    }, (error) => {
+      get().handleError(error);
       get().addDebugLog({
         level: 'error',
         message: 'Failed to connect to voice assistant',
         data: error instanceof Error ? error.message : String(error)
       });
-      
-      set({ 
-        isConnecting: false,
-        connectionStatus: 'error'
-      });
-    }
+    });
   },
 
   disconnect: () => {
@@ -322,5 +335,15 @@ export const useVoiceChatStore = create<VoiceChatState>((set, get) => ({
       isConnected: status === 'connected',
       isConnecting: status === 'connecting'
     });
+  },
+  
+  setError: (error) => set({ error }),
+  
+  clearError: () => set({ error: null }),
+  
+  handleError: (error) => {
+    console.error('Voice Chat Store Error:', error);
+    const appError = errorHandler.handle(error);
+    set({ error: appError });
   }
 }));

@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, Session } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { errorHandler, handleAsync, AppError } from '@/lib/error-handler';
 
 // Safe platform detection
 const isWeb = () => {
@@ -24,41 +25,17 @@ interface Profile {
   updated_at: string;
 }
 
-interface Notification {
-  id: string;
-  user_id: string;
-  actor_id: string;
-  type: 'follow' | 'like' | 'comment' | 'recipe_created';
-  title: string;
-  message: string;
-  data: any;
-  read: boolean;
-  created_at: string;
-  actor?: {
-    id: string;
-    username: string | null;
-    full_name: string | null;
-    avatar_url: string | null;
-  };
-}
-
-interface RealtimePayload {
-  eventType: 'INSERT' | 'UPDATE' | 'DELETE';
-  new: any;
-  old: any;
-  schema: string;
-  table: string;
-}
+// Notification and messaging functionality moved to separate stores
 
 interface AuthState {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
-  notifications: Notification[];
-  unreadNotificationsCount: number;
+  // Notifications moved to notificationStore
   isLoading: boolean;
   isAuthenticated: boolean;
-  databaseError: string | null;
+  error: AppError | null;
+  databaseError: string | null; // Deprecated: use error instead
   
   // Actions
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
@@ -77,18 +54,14 @@ interface AuthState {
   fetchProfile: (userId: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
   
-  // Notification actions
-  fetchNotifications: () => Promise<void>;
-  markNotificationAsRead: (notificationId: string) => Promise<void>;
-  markAllNotificationsAsRead: () => Promise<void>;
-  clearNotifications: () => void;
-  addNotification: (notification: Notification) => void;
-  setupRealtimeSubscriptions: () => Promise<() => void>;
+  // Notification and messaging actions moved to separate stores
   
-  // Messaging actions
-  createOrGetConversation: (otherUserId: string) => Promise<{ conversationId?: string; error?: string }>;
+  // Error handling
+  setError: (error: AppError | null) => void;
+  clearError: () => void;
+  handleError: (error: any) => AppError;
   
-  // Database error handling
+  // Database error handling (deprecated)
   setDatabaseError: (error: string | null) => void;
   clearDatabaseError: () => void;
 }
@@ -99,16 +72,15 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       session: null,
       profile: null,
-      notifications: [],
-      unreadNotificationsCount: 0,
       isLoading: true,
       isAuthenticated: false,
+      error: null,
       databaseError: null,
 
       signIn: async (email: string, password: string) => {
-        set({ isLoading: true });
+        set({ isLoading: true, error: null });
         
-        try {
+        const { data, error: appError } = await handleAsync(async () => {
           console.log('AuthStore: Starting sign in process for:', email);
           
           const { data, error } = await supabase.auth.signInWithPassword({
@@ -117,21 +89,7 @@ export const useAuthStore = create<AuthState>()(
           });
 
           if (error) {
-            console.error('AuthStore: Sign in error:', error);
-            set({ isLoading: false });
-            
-            // Provide more user-friendly error messages
-            if (error.message.includes('Invalid login credentials')) {
-              return { error: 'Invalid email or password. Please check your credentials and try again.' };
-            } else if (error.message.includes('Email not confirmed')) {
-              return { error: 'Please check your email and click the confirmation link before signing in.' };
-            } else if (error.message.includes('Failed to fetch')) {
-              return { error: 'Network connection failed. Please check your internet connection and try again.' };
-            } else if (error.message.includes('Too many requests')) {
-              return { error: 'Too many sign in attempts. Please wait a few minutes and try again.' };
-            }
-            
-            return { error: error.message };
+            throw error;
           }
 
           if (data.user && data.session) {
@@ -141,29 +99,29 @@ export const useAuthStore = create<AuthState>()(
               session: data.session,
               isAuthenticated: true,
               isLoading: false,
+              error: null,
             });
 
-            // Fetch user profile and notifications
+            // Fetch user profile
             try {
               await get().fetchProfile(data.user.id);
-              await get().fetchNotifications();
             } catch (profileError) {
               console.error('AuthStore: Error fetching profile after sign in:', profileError);
               // Don't fail sign in if profile fetch fails
             }
-          }
-
-          return {};
-        } catch (error: any) {
-          console.error('AuthStore: Sign in error:', error);
-          set({ isLoading: false });
-          
-          if (error.message?.includes('Failed to fetch')) {
-            return { error: 'Network connection failed. Please check your internet connection and try again.' };
+            
+            return data;
           }
           
-          return { error: error?.message || 'An unexpected error occurred' };
+          throw new Error('Sign in failed: No user or session returned');
+        });
+        
+        if (appError) {
+          set({ isLoading: false, error: appError });
+          return { error: appError.userMessage };
         }
+        
+        return {};
       },
 
       signUp: async (email: string, password: string, fullName?: string) => {
@@ -222,7 +180,6 @@ export const useAuthStore = create<AuthState>()(
               setTimeout(async () => {
                 try {
                   await get().fetchProfile(data.user!.id);
-                  await get().fetchNotifications();
                 } catch (error) {
                   console.log('AuthStore: Profile fetch after signup failed, will retry on next app launch');
                 }
@@ -254,8 +211,6 @@ export const useAuthStore = create<AuthState>()(
             user: null,
             session: null,
             profile: null,
-            notifications: [],
-            unreadNotificationsCount: 0,
             isAuthenticated: false,
             isLoading: false,
           });
@@ -549,326 +504,28 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      fetchNotifications: async () => {
-        const { user } = get();
-        if (!user) return;
+      // Notification methods moved to notificationStore
 
-        try {
-          console.log('AuthStore: Fetching notifications for user:', user.id);
-          
-          // First check if notifications table exists
-          const { data: tableCheck, error: tableError } = await supabase
-            .from('notifications')
-            .select('id')
-            .limit(1);
+      // All notification methods moved to notificationStore
 
-          if (tableError) {
-            console.error('AuthStore: Notifications table not accessible:', tableError);
-            // If table doesn't exist, just return empty notifications
-            set({ notifications: [], unreadNotificationsCount: 0 });
-            return;
-          }
+      // Realtime subscriptions and messaging methods moved to separate stores
 
-          // Try the full query with join
-          const { data, error } = await supabase
-            .from('notifications')
-            .select(`
-              *,
-              actor:profiles!notifications_actor_id_fkey (
-                id,
-                username,
-                full_name,
-                avatar_url
-              )
-            `)
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false })
-            .limit(50);
-
-          if (error) {
-            console.error('AuthStore: Error fetching notifications with join:', error);
-            // Fallback to simple query without join
-            const { data: fallbackData, error: fallbackError } = await supabase
-              .from('notifications')
-              .select('*')
-              .eq('user_id', user.id)
-              .order('created_at', { ascending: false })
-              .limit(50);
-
-            if (fallbackError) {
-              console.error('AuthStore: Error with fallback notifications query:', fallbackError);
-              return;
-            }
-
-            // For each notification, fetch the actor profile separately
-            const notificationsWithActors = await Promise.all(
-              (fallbackData || []).map(async (notification: any) => {
-                const { data: actorData } = await supabase
-                  .from('profiles')
-                  .select('id, username, full_name, avatar_url')
-                  .eq('id', notification.actor_id)
-                  .single();
-
-                return {
-                  ...notification,
-                  actor: actorData
-                };
-              })
-            );
-
-            const unreadCount = notificationsWithActors.filter((n: Notification) => !n.read).length;
-            set({ 
-              notifications: notificationsWithActors,
-              unreadNotificationsCount: unreadCount
-            });
-            return;
-          }
-
-          const notifications = data || [];
-          const unreadCount = notifications.filter((n: Notification) => !n.read).length;
-
-          console.log(`AuthStore: Fetched ${notifications.length} notifications, ${unreadCount} unread`);
-          set({ 
-            notifications,
-            unreadNotificationsCount: unreadCount
-          });
-        } catch (error) {
-          console.error('AuthStore: Error fetching notifications:', error);
-          // Set empty notifications on error
-          set({ notifications: [], unreadNotificationsCount: 0 });
-        }
+      // Error handling methods
+      setError: (error: AppError | null) => {
+        set({ error });
       },
 
-      markNotificationAsRead: async (notificationId: string) => {
-        const { user } = get();
-        if (!user) return;
-
-        try {
-          console.log('AuthStore: Marking notification as read:', notificationId);
-          const { error } = await supabase
-            .from('notifications')
-            .update({ read: true })
-            .eq('id', notificationId)
-            .eq('user_id', user.id);
-
-          if (error) {
-            console.error('AuthStore: Error marking notification as read:', error);
-            return;
-          }
-
-          // Update local state
-          set(state => ({
-            notifications: state.notifications.map((n: Notification) => 
-              n.id === notificationId ? { ...n, read: true } : n
-            ),
-            unreadNotificationsCount: Math.max(0, state.unreadNotificationsCount - 1)
-          }));
-        } catch (error) {
-          console.error('AuthStore: Error marking notification as read:', error);
-        }
+      clearError: () => {
+        set({ error: null });
       },
 
-      markAllNotificationsAsRead: async () => {
-        const { user } = get();
-        if (!user) return;
-
-        try {
-          console.log('AuthStore: Marking all notifications as read');
-          const { error } = await supabase
-            .from('notifications')
-            .update({ read: true })
-            .eq('user_id', user.id)
-            .eq('read', false);
-
-          if (error) {
-            console.error('AuthStore: Error marking all notifications as read:', error);
-            return;
-          }
-
-          // Update local state
-          set(state => ({
-            notifications: state.notifications.map((n: Notification) => ({ ...n, read: true })),
-            unreadNotificationsCount: 0
-          }));
-        } catch (error) {
-          console.error('AuthStore: Error marking all notifications as read:', error);
-        }
+      handleError: (error: any) => {
+        const appError = errorHandler.handle(error);
+        set({ error: appError });
+        return appError;
       },
 
-      clearNotifications: () => {
-        set({ notifications: [], unreadNotificationsCount: 0 });
-      },
-
-      addNotification: (notification: Notification) => {
-        set(state => ({
-          notifications: [notification, ...state.notifications],
-          unreadNotificationsCount: state.unreadNotificationsCount + 1
-        }));
-      },
-
-      setupRealtimeSubscriptions: async () => {
-        const { user } = get();
-        if (!user) return () => {};
-
-        try {
-          console.log('AuthStore: Setting up realtime subscriptions for user:', user.id);
-          
-          // Subscribe to notifications for the current user
-          const notificationsSubscription = supabase
-            .channel('notifications')
-            .on(
-              'postgres_changes',
-              {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'notifications',
-                filter: `user_id=eq.${user.id}`,
-              },
-              async (payload: RealtimePayload) => {
-                console.log('AuthStore: New notification received:', payload);
-                
-                // Fetch the complete notification with actor data
-                const { data } = await supabase
-                  .from('notifications')
-                  .select(`
-                    *,
-                    actor:profiles!notifications_actor_id_fkey (
-                      id,
-                      username,
-                      full_name,
-                      avatar_url
-                    )
-                  `)
-                  .eq('id', payload.new.id)
-                  .single();
-
-                if (data) {
-                  get().addNotification(data);
-                }
-              }
-            )
-            .subscribe();
-
-          // Subscribe to followers table to update UI when someone follows/unfollows
-          const followersSubscription = supabase
-            .channel('followers')
-            .on(
-              'postgres_changes',
-              {
-                event: '*',
-                schema: 'public',
-                table: 'followers',
-              },
-              (payload: RealtimePayload) => {
-                console.log('AuthStore: Followers table changed:', payload);
-                // This will help refresh follower counts and states in real-time
-                // Components can listen to this via custom events or state updates
-              }
-            )
-            .subscribe();
-
-          console.log('AuthStore: Realtime subscriptions set up successfully');
-
-          return () => {
-            console.log('AuthStore: Unsubscribing from realtime subscriptions');
-            notificationsSubscription.unsubscribe();
-            followersSubscription.unsubscribe();
-          };
-        } catch (error) {
-          console.error('AuthStore: Error setting up realtime subscriptions:', error);
-          return () => {};
-        }
-      },
-
-      createOrGetConversation: async (otherUserId: string) => {
-        const { user } = get();
-        if (!user) return { error: 'Not authenticated' };
-
-        if (user.id === otherUserId) {
-          return { error: 'Cannot create conversation with yourself' };
-        }
-
-        try {
-          console.log('AuthStore: Creating/getting conversation between:', user.id, 'and', otherUserId);
-          
-          // Use the RPC function to find existing conversation
-          const { data: existingConversation, error: rpcError } = await supabase
-            .rpc('find_conversation_between_users', {
-              user1_id: user.id,
-              user2_id: otherUserId
-            });
-
-          if (!rpcError && existingConversation) {
-            console.log('AuthStore: Found existing conversation:', existingConversation);
-            return { conversationId: existingConversation };
-          }
-
-          if (rpcError && rpcError.code !== '42883') {
-            console.error('AuthStore: RPC error:', rpcError);
-            
-            if (rpcError.message.includes('Failed to fetch')) {
-              return { error: 'Network connection failed. Please check your internet connection and try again.' };
-            }
-            
-            return { error: 'Failed to check existing conversations' };
-          }
-
-          console.log('AuthStore: No existing conversation found, creating new one');
-
-          // Create new conversation
-          const { data: newConversation, error: conversationError } = await supabase
-            .from('conversations')
-            .insert({
-              last_message_at: new Date().toISOString()
-            })
-            .select()
-            .single();
-
-          if (conversationError) {
-            console.error('AuthStore: Error creating conversation:', conversationError);
-            
-            if (conversationError.message.includes('Failed to fetch')) {
-              return { error: 'Network connection failed. Please check your internet connection and try again.' };
-            }
-            
-            return { error: 'Failed to create conversation' };
-          }
-
-          console.log('AuthStore: Created new conversation:', newConversation.id);
-
-          // Add both users as participants
-          const { error: participantsError } = await supabase
-            .from('conversation_participants')
-            .insert([
-              { conversation_id: newConversation.id, user_id: user.id },
-              { conversation_id: newConversation.id, user_id: otherUserId },
-            ]);
-
-          if (participantsError) {
-            console.error('AuthStore: Error adding participants:', participantsError);
-            // Clean up the conversation if participants couldn't be added
-            await supabase.from('conversations').delete().eq('id', newConversation.id);
-            
-            if (participantsError.message.includes('Failed to fetch')) {
-              return { error: 'Network connection failed. Please check your internet connection and try again.' };
-            }
-            
-            return { error: 'Failed to create conversation' };
-          }
-
-          console.log('AuthStore: Successfully created conversation with participants');
-          return { conversationId: newConversation.id };
-        } catch (error: any) {
-          console.error('AuthStore: Error creating conversation:', error);
-          
-          if (error.message?.includes('Failed to fetch')) {
-            return { error: 'Network connection failed. Please check your internet connection and try again.' };
-          }
-          
-          return { error: error.message || 'Failed to create conversation' };
-        }
-      },
-
+      // Deprecated error handling methods
       setDatabaseError: (error: string | null) => {
         set({ databaseError: error });
       },
@@ -922,7 +579,6 @@ export const useAuthStore = create<AuthState>()(
 
             try {
               await get().fetchProfile(session.user.id);
-              await get().fetchNotifications();
             } catch (profileError) {
               console.error('AuthStore: Error fetching profile during initialization:', profileError);
               // Don't fail initialization if profile fetch fails

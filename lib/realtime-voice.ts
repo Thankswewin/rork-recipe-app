@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { DebugLog } from '@/stores/voiceChatStore';
+import { DebugLog } from '../stores/voiceChatStore';
 
 export interface VoiceMessage {
   id: string;
