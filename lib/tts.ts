@@ -164,9 +164,9 @@ class TTSService {
           low_latency: options.lowLatency !== false,
         });
 
-        if (result.success && result.audio_url) {
+        if (result.success && result.audioUrl) {
           console.log(`Kyutai TTS: ${result.latency_ms}ms latency, using ${result.voice_used} voice`);
-          await this.playAudioUrl(result.audio_url, options);
+          await this.playAudioUrl(result.audioUrl, options);
         } else {
           throw new Error('Failed to get audio from Kyutai TTS');
         }

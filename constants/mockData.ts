@@ -86,6 +86,16 @@ export const recipes: Recipe[] = [
   },
 ];
 
+// Export recipes as mockRecipes for compatibility
+export const mockRecipes = recipes.map(recipe => ({
+  ...recipe,
+  isFavorite: recipe.is_favorited,
+  cookTime: recipe.cook_time,
+  rating: 4.5, // Default rating
+  difficulty: recipe.difficulty as 'Easy' | 'Medium' | 'Hard',
+  image: recipe.image_url,
+}));
+
 export const categories: Category[] = [
   {
     id: '1',

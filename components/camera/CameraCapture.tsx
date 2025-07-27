@@ -11,11 +11,13 @@ import {
 } from 'react-native';
 import {
   Camera,
-  CameraType,
-  FlashMode,
   CameraView,
   useCameraPermissions,
 } from 'expo-camera';
+
+// String literal types for expo-camera v16
+type CameraType = 'front' | 'back';
+type FlashMode = 'on' | 'off' | 'auto' | 'torch';
 import {
   X,
   Camera as CameraIcon,
@@ -83,12 +85,12 @@ export function CameraCapture({
   const [permission, requestPermission] = useCameraPermissions();
   const [mediaPermission, requestMediaPermission] = MediaLibrary.usePermissions();
   const cameraRef = useRef<CameraView>(null);
-  const analysisTimer = useRef<NodeJS.Timeout | null>(null);
-  const recordingTimer = useRef<NodeJS.Timeout | null>(null);
+  const analysisTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   
   const [cameraState, setCameraState] = useState<CameraState>({
-    type: CameraType.back,
-    flash: FlashMode.off,
+    type: 'back',
+    flash: 'off',
     isRecording: false,
     recordingDuration: 0,
     isAnalyzing: false,
@@ -254,7 +256,6 @@ export function CameraCapture({
 
       const video = await cameraRef.current.recordAsync({
         maxDuration: maxVideoDuration,
-        quality: '720p',
       });
 
       if (video?.uri) {
@@ -288,14 +289,14 @@ export function CameraCapture({
   const toggleCameraType = () => {
     setCameraState(prev => ({
       ...prev,
-      type: prev.type === CameraType.back ? CameraType.front : CameraType.back,
+      type: prev.type === 'back' ? 'front' : 'back',
     }));
   };
 
   const toggleFlash = () => {
     setCameraState(prev => ({
       ...prev,
-      flash: prev.flash === FlashMode.off ? FlashMode.on : FlashMode.off,
+      flash: prev.flash === 'off' ? 'on' : 'off',
     }));
   };
 

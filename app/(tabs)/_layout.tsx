@@ -1,6 +1,6 @@
 import React from "react";
 import { Tabs } from "expo-router";
-import { Home, Search, Heart, User, Bot, Server } from "lucide-react-native";
+import { Home, Search, User, Bot } from "lucide-react-native";
 import { StyleSheet, View, Text } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/hooks/useTheme";
@@ -21,11 +21,20 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
+        name="assistant"
+        options={{
+          title: "Chat",
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon icon={Bot} color={color} focused={focused} label="Chat" />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
+          title: "Recipes",
           tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon icon={Home} color={color} focused={focused} label="Home" />
+            <TabBarIcon icon={Home} color={color} focused={focused} label="Recipes" />
           ),
         }}
       />
@@ -38,33 +47,8 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="assistant"
-        options={{
-          title: "Assistant",
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon icon={Bot} color={color} focused={focused} label="Assistant" />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="unmute"
-        options={{
-          title: "Unmute",
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon icon={Server} color={color} focused={focused} label="Unmute" />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="favorites"
-        options={{
-          title: "Favorites",
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon icon={Heart} color={color} focused={focused} label="Favorites" />
-          ),
-        }}
-      />
+
+
       <Tabs.Screen
         name="profile"
         options={{

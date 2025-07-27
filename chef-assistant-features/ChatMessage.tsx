@@ -7,6 +7,14 @@ import { formatMessageTime } from "@/utils/helpers";
 import { Image } from "expo-image";
 import { Modal } from "react-native";
 import { X } from "lucide-react-native";
+import { Button } from "@/components/ui/Button";
+import {
+  spacing,
+  typography,
+  borderRadius,
+  colorPalette,
+  shadows,
+} from '@/constants/designSystem';
 
 type ChatMessageProps = {
   message: Message;
@@ -184,12 +192,15 @@ export function ChatMessage({ message }: ChatMessageProps) {
           <View style={styles.modalContainer}>
             <View style={styles.modalContent}>
               <Image source={{ uri: message.image }} style={styles.fullImage} />
-              <TouchableOpacity 
-                style={styles.closeButton} 
+              <Button
+                variant="ghost"
+                size="icon"
+                icon={X}
+                iconSize={24}
+                iconColor={colors.white}
                 onPress={() => setShowImagePreview(false)}
-              >
-                <X size={24} color={colors.white} />
-              </TouchableOpacity>
+                style={styles.closeButton}
+              />
             </View>
           </View>
         </Modal>
@@ -200,8 +211,8 @@ export function ChatMessage({ message }: ChatMessageProps) {
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 6,
-    paddingHorizontal: 16,
+    marginVertical: spacing.xs,
+    paddingHorizontal: spacing.lg,
   },
   userContainer: {
     alignItems: "flex-end",
@@ -210,37 +221,38 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   bubble: {
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     maxWidth: "85%",
+    ...shadows.sm,
   },
   userBubble: {
-    backgroundColor: colors.surfaceLight,
-    borderBottomRightRadius: 4,
+    backgroundColor: colorPalette.purple[600],
+    borderBottomRightRadius: spacing.xs,
   },
   assistantContent: {
     maxWidth: "95%",
-    paddingVertical: 4,
-    paddingHorizontal: 4,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
   },
   userText: {
-    color: colors.text,
-    fontSize: 16,
-    lineHeight: 22,
+    color: colors.white,
+    fontSize: typography.base,
+    lineHeight: typography.lineHeights.relaxed * typography.base,
   },
   assistantText: {
     color: colors.text,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: typography.base,
+    lineHeight: typography.lineHeights.relaxed * typography.base,
     letterSpacing: 0.2,
   },
   typingText: {
     // Specific styling for typing text if needed
   },
   processingContainer: {
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
   },
   processingIndicator: {
     flexDirection: "row",
@@ -250,26 +262,26 @@ const styles = StyleSheet.create({
   processingCircle: {
     width: 12,
     height: 12,
-    borderRadius: 6,
-    backgroundColor: "#ef4444", // Red circle as requested
-    marginRight: 8,
+    borderRadius: borderRadius.full,
+    backgroundColor: colorPalette.red[500],
+    marginRight: spacing.sm,
   },
   processingText: {
     color: colors.primary,
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: typography.base,
+    fontWeight: typography.weights.semibold,
     letterSpacing: 0.5,
   },
   cursor: {
     color: colors.primary,
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: typography.base,
+    fontWeight: typography.weights.bold,
     opacity: 1,
   },
   timestamp: {
-    marginTop: 4,
-    marginHorizontal: 4,
-    fontSize: 11,
+    marginTop: spacing.xs,
+    marginHorizontal: spacing.xs,
+    fontSize: typography.xs,
     opacity: 0.6,
   },
   userTimestamp: {
@@ -279,14 +291,14 @@ const styles = StyleSheet.create({
     textAlign: "left",
   },
   imageContainer: {
-    marginTop: 8,
-    borderRadius: 12,
+    marginTop: spacing.sm,
+    borderRadius: borderRadius.md,
     overflow: "hidden",
   },
   image: {
     width: 200,
     height: 150,
-    borderRadius: 12,
+    borderRadius: borderRadius.md,
   },
   modalContainer: {
     flex: 1,
@@ -302,17 +314,13 @@ const styles = StyleSheet.create({
   fullImage: {
     width: "100%",
     height: "100%",
-    borderRadius: 8,
+    borderRadius: borderRadius.sm,
   },
   closeButton: {
     position: "absolute",
-    top: 16,
-    right: 16,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    top: spacing.lg,
+    right: spacing.lg,
     backgroundColor: "rgba(0, 0, 0, 0.6)",
-    justifyContent: "center",
-    alignItems: "center",
+    borderRadius: borderRadius.full,
   },
 });

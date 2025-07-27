@@ -10,6 +10,16 @@ import SearchBar from "@/components/SearchBar";
 import CategoryCard from "@/components/CategoryCard";
 import RecipeCard from "@/components/RecipeCard";
 import UserProfileCard from "@/components/UserProfileCard";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Card } from "@/components/ui/Card";
+import {
+  spacing,
+  typography,
+  borderRadius,
+  colorPalette,
+  shadows,
+} from "@/constants/designSystem";
 
 import { recipes, categories } from "@/constants/mockData";
 
@@ -219,43 +229,34 @@ export default function SearchScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]}>Search</Text>
-          <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.tint, borderColor: colors.iconBorder }]}>
-            <Filter size={20} color="black" />
-          </TouchableOpacity>
+          <Button
+            variant="purple"
+            size="icon"
+            icon={Filter}
+            iconSize={20}
+          />
         </View>
         
         <View style={styles.searchTypeToggle}>
-          <TouchableOpacity
-            style={[
-              styles.searchTypeButton,
-              searchType === 'recipes' 
-                ? { backgroundColor: colors.tint }
-                : { backgroundColor: colors.inputBackground, borderColor: colors.border }
-            ]}
+          <Button
+            variant={searchType === 'recipes' ? 'purple' : 'outline'}
+            size="sm"
+            icon={BookOpen}
+            iconSize={16}
+            title="Recipes"
             onPress={() => setSearchType('recipes')}
-          >
-            <BookOpen size={16} color={searchType === 'recipes' ? 'white' : colors.text} />
-            <Text style={[
-              styles.searchTypeText,
-              { color: searchType === 'recipes' ? 'white' : colors.text }
-            ]}>Recipes</Text>
-          </TouchableOpacity>
+            style={styles.searchTypeButton}
+          />
           
-          <TouchableOpacity
-            style={[
-              styles.searchTypeButton,
-              searchType === 'users' 
-                ? { backgroundColor: colors.tint }
-                : { backgroundColor: colors.inputBackground, borderColor: colors.border }
-            ]}
+          <Button
+            variant={searchType === 'users' ? 'purple' : 'outline'}
+            size="sm"
+            icon={User}
+            iconSize={16}
+            title="Users"
             onPress={() => setSearchType('users')}
-          >
-            <User size={16} color={searchType === 'users' ? 'white' : colors.text} />
-            <Text style={[
-              styles.searchTypeText,
-              { color: searchType === 'users' ? 'white' : colors.text }
-            ]}>Users</Text>
-          </TouchableOpacity>
+            style={styles.searchTypeButton}
+          />
         </View>
 
         <View style={styles.searchSection}>
@@ -266,20 +267,16 @@ export default function SearchScreen() {
               placeholder="Search recipes..."
             />
           ) : (
-            <View style={[styles.searchBar, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
-              <View style={[styles.searchIconContainer, { backgroundColor: '#10B981', borderColor: colors.iconBorder }]}>
-                <Search size={16} color="black" />
-              </View>
-              <TextInput
-                style={[styles.searchInput, { color: colors.text }]}
-                placeholder="Search by username or name..."
-                placeholderTextColor={colors.muted}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
+            <Input
+              placeholder="Search by username or name..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              leftIcon={Search}
+              leftIconProps={{ size: 16 }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={styles.userSearchInput}
+            />
           )}
         </View>
 
@@ -314,13 +311,15 @@ export default function SearchScreen() {
               
               <View style={styles.recipesGrid}>
                 {filteredRecipes.slice(0, 6).map((recipe) => (
-                  <TouchableOpacity 
-                    key={recipe.id} 
+                  <Card
+                    key={recipe.id}
+                    variant="elevated"
+                    pressable
                     onPress={() => handleRecipePress(recipe.id)}
-                    activeOpacity={0.8}
+                    style={styles.recipeCardWrapper}
                   >
                     <RecipeCard recipe={recipe} />
-                  </TouchableOpacity>
+                  </Card>
                 ))}
               </View>
               
@@ -385,124 +384,90 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    marginBottom: 16,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    marginBottom: spacing.lg,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "700",
-  },
-  filterButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
+    fontSize: typography.xl,
+    fontWeight: typography.weights.bold,
   },
   searchTypeToggle: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    gap: 12,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    gap: spacing.md,
   },
   searchTypeButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-  },
-  searchTypeText: {
-    fontSize: 14,
-    fontWeight: '600',
+    borderRadius: borderRadius.md,
   },
   searchSection: {
-    paddingHorizontal: 16,
-    marginBottom: 24,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
   },
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 24,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
-  },
-  searchIconContainer: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    marginRight: 12,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
+  userSearchInput: {
+    borderRadius: borderRadius.full,
   },
   categoriesSection: {
-    marginBottom: 24,
+    marginBottom: spacing.xl,
   },
   sectionHeader: {
-    paddingHorizontal: 16,
-    marginBottom: 12,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: typography.lg,
+    fontWeight: typography.weights.bold,
   },
   sectionTitleContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: spacing.sm,
   },
   trendingIcon: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: borderRadius.md,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
   },
   categoriesContainer: {
-    paddingLeft: 16,
-    gap: 12,
+    paddingLeft: spacing.lg,
+    gap: spacing.md,
   },
   trendingSection: {
-    marginBottom: 24,
+    marginBottom: spacing.xl,
   },
   recipesGrid: {
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12,
+    gap: spacing.md,
+  },
+  recipeCardWrapper: {
+    marginBottom: spacing.sm,
   },
   usersSection: {
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
     paddingBottom: 100,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 60,
+    paddingVertical: spacing.xxl * 1.5,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginTop: 16,
-    marginBottom: 8,
+    fontSize: typography.lg,
+    fontWeight: typography.weights.semibold,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
   },
   emptySubtext: {
-    fontSize: 14,
+    fontSize: typography.sm,
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: typography.lineHeights.relaxed * typography.sm,
   },
 });

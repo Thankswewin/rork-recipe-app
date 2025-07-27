@@ -1,77 +1,94 @@
-import React from "react";
-import { StyleSheet, View, Text, FlatList, TouchableOpacity } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { recipes } from "@/constants/mockData";
-import RecipeCard from "@/components/RecipeCard";
-import { Stack, router } from "expo-router";
-import { useTheme } from "@/hooks/useTheme";
-import { Heart, Search } from "lucide-react-native";
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  TextInput,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Heart, Search, Filter } from 'lucide-react-native';
+import { useTheme } from '../../hooks/useTheme';
+import { RecipeCard } from '../../components/RecipeCard';
+import { SearchBar } from '../../components/SearchBar';
+import { colors } from '../../constants/colors';
+import { mockRecipes } from '../../constants/mockData';
+
+interface Recipe {
+  id: string;
+  title: string;
+  description: string;
+  image: string;
+  cookTime: number;
+  difficulty: 'Easy' | 'Medium' | 'Hard';
+  rating: number;
+  isFavorite: boolean;
+}
 
 export default function FavoritesScreen() {
-  const favoriteRecipes = recipes.filter((recipe) => recipe.is_favorited);
-  const { colors } = useTheme();
+  const { colors: theme } = useTheme();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [favorites, setFavorites] = useState<Recipe[]>(
+    mockRecipes.filter(recipe => recipe.isFavorite)
+  );
 
-  const handleRecipePress = (recipeId: string) => {
-    router.push("/(tabs)/assistant");
+  const filteredFavorites = favorites.filter(recipe =>
+    recipe.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    recipe.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const toggleFavorite = (recipeId: string) => {
+    setFavorites(prev => 
+      prev.filter(recipe => recipe.id !== recipeId)
+    );
   };
 
-  const handleFavoritePress = (recipeId: string) => {
-    // In a real app, this would toggle the favorite status in a database
-    console.log(`Toggle favorite for recipe ${recipeId}`);
-  };
+  const renderFavoriteItem = ({ item }: { item: Recipe }) => (
+    <RecipeCard
+      recipe={item}
+      onPress={() => {/* Navigate to recipe detail */}}
+      onFavoritePress={() => toggleFavorite(item.id)}
+    />
+  );
 
-  const handleSearchRecipes = () => {
-    router.push("/(tabs)/search");
-  };
+  const renderEmptyState = () => (
+    <View style={[styles.emptyContainer, { backgroundColor: theme.background }]}>
+      <Heart size={64} color={colors.gray[400]} />
+      <Text style={[styles.emptyTitle, { color: theme.text }]}>
+        No Favorites Yet
+      </Text>
+      <Text style={[styles.emptyDescription, { color: theme.textSecondary }]}>
+        Start exploring recipes and add them to your favorites!
+      </Text>
+    </View>
+  );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
-      <Stack.Screen options={{ headerShown: false }} />
-      
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Heart size={24} color={colors.tint} />
-        </View>
-        <Text style={[styles.title, { color: colors.text }]}>Favorite Recipes</Text>
-        <TouchableOpacity 
-          style={[styles.searchButton, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
-          onPress={handleSearchRecipes}
-        >
-          <Search size={20} color={colors.text} />
-        </TouchableOpacity>
+        <Text style={[styles.title, { color: theme.text }]}>Favorites</Text>
+        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+          {favorites.length} saved recipes
+        </Text>
       </View>
 
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="Search favorites..."
+        style={styles.searchBar}
+      />
+
       <FlatList
-        data={favoriteRecipes}
+        data={filteredFavorites}
+        renderItem={renderFavoriteItem}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <RecipeCard
-            recipe={item}
-            onPress={() => handleRecipePress(item.id)}
-            onFavoritePress={() => handleFavoritePress(item.id)}
-            style={styles.favoriteCard}
-          />
-        )}
-        contentContainerStyle={styles.recipeList}
+        contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Heart size={64} color={colors.muted} />
-            <Text style={[styles.emptyText, { color: colors.text }]}>
-              No Favorite Recipes Yet
-            </Text>
-            <Text style={[styles.emptySubtext, { color: colors.muted }]}>
-              Discover amazing recipes and save your favorites here
-            </Text>
-            <TouchableOpacity
-              style={[styles.discoverButton, { backgroundColor: colors.tint }]}
-              onPress={handleSearchRecipes}
-            >
-              <Search size={16} color="white" />
-              <Text style={styles.discoverButtonText}>Discover Recipes</Text>
-            </TouchableOpacity>
-          </View>
-        }
+        ListEmptyComponent={renderEmptyState}
+        numColumns={2}
+        columnWrapperStyle={filteredFavorites.length > 0 ? styles.row : undefined}
       />
     </SafeAreaView>
   );
@@ -82,70 +99,45 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   title: {
-    fontSize: 18,
-    fontWeight: "700",
-    flex: 1,
-    textAlign: 'center',
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 4,
   },
-  headerLeft: {
-    width: 40,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
+  subtitle: {
+    fontSize: 16,
   },
-  searchButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-  },
-  recipeList: {
-    paddingHorizontal: 16,
-    paddingBottom: 100, // Extra padding for tab bar
-  },
-  favoriteCard: {
-    width: '100%',
-    marginRight: 0,
+  searchBar: {
+    marginHorizontal: 20,
     marginBottom: 16,
+  },
+  listContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  row: {
+    justifyContent: 'space-between',
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-    marginTop: 40,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: "600",
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    textAlign: "center",
-    marginBottom: 24,
-  },
-  discoverButton: {
-    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    gap: 8,
+    paddingHorizontal: 40,
+    paddingVertical: 60,
   },
-  discoverButtonText: {
-    color: 'white',
-    fontSize: 16,
+  emptyTitle: {
+    fontSize: 24,
     fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyDescription: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
   },
 });

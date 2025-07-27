@@ -9,6 +9,13 @@ import { agents } from "@/constants/agents";
 import { formatDate, truncateText } from "@/utils/helpers";
 import { MessageSquare, Plus } from "lucide-react-native";
 import { Button } from "@/components/ui/Button";
+import {
+  spacing,
+  typography,
+  borderRadius,
+  colorPalette,
+  shadows,
+} from '@/constants/designSystem';
 
 export default function ChatsScreen() {
   const chatSessions = useAppStore((state) => state.chatSessions);
@@ -112,42 +119,51 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
+    padding: spacing.lg,
     backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colorPalette.gray[200],
   },
   chatList: {
-    padding: 16,
+    padding: spacing.lg,
     flexGrow: 1,
   },
   chatCard: {
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   chatHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   chatTitle: {
     color: colors.text,
+    fontSize: typography.base,
+    fontWeight: typography.weights.semibold,
   },
   lastMessage: {
-    lineHeight: 20,
+    lineHeight: typography.lineHeights.relaxed * typography.sm,
+    fontSize: typography.sm,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 16,
-    marginTop: 100,
+    padding: spacing.lg,
+    marginTop: spacing.xxl * 2,
   },
   emptyTitle: {
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+    fontSize: typography.lg,
+    fontWeight: typography.weights.semibold,
   },
   emptyText: {
     textAlign: "center",
-    marginBottom: 24,
+    marginBottom: spacing.xl,
+    fontSize: typography.sm,
+    lineHeight: typography.lineHeights.relaxed * typography.sm,
   },
   newChatButton: {
     width: 200,
