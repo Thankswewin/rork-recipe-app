@@ -5,6 +5,7 @@ export interface Chef {
   id: string;
   name: string;
   specialty: string;
+  specialties: string[];
   avatar: string;
   description: string;
   personality: string;
@@ -65,6 +66,7 @@ const defaultChef: Chef = {
   id: 'chef-adunni',
   name: 'Chef Adunni',
   specialty: 'Nigerian Cuisine',
+  specialties: ['Nigerian Cuisine', 'West African Dishes', 'Traditional Cooking'],
   avatar: '👨‍🍳',
   description: 'Expert in traditional and modern Nigerian cooking techniques',
   personality: 'Friendly, encouraging, and knowledgeable about West African cuisine',

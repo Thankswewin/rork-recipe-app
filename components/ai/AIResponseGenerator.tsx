@@ -12,11 +12,13 @@ import { useTheme } from '@/hooks/useTheme';
 interface Chef {
   id: string;
   name: string;
-  personality?: {
-    traits: string[];
-    style: string;
-  };
+  specialty: string;
   specialties: string[];
+  avatar: string;
+  description: string;
+  personality: string;
+  rating?: number;
+  isCustom?: boolean;
 }
 
 interface Message {
@@ -100,13 +102,13 @@ export function AIResponseGenerator({
       }));
 
       // Prepare chef personality context
-      const chefContext = {
-        name: chef.name,
-        personality: chef.personality,
-        specialties: chef.specialties,
-        style: chef.personality?.style || 'helpful and knowledgeable',
-        traits: chef.personality?.traits || ['helpful', 'knowledgeable'],
-      };
+        const chefContext = {
+          name: chef.name,
+          personality: chef.personality,
+          specialties: chef.specialties,
+          style: chef.personality || 'helpful and knowledgeable',
+          traits: ['helpful', 'knowledgeable'],
+        };
 
       // Prepare request payload
       const requestPayload = {
@@ -116,7 +118,7 @@ export function AIResponseGenerator({
         image_analysis: imageAnalysis,
         enable_voice: enableVoice,
         voice_settings: {
-          personality: chef.personality?.style || 'friendly',
+          personality: chef.personality || 'friendly',
           speed: 1.0,
           pitch: 1.0,
           emotion: 'helpful',
@@ -182,7 +184,7 @@ export function AIResponseGenerator({
         text: text,
         voice_profile: {
           name: chefContext.name,
-          personality: chefContext.personality?.style || 'friendly',
+          personality: chefContext.personality || 'friendly',
           traits: chefContext.traits,
           accent: 'neutral', // Can be customized per chef
           gender: 'neutral', // Can be customized per chef

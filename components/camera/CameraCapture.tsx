@@ -17,7 +17,7 @@ import {
 
 // String literal types for expo-camera v16
 type CameraType = 'front' | 'back';
-type FlashMode = 'on' | 'off' | 'auto' | 'torch';
+type FlashMode = 'off' | 'on' | 'auto';
 import {
   X,
   Camera as CameraIcon,
@@ -385,7 +385,7 @@ export function CameraCapture({
         
         <View style={styles.topRightControls}>
           <TouchableOpacity style={styles.controlButton} onPress={toggleFlash}>
-            {cameraState.flash === FlashMode.on ? (
+            {cameraState.flash === 'on' ? (
               <Zap size={24} color="#F59E0B" />
             ) : (
               <ZapOff size={24} color="#FFFFFF" />

@@ -32,7 +32,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { MessageBubble } from './MessageBubble';
 import { MultimodalInput } from './MultimodalInput';
 import { ChefSelector } from '../chef/ChefSelector';
-import { RealTimeAnalysis } from '../vision/RealTimeAnalysis';
+// RealTimeAnalysis component not available
 import { VoiceRecorder } from '../voice/VoiceRecorder';
 import { CameraCapture } from '../camera/CameraCapture';
 import { AIResponseGenerator, useAIResponseGenerator } from '../ai/AIResponseGenerator';
@@ -96,7 +96,7 @@ export function ChatInterface({
   const {
     isConnected,
     isConnecting,
-    isRecording,
+    isRecording: voiceIsRecording,
     connect,
     disconnect,
     startRecording,
@@ -105,7 +105,7 @@ export function ChatInterface({
 
   // Pulse animation for recording state
   useEffect(() => {
-    if (isRecording) {
+    if (voiceIsRecording) {
       const pulseAnimation = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
@@ -123,7 +123,7 @@ export function ChatInterface({
       pulseAnimation.start();
       return () => pulseAnimation.stop();
     }
-  }, [isRecording]);
+  }, [voiceIsRecording]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -159,7 +159,7 @@ export function ChatInterface({
         await connect();
       }
       
-      if (isRecording) {
+      if (voiceIsRecording) {
         stopRecording();
       } else {
         await startRecording();
@@ -168,7 +168,7 @@ export function ChatInterface({
       console.error('Voice toggle error:', error);
       Alert.alert('Voice Error', 'Failed to toggle voice recording');
     }
-  }, [isConnected, isRecording, connect, startRecording, stopRecording]);
+  }, [isConnected, voiceIsRecording, connect, startRecording, stopRecording]);
 
   const toggleCameraFacing = useCallback(() => {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
@@ -297,14 +297,11 @@ export function ChatInterface({
     onChefChange?.(chef.id);
     
     // Add chef change message
-    const changeMessage: Message = {
-      id: Date.now().toString(),
-      type: 'ai',
-      contentType: 'text',
+    addMessage({
       content: `Hi! I'm ${chef.name}. ${chef.description} What would you like to cook today?`,
-      timestamp: Date.now(),
-    };
-    setMessages(prev => [...prev, changeMessage]);
+      type: 'text',
+      sender: 'ai',
+    });
   }, [onChefChange]);
 
   const handleVoiceRecording = useCallback((audioUri: string, duration: number) => {
@@ -428,14 +425,7 @@ export function ChatInterface({
                 </TouchableOpacity>
               </View>
               
-              {/* Real-time Analysis Overlay */}
-              <RealTimeAnalysis 
-                isActive={showCamera && !isAnalyzing}
-                onDetection={(results) => {
-                  // Handle real-time detection results
-                  console.log('Real-time detection:', results);
-                }}
-              />
+              {/* Real-time Analysis Overlay - Component not available */}
             </View>
           </CameraView>
         </View>
@@ -500,7 +490,7 @@ export function ChatInterface({
         onVoiceMessage={handleVoiceMessage}
         onCameraToggle={handleCameraToggle}
         onVoicePress={() => setVoiceRecorderVisible(true)}
-        isRecording={isRecording}
+        isRecording={voiceIsRecording}
         isConnected={isConnected}
         onMicToggle={handleMicToggle}
         showCamera={showCamera}
@@ -766,5 +756,9 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     textAlign: 'center',
     lineHeight: 24,
+  },
+  typingIndicator: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
 });
