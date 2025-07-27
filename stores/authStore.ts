@@ -51,8 +51,9 @@ interface AuthState {
   setProfile: (profile: Profile | null) => void;
   setLoading: (loading: boolean) => void;
   initialize: () => Promise<void>;
-  fetchProfile: (userId: string) => Promise<void>;
+  fetchProfile: (userId: string, retryCount?: number) => Promise<void>;
   refreshProfile: () => Promise<void>;
+  createProfileManually: (userId: string) => Promise<void>;
   
   // Notification and messaging actions moved to separate stores
   
@@ -465,9 +466,11 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      fetchProfile: async (userId: string) => {
+      fetchProfile: async (userId: string, retryCount: number = 0) => {
+        const maxRetries = 3;
+        
         try {
-          console.log('AuthStore: Fetching profile for user:', userId);
+          console.log(`AuthStore: Fetching profile for user: ${userId} (attempt ${retryCount + 1})`);
           const { data, error } = await supabase
             .from('profiles')
             .select('*')
@@ -483,13 +486,18 @@ export const useAuthStore = create<AuthState>()(
             console.log('AuthStore: Profile fetched successfully:', data);
             set({ profile: data });
           } else {
-            console.log('AuthStore: Profile not found for user:', userId);
-            // Profile should be created by trigger, but if it doesn't exist, wait a bit and try again
-            if (userId === get().user?.id) {
-              console.log('AuthStore: Waiting for profile to be created by trigger...');
+            console.log(`AuthStore: Profile not found for user: ${userId}`);
+            
+            // Only retry for the current user and within retry limit
+            if (userId === get().user?.id && retryCount < maxRetries) {
+              console.log(`AuthStore: Waiting for profile to be created by trigger... (retry ${retryCount + 1}/${maxRetries})`);
               setTimeout(async () => {
-                await get().fetchProfile(userId);
+                await get().fetchProfile(userId, retryCount + 1);
               }, 3000);
+            } else if (retryCount >= maxRetries) {
+              console.error('AuthStore: Max retries reached. Profile creation may have failed.');
+              // Create a basic profile if trigger failed
+              await get().createProfileManually(userId);
             }
           }
         } catch (error) {
@@ -501,6 +509,44 @@ export const useAuthStore = create<AuthState>()(
         const { user } = get();
         if (user) {
           await get().fetchProfile(user.id);
+        }
+      },
+
+      createProfileManually: async (userId: string) => {
+        try {
+          console.log('AuthStore: Creating profile manually for user:', userId);
+          const { user } = get();
+          
+          if (!user) {
+            console.error('AuthStore: No user found for manual profile creation');
+            return;
+          }
+
+          const profileData = {
+            id: userId,
+            username: null,
+            full_name: user.user_metadata?.full_name || null,
+            avatar_url: null,
+            bio: null,
+          };
+
+          const { data, error } = await supabase
+            .from('profiles')
+            .insert([profileData])
+            .select()
+            .single();
+
+          if (error) {
+            console.error('AuthStore: Error creating profile manually:', error);
+            return;
+          }
+
+          if (data) {
+            console.log('AuthStore: Profile created manually:', data);
+            set({ profile: data });
+          }
+        } catch (error) {
+          console.error('AuthStore: Error in manual profile creation:', error);
         }
       },
 
