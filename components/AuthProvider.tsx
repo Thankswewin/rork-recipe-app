@@ -41,9 +41,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         await initialize();
 
         // Set up realtime subscriptions
-        const { user } = await supabase.auth.getUser();
-        if (user.data.user) {
-          unsubscribeRealtime = await setupRealtimeSubscriptions(user.data.user.id);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          unsubscribeRealtime = await setupRealtimeSubscriptions(user.id);
         }
 
         // Listen for auth changes

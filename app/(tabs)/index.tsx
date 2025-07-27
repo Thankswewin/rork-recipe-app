@@ -7,6 +7,7 @@ import { recipes, categories, currentUser } from "@/constants/mockData";
 import { useRouter } from "expo-router";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthStore } from "@/stores/authStore";
+import { useNotificationStore } from "@/stores/notificationStore";
 import { useChefAssistantStore } from "@/stores/chefAssistantStore";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -15,13 +16,16 @@ export default function HomeScreen() {
   const [activeSlide, setActiveSlide] = useState(0);
   const router = useRouter();
   const { colors } = useTheme();
-  const { profile, unreadNotificationsCount, fetchNotifications, isLoading } = useAuthStore();
+  const { profile, isLoading } = useAuthStore();
+  const { unreadNotificationsCount, fetchNotifications } = useNotificationStore();
   const { selectedAgent } = useChefAssistantStore();
 
   // Fetch notifications when screen loads
   useEffect(() => {
-    fetchNotifications();
-  }, []);
+    if (profile?.id) {
+      fetchNotifications(profile.id);
+    }
+  }, [profile?.id]);
 
   const handleCreateRecipe = () => {
     router.push("/(tabs)/assistant");
