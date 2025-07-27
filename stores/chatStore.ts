@@ -11,6 +11,11 @@ export interface Chef {
   personality: string;
   rating?: number;
   isCustom?: boolean;
+  usageCount?: number;
+  isDefault?: boolean;
+  isPublic?: boolean;
+  isPremium?: boolean;
+  creator?: string;
 }
 
 export interface Message {
@@ -71,6 +76,9 @@ const defaultChef: Chef = {
   description: 'Expert in traditional and modern Nigerian cooking techniques',
   personality: 'Friendly, encouraging, and knowledgeable about West African cuisine',
   rating: 4.9,
+  usageCount: 15420,
+  isDefault: true,
+  isPublic: true,
 };
 
 export const useChatStore = create<ChatState>()(

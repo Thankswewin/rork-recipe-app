@@ -1,7 +1,7 @@
-import React from "react";
+import * as React from "react";
 import { StyleSheet, View, TextInput, TouchableOpacity } from "react-native";
 import { Search } from "lucide-react-native";
-import { useTheme } from "@/hooks/useTheme";
+import { useTheme } from "../hooks/useTheme";
 
 interface SearchBarProps {
   placeholder?: string;

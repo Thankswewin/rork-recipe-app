@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,38 +10,80 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Heart, Search, Filter } from 'lucide-react-native';
 import { useTheme } from '../../hooks/useTheme';
-import { RecipeCard } from '../../components/RecipeCard';
-import { SearchBar } from '../../components/SearchBar';
-import { colors } from '../../constants/colors';
-import { mockRecipes } from '../../constants/mockData';
-
-interface Recipe {
-  id: string;
-  title: string;
-  description: string;
-  image: string;
-  cookTime: number;
-  difficulty: 'Easy' | 'Medium' | 'Hard';
-  rating: number;
-  isFavorite: boolean;
-}
+import { supabase } from '../../lib/supabase';
+import { useAuthStore } from '../../stores/authStore';
+import RecipeCard from '../../components/RecipeCard';
+import SearchBar from '../../components/SearchBar';
+import { Recipe } from '../../types';
 
 export default function FavoritesScreen() {
-  const { colors: theme } = useTheme();
+  const { colors } = useTheme();
+  const { user } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState('');
-  const [favorites, setFavorites] = useState<Recipe[]>(
-    mockRecipes.filter(recipe => recipe.isFavorite)
-  );
+  const [favorites, setFavorites] = useState<Recipe[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      fetchFavorites();
+    }
+  }, [user]);
+
+  const fetchFavorites = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('recipes')
+        .select(`
+          *,
+          profiles:created_by(username, full_name, avatar_url),
+          recipe_favorites!inner(user_id)
+        `)
+        .eq('recipe_favorites.user_id', user?.id);
+
+      if (error) {
+        console.error('Error fetching favorites:', error);
+        return;
+      }
+
+      const recipesWithAuthor = data?.map(recipe => ({
+        ...recipe,
+        author: recipe.profiles,
+        is_favorited: true
+      })) || [];
+
+      setFavorites(recipesWithAuthor);
+    } catch (error) {
+      console.error('Error fetching favorites:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredFavorites = favorites.filter(recipe =>
     recipe.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    recipe.description.toLowerCase().includes(searchQuery.toLowerCase())
+    (recipe.description && recipe.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const toggleFavorite = (recipeId: string) => {
-    setFavorites(prev => 
-      prev.filter(recipe => recipe.id !== recipeId)
-    );
+  const toggleFavorite = async (recipeId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('recipe_favorites')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('recipe_id', recipeId);
+
+      if (error) {
+        console.error('Error removing favorite:', error);
+        return;
+      }
+
+      setFavorites(prev => prev.filter(recipe => recipe.id !== recipeId));
+    } catch (error) {
+      console.error('Error removing favorite:', error);
+    }
   };
 
   const renderFavoriteItem = ({ item }: { item: Recipe }) => (
@@ -53,32 +95,31 @@ export default function FavoritesScreen() {
   );
 
   const renderEmptyState = () => (
-    <View style={[styles.emptyContainer, { backgroundColor: theme.background }]}>
-      <Heart size={64} color={colors.gray[400]} />
-      <Text style={[styles.emptyTitle, { color: theme.text }]}>
+    <View style={[styles.emptyContainer, { backgroundColor: colors.background }]}>
+      <Heart size={64} color={colors.muted} />
+      <Text style={[styles.emptyTitle, { color: colors.text }]}>
         No Favorites Yet
       </Text>
-      <Text style={[styles.emptyDescription, { color: theme.textSecondary }]}>
+      <Text style={[styles.emptyDescription, { color: colors.muted }]}>
         Start exploring recipes and add them to your favorites!
       </Text>
     </View>
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.text }]}>Favorites</Text>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+        <Text style={[styles.title, { color: colors.text }]}>Favorites</Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>
           {favorites.length} saved recipes
         </Text>
       </View>
 
       <SearchBar
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder="Search favorites..."
-        style={styles.searchBar}
-      />
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search favorites..."
+        />
 
       <FlatList
         data={filteredFavorites}

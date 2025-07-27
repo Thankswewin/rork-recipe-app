@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import * as Speech from 'expo-speech';
-import { trpcClient } from '@/lib/trpc';
+import { trpcClient } from './trpc';
 
 export interface TTSOptions {
   voice?: string;
@@ -156,19 +156,15 @@ class TTSService {
       } else {
         const result = await trpcClient.kyutai.tts.mutate({
           text,
-          voice_style: options.voiceStyle || 'natural-female',
-          model: options.model || 'kyutai-tts-1b',
-          streaming: options.streaming !== false,
-          rate: options.rate || 1.0,
-          pitch: options.pitch || 1.0,
-          low_latency: options.lowLatency !== false,
+          voice: options.voiceStyle || 'natural-female',
+          language: options.language || 'en-US',
         });
 
         if (result.success && result.audioUrl) {
-          console.log(`Kyutai TTS: ${result.latency_ms}ms latency, using ${result.voice_used} voice`);
+          console.log(`Kyutai TTS: Success with voice: ${result.debug?.voice || 'unknown'}`);
           await this.playAudioUrl(result.audioUrl, options);
         } else {
-          throw new Error('Failed to get audio from Kyutai TTS');
+          throw new Error(result.error || 'Failed to get audio from Kyutai TTS');
         }
       }
     } catch (error) {

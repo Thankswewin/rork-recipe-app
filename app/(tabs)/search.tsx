@@ -6,6 +6,7 @@ import { Stack, router, useFocusEffect } from "expo-router";
 import { useTheme } from "@/hooks/useTheme";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/stores/authStore";
+import { Category } from "@/types";
 import SearchBar from "@/components/SearchBar";
 import CategoryCard from "@/components/CategoryCard";
 import RecipeCard from "@/components/RecipeCard";
@@ -21,7 +22,7 @@ import {
   shadows,
 } from "@/constants/designSystem";
 
-import { recipes, categories } from "@/constants/mockData";
+// Mock data removed for production readiness
 
 interface UserProfile {
   id: string;
@@ -38,10 +39,169 @@ export default function SearchScreen() {
   const [searchType, setSearchType] = useState<'recipes' | 'users'>('recipes');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [recipes, setRecipes] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [recipesLoading, setRecipesLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const { colors } = useTheme();
   const { user: currentUser } = useAuthStore();
+
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
+
+  const fetchInitialData = async () => {
+    try {
+      await Promise.all([
+        fetchRecipes(),
+        fetchCategories()
+      ]);
+    } catch (error) {
+      console.error('Error fetching initial data:', error);
+    }
+  };
+
+  const fetchRecipes = async () => {
+    try {
+      setRecipesLoading(true);
+      const { data, error } = await supabase
+        .from('recipes')
+        .select(`
+          *,
+          profiles:created_by(username, full_name, avatar_url)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) {
+        console.error('Error fetching recipes:', error);
+        return;
+      }
+
+      const recipesWithAuthor = data?.map(recipe => ({
+        ...recipe,
+        author: recipe.profiles
+      })) || [];
+
+      setRecipes(recipesWithAuthor);
+    } catch (error) {
+      console.error('Error fetching recipes:', error);
+    } finally {
+      setRecipesLoading(false);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('recipes')
+        .select('category')
+        .not('category', 'is', null);
+
+      if (error) {
+        console.error('Error fetching categories:', error);
+        return;
+      }
+
+      const uniqueCategoryNames = [...new Set(data?.map(item => item.category).filter(Boolean))] as string[];
+      
+      // Transform string categories into Category objects
+      const categoryObjects = uniqueCategoryNames.map((name, index) => ({
+        id: `category-${index}`,
+        name,
+        icon: getCategoryIcon(name),
+        color: getCategoryColor(name),
+        recipe_count: data?.filter(item => item.category === name).length || 0,
+        description: `${name} recipes`
+      }));
+      
+      setCategories(categoryObjects);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
+  const getCategoryIcon = (category: string): string => {
+    const icons: { [key: string]: string } = {
+      'breakfast': '🥞',
+      'lunch': '🥗',
+      'dinner': '🍽️',
+      'dessert': '🍰',
+      'snack': '🍿',
+      'appetizer': '🥨',
+      'beverage': '🥤',
+      'soup': '🍲',
+      'salad': '🥗',
+      'pasta': '🍝',
+      'pizza': '🍕',
+      'seafood': '🐟',
+      'meat': '🥩',
+      'vegetarian': '🥬',
+      'vegan': '🌱',
+      'healthy': '💚',
+      'comfort': '🏠'
+    };
+    return icons[category.toLowerCase()] || '🍳';
+  };
+
+  const getCategoryColor = (category: string): string => {
+    const colors: { [key: string]: string } = {
+      'breakfast': '#FFB84D',
+      'lunch': '#4ECDC4',
+      'dinner': '#FF6B6B',
+      'dessert': '#FF8CC8',
+      'snack': '#95E1D3',
+      'appetizer': '#F38BA8',
+      'beverage': '#A8DADC',
+      'soup': '#F1C0E8',
+      'salad': '#CFBAF0',
+      'pasta': '#FFD93D',
+      'pizza': '#FF6B35',
+      'seafood': '#6BCF7F',
+      'meat': '#FF4757',
+      'vegetarian': '#26de81',
+      'vegan': '#2ed573',
+      'healthy': '#1dd1a1',
+      'comfort': '#ffa502'
+    };
+    return colors[category.toLowerCase()] || '#74b9ff';
+  };
+
+  const searchRecipes = async (query: string) => {
+    if (!query.trim()) {
+      fetchRecipes();
+      return;
+    }
+
+    try {
+      setRecipesLoading(true);
+      const { data, error } = await supabase
+        .from('recipes')
+        .select(`
+          *,
+          profiles:created_by(username, full_name, avatar_url)
+        `)
+        .or(`title.ilike.%${query}%,description.ilike.%${query}%,category.ilike.%${query}%`)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error searching recipes:', error);
+        return;
+      }
+
+      const recipesWithAuthor = data?.map(recipe => ({
+        ...recipe,
+        author: recipe.profiles
+      })) || [];
+
+      setRecipes(recipesWithAuthor);
+    } catch (error) {
+      console.error('Error searching recipes:', error);
+    } finally {
+      setRecipesLoading(false);
+    }
+  };
 
   // Refresh user search when screen comes into focus
   useFocusEffect(
@@ -110,6 +270,12 @@ export default function SearchScreen() {
     if (searchType === 'users') {
       const timeoutId = setTimeout(() => {
         searchUsers(searchQuery);
+      }, 300);
+
+      return () => clearTimeout(timeoutId);
+    } else if (searchType === 'recipes') {
+      const timeoutId = setTimeout(() => {
+        searchRecipes(searchQuery);
       }, 300);
 
       return () => clearTimeout(timeoutId);
@@ -213,14 +379,9 @@ export default function SearchScreen() {
     />
   );
 
-  // Filter recipes based on search query and category
-  const filteredRecipes = recipes.filter((recipe) => {
-    const matchesSearch = searchQuery === "" || 
-      recipe.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (recipe.category && recipe.category.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory = selectedCategory === null || recipe.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredRecipes = selectedCategory 
+    ? recipes.filter(recipe => recipe.category === selectedCategory)
+    : recipes;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
@@ -272,7 +433,6 @@ export default function SearchScreen() {
               value={searchQuery}
               onChangeText={setSearchQuery}
               leftIcon={Search}
-              leftIconProps={{ size: 16 }}
               autoCapitalize="none"
               autoCorrect={false}
               style={styles.userSearchInput}
@@ -289,11 +449,17 @@ export default function SearchScreen() {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesContainer}>
                 {categories.map((category) => (
                   <CategoryCard
-                    key={category.id}
+                    key={category.id || category.name}
                     category={category}
+                    isSelected={selectedCategory === category.name}
                     onPress={() => setSelectedCategory(selectedCategory === category.name ? null : category.name)}
                   />
                 ))}
+                {categories.length === 0 && (
+                  <Text style={[styles.emptyText, { color: colors.muted }]}>
+                    No categories available
+                  </Text>
+                )}
               </ScrollView>
             </View>
             
@@ -310,20 +476,26 @@ export default function SearchScreen() {
               </View>
               
               <View style={styles.recipesGrid}>
-                {filteredRecipes.slice(0, 6).map((recipe) => (
-                  <Card
-                    key={recipe.id}
-                    variant="elevated"
-                    pressable
-                    onPress={() => handleRecipePress(recipe.id)}
-                    style={styles.recipeCardWrapper}
-                  >
-                    <RecipeCard recipe={recipe} />
-                  </Card>
+                {filteredRecipes.map((recipe, index) => (
+                  <View key={recipe.id} style={styles.recipeCardWrapper}>
+                    <RecipeCard
+                      recipe={recipe}
+                      onPress={() => router.push(`/recipe/${recipe.id}` as any)}
+                      onFavoritePress={() => {/* TODO: Implement favorite toggle */}}
+                    />
+                  </View>
                 ))}
               </View>
               
-              {filteredRecipes.length === 0 && (searchQuery || selectedCategory) && (
+              {recipesLoading && (
+                <View style={styles.emptyContainer}>
+                  <Text style={[styles.emptyText, { color: colors.text }]}>
+                    Loading recipes...
+                  </Text>
+                </View>
+              )}
+              
+              {!recipesLoading && filteredRecipes.length === 0 && (searchQuery || selectedCategory) && (
                 <View style={styles.emptyContainer}>
                   <BookOpen size={48} color={colors.muted} />
                   <Text style={[styles.emptyText, { color: colors.text }]}>

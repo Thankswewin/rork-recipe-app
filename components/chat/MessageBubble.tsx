@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import * as React from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +8,9 @@ import {
   Image,
   Dimensions,
   ActivityIndicator,
+  ViewStyle,
+  TextStyle,
+  ImageStyle,
 } from 'react-native';
 import {
   Play,
@@ -20,26 +24,11 @@ import {
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Audio } from 'expo-av';
-import { useTheme } from '@/hooks/useTheme';
+import { useTheme } from '../../hooks/useTheme';
+import { Message } from '../../stores/chatStore';
 
 const { width: screenWidth } = Dimensions.get('window');
 const maxBubbleWidth = screenWidth * 0.75;
-
-interface Message {
-  id: string;
-  type: 'user' | 'ai';
-  contentType: 'text' | 'voice' | 'image' | 'video';
-  content: string;
-  metadata?: {
-    audioUrl?: string;
-    duration?: number;
-    transcript?: string;
-    analysis?: any;
-    confidence?: number;
-  };
-  timestamp: number;
-  processing?: boolean;
-}
 
 interface MessageBubbleProps {
   message: Message;
@@ -53,12 +42,11 @@ export function MessageBubble({ message, isProcessing }: MessageBubbleProps) {
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
 
-  const isUser = message.type === 'user';
-  const isAI = message.type === 'ai';
+  const isUser = message.sender === 'user';
+  const isAI = message.sender === 'ai';
 
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const formatTime = (timestamp: Date) => {
+    return timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   const formatDuration = (seconds: number) => {
@@ -113,7 +101,7 @@ export function MessageBubble({ message, isProcessing }: MessageBubbleProps) {
           <ActivityIndicator size="small" color={isUser ? '#FFFFFF' : '#3B82F6'} />
           <Text style={[
             styles.processingText,
-            isUser ? styles.userMessageText : styles.aiMessageText
+            { color: isUser ? '#FFFFFF' : '#F3F4F6' }
           ]}>
             Processing...
           </Text>
@@ -158,7 +146,7 @@ export function MessageBubble({ message, isProcessing }: MessageBubbleProps) {
         
         <Text style={[
           styles.voiceDuration,
-          isUser ? styles.userMessageText : styles.aiMessageText
+          { color: isUser ? '#FFFFFF' : '#F3F4F6' }
         ]}>
           {message.metadata?.duration ? formatDuration(message.metadata.duration) : '0:00'}
         </Text>
@@ -171,12 +159,12 @@ export function MessageBubble({ message, isProcessing }: MessageBubbleProps) {
       />
       
       {/* Show transcript if available */}
-      {message.metadata?.transcript && (
+      {message.metadata?.transcription && (
         <Text style={[
           styles.transcriptText,
-          isUser ? styles.userMessageText : styles.aiMessageText
+          { color: isUser ? '#FFFFFF' : '#F3F4F6' }
         ]}>
-          "{message.metadata.transcript}"
+          "{message.metadata.transcription}"
         </Text>
       )}
     </View>
@@ -219,13 +207,8 @@ export function MessageBubble({ message, isProcessing }: MessageBubbleProps) {
         <View style={styles.analysisContainer}>
           <Text style={styles.analysisTitle}>AI Analysis:</Text>
           <Text style={styles.analysisText}>
-            {message.metadata.analysis.description || 'Image analyzed successfully'}
+            {message.metadata.analysis}
           </Text>
-          {message.metadata.confidence && (
-            <Text style={styles.confidenceText}>
-              Confidence: {Math.round(message.metadata.confidence * 100)}%
-            </Text>
-          )}
         </View>
       )}
     </View>
@@ -253,7 +236,7 @@ export function MessageBubble({ message, isProcessing }: MessageBubbleProps) {
   );
 
   const renderContent = () => {
-    switch (message.contentType) {
+    switch (message.type) {
       case 'text':
         return renderTextContent();
       case 'voice':
@@ -315,7 +298,56 @@ export function MessageBubble({ message, isProcessing }: MessageBubbleProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<{
+  messageContainer: ViewStyle;
+  userMessageContainer: ViewStyle;
+  aiMessageContainer: ViewStyle;
+  aiAvatar: ViewStyle;
+  aiAvatarGradient: ViewStyle;
+  aiAvatarText: TextStyle;
+  messageBubble: ViewStyle;
+  userMessageBubble: ViewStyle;
+  aiMessageBubble: ViewStyle;
+  processingBubble: ViewStyle;
+  textContainer: ViewStyle;
+  messageText: TextStyle;
+  userMessageText: TextStyle;
+  aiMessageText: TextStyle;
+  processingIndicator: ViewStyle;
+  processingText: TextStyle;
+  voiceContainer: ViewStyle;
+  voicePlayButton: ViewStyle;
+  userVoiceButton: ViewStyle;
+  aiVoiceButton: ViewStyle;
+  voiceInfo: ViewStyle;
+  voiceWaveform: ViewStyle;
+  waveformBar: ViewStyle;
+  voiceDuration: TextStyle;
+  voiceIcon: ViewStyle;
+  transcriptText: TextStyle;
+  imageContainer: ViewStyle;
+  imageWrapper: ViewStyle;
+  messageImage: ImageStyle;
+  imageLoadingOverlay: ViewStyle;
+  imageOverlay: ViewStyle;
+  imageErrorContainer: ViewStyle;
+  imageErrorText: TextStyle;
+  analysisContainer: ViewStyle;
+  analysisTitle: TextStyle;
+  analysisText: TextStyle;
+  confidenceText: TextStyle;
+  videoContainer: ViewStyle;
+  videoWrapper: ViewStyle;
+  videoPlaceholder: ViewStyle;
+  videoText: TextStyle;
+  videoPlayButton: ViewStyle;
+  videoDuration: TextStyle;
+  timestampContainer: ViewStyle;
+  timestamp: TextStyle;
+  userTimestamp: TextStyle;
+  aiTimestamp: TextStyle;
+  deliveryIcon: ViewStyle;
+}>({
   messageContainer: {
     flexDirection: 'row',
     marginVertical: 4,

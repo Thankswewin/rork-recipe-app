@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import * as React from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,7 +22,7 @@ import {
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '@/hooks/useTheme';
+import { useTheme } from '../../hooks/useTheme';
 
 interface VoiceRecorderProps {
   onRecordingComplete: (audioUri: string, duration: number) => void;
@@ -77,8 +78,8 @@ export function VoiceRecorder({
   // Animation values
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const waveformAnim = useRef(new Animated.Value(0)).current;
-  const recordingTimer = useRef<NodeJS.Timeout | null>(null);
-  const playbackTimer = useRef<NodeJS.Timeout | null>(null);
+  const recordingTimer = useRef<number | null>(null);
+  const playbackTimer = useRef<number | null>(null);
 
   useEffect(() => {
     return () => {

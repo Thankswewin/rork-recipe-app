@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import * as React from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -23,27 +24,10 @@ import {
   Zap,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '@/hooks/useTheme';
+import { useTheme } from '../../hooks/useTheme';
+import { Chef } from '../../stores/chatStore';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-
-interface Chef {
-  id: string;
-  name: string;
-  description: string;
-  avatar: string;
-  specialties: string[];
-  rating: number;
-  usageCount: number;
-  isDefault: boolean;
-  isPublic: boolean;
-  isPremium?: boolean;
-  creator?: string;
-  personality?: {
-    traits: string[];
-    style: string;
-  };
-}
 
 interface ChefSelectorProps {
   visible: boolean;
@@ -58,91 +42,79 @@ const DEFAULT_CHEFS: Chef[] = [
     name: 'Chef Adunni',
     description: 'Your friendly AI cooking assistant with expertise in global cuisines and cooking techniques.',
     avatar: '👨‍🍳',
+    specialty: 'General Cooking',
     specialties: ['General Cooking', 'Recipe Development', 'Cooking Techniques'],
     rating: 4.8,
     usageCount: 15420,
     isDefault: true,
     isPublic: true,
-    personality: {
-      traits: ['Helpful', 'Encouraging', 'Knowledgeable'],
-      style: 'Friendly and supportive'
-    }
+    personality: 'Helpful, encouraging, and knowledgeable with a friendly and supportive style'
   },
   {
     id: 'italian',
     name: 'Chef Marco',
     description: 'Passionate Italian chef specializing in authentic pasta, pizza, and regional Italian dishes.',
     avatar: '🇮🇹',
+    specialty: 'Italian Cuisine',
     specialties: ['Italian Cuisine', 'Pasta Making', 'Pizza', 'Wine Pairing'],
     rating: 4.9,
     usageCount: 8930,
     isDefault: false,
     isPublic: true,
-    personality: {
-      traits: ['Passionate', 'Traditional', 'Detailed'],
-      style: 'Enthusiastic and authentic'
-    }
+    personality: 'Passionate, traditional, and detailed with an enthusiastic and authentic style'
   },
   {
     id: 'asian',
     name: 'Chef Sakura',
     description: 'Expert in Asian cuisines including Japanese, Chinese, Thai, and Korean cooking.',
     avatar: '🌸',
+    specialty: 'Asian Cuisine',
     specialties: ['Asian Cuisine', 'Sushi', 'Stir-fry', 'Fermentation'],
     rating: 4.7,
     usageCount: 12100,
     isDefault: false,
     isPublic: true,
-    personality: {
-      traits: ['Precise', 'Mindful', 'Creative'],
-      style: 'Calm and methodical'
-    }
+    personality: 'Precise, mindful, and creative with a calm and methodical style'
   },
   {
     id: 'healthy',
     name: 'Chef Wellness',
     description: 'Nutrition-focused chef specializing in healthy, balanced meals and dietary accommodations.',
     avatar: '🥗',
+    specialty: 'Healthy Cooking',
     specialties: ['Healthy Cooking', 'Nutrition', 'Dietary Restrictions', 'Meal Prep'],
     rating: 4.6,
     usageCount: 9850,
     isDefault: false,
     isPublic: true,
-    personality: {
-      traits: ['Health-conscious', 'Informative', 'Supportive'],
-      style: 'Educational and motivating'
-    }
+    personality: 'Health-conscious, informative, and supportive with an educational and motivating style'
   },
   {
     id: 'baking',
     name: 'Chef Patissier',
     description: 'Master baker and pastry chef with expertise in breads, cakes, and delicate desserts.',
     avatar: '🧁',
+    specialty: 'Baking',
     specialties: ['Baking', 'Pastry', 'Desserts', 'Bread Making'],
     rating: 4.9,
     usageCount: 7200,
     isDefault: false,
     isPublic: true,
     isPremium: true,
-    personality: {
-      traits: ['Precise', 'Creative', 'Patient'],
-      style: 'Detailed and encouraging'
-    }
+    personality: 'Precise, creative, and patient with a detailed and encouraging style'
   },
   {
     id: 'quick',
     name: 'Chef Express',
     description: 'Speed cooking specialist for busy lifestyles. Quick, easy, and delicious meals in 30 minutes or less.',
     avatar: '⚡',
+    specialty: 'Quick Meals',
     specialties: ['Quick Meals', '30-Minute Recipes', 'One-Pot Dishes', 'Meal Planning'],
     rating: 4.5,
     usageCount: 18500,
     isDefault: false,
     isPublic: true,
-    personality: {
-      traits: ['Efficient', 'Practical', 'Energetic'],
-      style: 'Fast-paced and solution-focused'
-    }
+    personality: 'Efficient, practical, and energetic with a fast-paced and solution-focused style'
   }
 ];
 
@@ -318,7 +290,7 @@ export function ChefSelector({ visible, onClose, onSelect, currentChefId }: Chef
               styles.personalityText,
               currentChefId === chef.id && styles.selectedPersonalityText
             ]}>
-              {chef.personality.traits.join(', ')}
+              {chef.personality}
             </Text>
           </View>
         )}

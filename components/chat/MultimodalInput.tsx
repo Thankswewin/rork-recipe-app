@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import * as React from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,7 +22,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { useTheme } from '@/hooks/useTheme';
+import { useTheme } from '../../hooks/useTheme';
 
 interface MultimodalInputProps {
   onSendMessage: (content: string, type?: 'text' | 'voice' | 'image' | 'video', metadata?: any) => void;
@@ -39,7 +40,7 @@ export function MultimodalInput({ onSendMessage, onCameraPress, onVoicePress, di
   
   const textInputRef = useRef<TextInput>(null);
   const attachmentAnim = useRef(new Animated.Value(0)).current;
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (showAttachments) {
@@ -91,7 +92,7 @@ export function MultimodalInput({ onSendMessage, onCameraPress, onVoicePress, di
     if (text.length > 0) {
       typingTimeoutRef.current = setTimeout(() => {
         setIsTyping(false);
-      }, 1000);
+      }, 1000) as any;
     } else {
       setIsTyping(false);
     }

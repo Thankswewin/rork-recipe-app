@@ -25,7 +25,7 @@ export default function CategoryCard({ category, onPress, isSelected = false }: 
       onPress={onPress}
       activeOpacity={0.8}
     >
-      <View style={[styles.iconContainer, { backgroundColor: category.backgroundColor }]}>
+      <View style={[styles.iconContainer, { backgroundColor: category.color }]}>
         <Text style={styles.icon}>{category.icon}</Text>
       </View>
       <View style={styles.textContainer}>

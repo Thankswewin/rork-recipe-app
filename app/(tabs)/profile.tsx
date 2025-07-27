@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { StyleSheet, View, Text, Image, TouchableOpacity, ScrollView, Alert, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { recipes } from "@/constants/mockData";
+// Mock data removed for production readiness
 import { Settings, Edit, LogOut, BookOpen, Award, Clock, Camera, Check, X, Trash2 } from "lucide-react-native";
 import BackButton from "@/components/BackButton";
 import { Stack, router } from "expo-router";
@@ -9,6 +9,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuthStore } from "@/stores/authStore";
 import * as ImagePicker from 'expo-image-picker';
 import { Platform } from 'react-native';
+import { supabase } from "@/lib/supabase";
 
 export default function ProfileScreen() {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -20,8 +21,14 @@ export default function ProfileScreen() {
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [avatarKey, setAvatarKey] = useState(0); // Force re-render of avatar
+  const [userRecipes, setUserRecipes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    recipesCount: 0,
+    favoritesCount: 0,
+    followersCount: 0
+  });
   
-  const userRecipes = recipes.slice(0, 2);
   const { colors } = useTheme();
   const { user, profile, signOut, updateProfile, uploadAvatar, removeAvatar, checkUsernameAvailability, refreshProfile } = useAuthStore();
 
@@ -58,7 +65,75 @@ export default function ProfileScreen() {
   // Refresh profile when screen comes into focus
   useEffect(() => {
     refreshProfile();
-  }, []);
+    if (user) {
+      fetchUserData();
+    }
+  }, [user]);
+
+  const fetchUserData = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([
+        fetchUserRecipes(),
+        fetchUserStats()
+      ]);
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchUserRecipes = async () => {
+    if (!user?.id) return;
+    
+    const { data, error } = await supabase
+      .from('recipes')
+      .select(`
+        *,
+        profiles:created_by(username, full_name, avatar_url)
+      `)
+      .eq('created_by', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching user recipes:', error);
+      return;
+    }
+
+    const recipesWithAuthor = data?.map(recipe => ({
+      ...recipe,
+      author: recipe.profiles
+    })) || [];
+
+    setUserRecipes(recipesWithAuthor);
+  };
+
+  const fetchUserStats = async () => {
+    if (!user?.id) return;
+    
+    try {
+      // Get recipes count
+      const { count: recipesCount } = await supabase
+        .from('recipes')
+        .select('*', { count: 'exact', head: true })
+        .eq('created_by', user.id);
+
+      // Get favorites count
+      const { count: favoritesCount } = await supabase
+        .from('recipe_favorites')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      setStats({
+        recipesCount: recipesCount || 0,
+        favoritesCount: favoritesCount || 0,
+        followersCount: 48 // TODO: Implement when followers feature is added
+      });
+    } catch (error) {
+      console.error('Error fetching user stats:', error);
+    }
+  };
 
   // Update avatar key when profile avatar changes
   useEffect(() => {
@@ -404,7 +479,7 @@ export default function ProfileScreen() {
         
         <View style={[styles.statsSection, { borderColor: colors.border }]}>
           <TouchableOpacity style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.text }]}>12</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>{stats.recipesCount}</Text>
             <Text style={[styles.statLabel, { color: colors.muted }]}>Recipes</Text>
           </TouchableOpacity>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
@@ -412,7 +487,7 @@ export default function ProfileScreen() {
             style={styles.statItem}
             onPress={() => user?.id && router.push(`/followers/${user.id}`)}
           >
-            <Text style={[styles.statValue, { color: colors.text }]}>48</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>{stats.followersCount}</Text>
             <Text style={[styles.statLabel, { color: colors.muted }]}>Followers</Text>
           </TouchableOpacity>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
@@ -420,8 +495,8 @@ export default function ProfileScreen() {
             style={styles.statItem}
             onPress={() => user?.id && router.push(`/followers/${user.id}`)}
           >
-            <Text style={[styles.statValue, { color: colors.text }]}>65</Text>
-            <Text style={[styles.statLabel, { color: colors.muted }]}>Following</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>{stats.favoritesCount}</Text>
+            <Text style={[styles.statLabel, { color: colors.muted }]}>Favorites</Text>
           </TouchableOpacity>
         </View>
         
@@ -456,20 +531,33 @@ export default function ProfileScreen() {
         </View>
         
         <View style={styles.recipeGrid}>
-          {userRecipes.map((recipe) => (
-            <TouchableOpacity key={recipe.id} style={[styles.recipeCard, { backgroundColor: colors.cardBackground }]}>
-              <Image source={{ uri: recipe.image }} style={styles.recipeImage} />
-              <View style={styles.recipeInfo}>
-                <Text style={[styles.recipeTitle, { color: colors.text }]} numberOfLines={1}>{recipe.title}</Text>
-                <View style={styles.recipeMeta}>
-                  <Text style={[styles.recipeCategory, { color: colors.muted, backgroundColor: colors.inputBackground }]}>{recipe.category}</Text>
-                  <View style={styles.recipeLikes}>
-                    <Text style={[styles.recipeLikesText, { color: colors.muted }]}>{recipe.likes} likes</Text>
+          {loading ? (
+            <Text style={[styles.loadingText, { color: colors.muted }]}>Loading recipes...</Text>
+          ) : userRecipes.length > 0 ? (
+            userRecipes.map((recipe) => (
+              <TouchableOpacity 
+                key={recipe.id} 
+                style={[styles.recipeCard, { backgroundColor: colors.cardBackground }]}
+                onPress={() => router.push(`/recipe/${recipe.id}` as any)}
+              >
+                <Image source={{ uri: recipe.image_url || recipe.image }} style={styles.recipeImage} />
+                <View style={styles.recipeInfo}>
+                  <Text style={[styles.recipeTitle, { color: colors.text }]} numberOfLines={1}>{recipe.title}</Text>
+                  <View style={styles.recipeMeta}>
+                    <Text style={[styles.recipeCategory, { color: colors.muted, backgroundColor: colors.inputBackground }]}>{recipe.category}</Text>
+                    <View style={styles.recipeLikes}>
+                      <Text style={[styles.recipeLikesText, { color: colors.muted }]}>{recipe.likes_count || 0} likes</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={[styles.emptyStateText, { color: colors.muted }]}>No recipes yet</Text>
+              <Text style={[styles.emptyStateSubtext, { color: colors.muted }]}>Start creating your first recipe!</Text>
+            </View>
+          )}
         </View>
         
         <TouchableOpacity 
@@ -766,5 +854,23 @@ const styles = StyleSheet.create({
   logoutText: {
     fontSize: 16,
     fontWeight: "600",
+  },
+  loadingText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    textAlign: 'center',
   },
 });

@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import * as React from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -27,8 +28,8 @@ import {
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
-import { useVoiceChatStore } from '@/stores/voiceChatStore';
-import { useTheme } from '@/hooks/useTheme';
+import { useVoiceChatStore } from '../../stores/voiceChatStore';
+import { useTheme } from '../../hooks/useTheme';
 import { MessageBubble } from './MessageBubble';
 import { MultimodalInput } from './MultimodalInput';
 import { ChefSelector } from '../chef/ChefSelector';
@@ -486,15 +487,15 @@ export function ChatInterface({
       
       {/* Input Controls */}
       <MultimodalInput
-        onSendText={sendTextMessage}
-        onVoiceMessage={handleVoiceMessage}
-        onCameraToggle={handleCameraToggle}
+        onSendMessage={(content, type, metadata) => {
+          if (type === 'voice') {
+            handleVoiceMessage(content, metadata?.audioUrl || '');
+          } else {
+            sendTextMessage(content);
+          }
+        }}
+        onCameraPress={handleCameraToggle}
         onVoicePress={() => setVoiceRecorderVisible(true)}
-        isRecording={voiceIsRecording}
-        isConnected={isConnected}
-        onMicToggle={handleMicToggle}
-        showCamera={showCamera}
-        pulseAnim={pulseAnim}
         disabled={isGenerating || isGeneratingVoice}
       />
       

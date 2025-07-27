@@ -1,8 +1,8 @@
 import React from "react";
 import { StyleSheet, View, Text, Image, TouchableOpacity, ViewStyle } from "react-native";
-import { Recipe } from "@/types";
+import { Recipe } from "../types";
 import { Heart, Play, Bookmark } from "lucide-react-native";
-import { useTheme } from "@/hooks/useTheme";
+import { useTheme } from "../hooks/useTheme";
 
 interface RecipeCardProps {
   recipe: Recipe;
@@ -25,8 +25,8 @@ export default function RecipeCard({ recipe, onPress, onFavoritePress, style }: 
         <View style={styles.recipeInfo}>
           <Text style={[styles.recipeTitle, { color: colors.text }]}>{recipe.title}</Text>
           <View style={styles.authorContainer}>
-            <Image source={{ uri: recipe.user?.avatar_url || undefined }} style={[styles.authorAvatar, { borderColor: colors.iconBorder }]} />
-            <Text style={[styles.authorName, { color: colors.muted }]}>{recipe.user?.full_name}</Text>
+            <Image source={{ uri: recipe.author?.avatar_url || undefined }} style={[styles.authorAvatar, { borderColor: colors.iconBorder }]} />
+            <Text style={[styles.authorName, { color: colors.muted }]}>{recipe.author?.full_name}</Text>
           </View>
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
