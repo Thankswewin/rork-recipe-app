@@ -12,27 +12,17 @@ const isWeb = () => {
   }
 };
 
-// Get Supabase configuration from environment variables
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+// Use the provided credentials as fallbacks
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://qczagsahfjpzottzamwk.supabase.co';
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjemFnc2FoZmpwem90dHphbXdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEyODYzNjksImV4cCI6MjA2Njg2MjM2OX0.bNu5mt1OEkUrYHop7nvQcJHX4ouD12npL0yfhUnOaGA';
 
 console.log('Supabase config:', { 
   url: supabaseUrl, 
   hasKey: !!supabaseAnonKey,
   keyLength: supabaseAnonKey?.length,
-  platform: isWeb() ? 'web' : 'native'
+  platform: isWeb() ? 'web' : 'native',
+  usingFallback: !process.env.EXPO_PUBLIC_SUPABASE_URL
 });
-
-// Validate configuration
-if (!supabaseUrl || !supabaseAnonKey) {
-  const missingVars = [];
-  if (!supabaseUrl) missingVars.push('EXPO_PUBLIC_SUPABASE_URL');
-  if (!supabaseAnonKey) missingVars.push('EXPO_PUBLIC_SUPABASE_ANON_KEY');
-  
-  const errorMessage = `Missing required environment variables: ${missingVars.join(', ')}. Please check your .env file and ensure these variables are set.`;
-  console.error('Supabase configuration error:', errorMessage);
-  throw new Error(errorMessage);
-}
 
 // Create a custom storage adapter for React Native
 const customStorage = {
