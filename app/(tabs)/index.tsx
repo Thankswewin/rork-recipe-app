@@ -108,7 +108,7 @@ export default function HomeScreen() {
             <Card style={styles.mainCard}>
               <Button
                 variant="primary"
-                size="large"
+                size="lg"
                 onPress={handleStartCooking}
                 style={styles.startButton}
               >
