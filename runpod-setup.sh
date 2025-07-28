@@ -4,14 +4,20 @@
 
 set -e
 
-echo "ðŸš€ Starting Unmute.sh setup on RunPod..."
+echo "🚀 Starting Unmute.sh setup on RunPod..."
 
 # Update system
-echo "ðŸ“¦ Updating system packages..."
+echo "📦 Updating system packages..."
 apt-get update && apt-get upgrade -y
 
-# Install required packages
-echo "ðŸ“¦ Installing dependencies..."
+# Fix nodejs/npm conflicts first
+echo "🔧 Fixing nodejs/npm conflicts..."
+apt-get remove -y nodejs npm || true
+apt-get autoremove -y
+apt-get autoclean
+
+# Install required packages (without nodejs/npm first)
+echo "📦 Installing dependencies..."
 apt-get install -y \
     git \
     curl \
@@ -21,13 +27,16 @@ apt-get install -y \
     python3-dev \
     ffmpeg \
     portaudio19-dev \
-    libsndfile1-dev \
-    nodejs \
-    npm
+    libsndfile1-dev
+
+# Install Node.js via NodeSource repository
+echo "📦 Installing Node.js and npm..."
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt-get install -y nodejs
 
 # Install Docker if not present
 if ! command -v docker &> /dev/null; then
-    echo "ðŸ³ Installing Docker..."
+    echo "🐳 Installing Docker..."
     curl -fsSL https://get.docker.com -o get-docker.sh
     sh get-docker.sh
     systemctl start docker
@@ -36,13 +45,13 @@ fi
 
 # Install Docker Compose
 if ! command -v docker-compose &> /dev/null; then
-    echo "ðŸ³ Installing Docker Compose..."
+    echo "🐳 Installing Docker Compose..."
     curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
     chmod +x /usr/local/bin/docker-compose
 fi
 
 # Clone unmute repository
-echo "ðŸ“¥ Cloning unmute.sh repository..."
+echo "📥 Cloning unmute.sh repository..."
 cd /workspace
 if [ -d "unmute" ]; then
     rm -rf unmute
@@ -51,7 +60,7 @@ git clone https://github.com/kyutai-labs/unmute.git
 cd unmute
 
 # Create environment file
-echo "âš™ï¸ Creating environment configuration..."
+echo "⚙️ Creating environment configuration..."
 cat > .env << EOF
 # Unmute Configuration for Recipe Chat App
 UNMUTE_HOST=0.0.0.0
@@ -84,7 +93,7 @@ ENABLE_DEBUG=false
 EOF
 
 # Create Docker Compose file for RunPod
-echo "ðŸ³ Creating Docker Compose configuration..."
+echo "🐳 Creating Docker Compose configuration..."
 cat > docker-compose.runpod.yml << EOF
 version: '3.8'
 
@@ -132,7 +141,7 @@ services:
 EOF
 
 # Create Nginx configuration
-echo "ðŸŒ Creating Nginx configuration..."
+echo "🌐 Creating Nginx configuration..."
 mkdir -p nginx
 cat > nginx.conf << EOF
 events {
@@ -184,12 +193,12 @@ http {
 EOF
 
 # Create startup script
-echo "ðŸš€ Creating startup script..."
+echo "🚀 Creating startup script..."
 cat > start-unmute.sh << EOF
 #!/bin/bash
 set -e
 
-echo "ðŸš€ Starting Unmute.sh services..."
+echo "🚀 Starting Unmute.sh services..."
 
 # Pull latest images
 docker-compose -f docker-compose.runpod.yml pull
@@ -198,17 +207,17 @@ docker-compose -f docker-compose.runpod.yml pull
 docker-compose -f docker-compose.runpod.yml up -d
 
 # Wait for services to be ready
-echo "â³ Waiting for services to start..."
+echo "⏳ Waiting for services to start..."
 sleep 30
 
 # Check health
-echo "ðŸ” Checking service health..."
+echo "🔍 Checking service health..."
 if curl -f http://localhost:8000/health; then
-    echo "âœ… Unmute.sh is running successfully!"
-    echo "ðŸ“¡ WebSocket URL: ws://\$(curl -s ifconfig.me):80/ws"
-    echo "ðŸŒ HTTP API: http://\$(curl -s ifconfig.me):80"
+    echo "✅ Unmute.sh is running successfully!"
+    echo "📡 WebSocket URL: ws://\$(curl -s ifconfig.me):80/ws"
+    echo "🌐 HTTP API: http://\$(curl -s ifconfig.me):80"
 else
-    echo "âŒ Service health check failed"
+    echo "❌ Service health check failed"
     docker-compose -f docker-compose.runpod.yml logs
     exit 1
 fi
@@ -219,9 +228,9 @@ chmod +x start-unmute.sh
 # Create stop script
 cat > stop-unmute.sh << EOF
 #!/bin/bash
-echo "ðŸ›‘ Stopping Unmute.sh services..."
+echo "🛑 Stopping Unmute.sh services..."
 docker-compose -f docker-compose.runpod.yml down
-echo "âœ… Services stopped"
+echo "✅ Services stopped"
 EOF
 
 chmod +x stop-unmute.sh
@@ -229,25 +238,25 @@ chmod +x stop-unmute.sh
 # Create logs script
 cat > logs-unmute.sh << EOF
 #!/bin/bash
-echo "ðŸ“‹ Unmute.sh service logs:"
+echo "📋 Unmute.sh service logs:"
 docker-compose -f docker-compose.runpod.yml logs -f
 EOF
 
 chmod +x logs-unmute.sh
 
 # Build and start services
-echo "ðŸ”¨ Building and starting services..."
+echo "🔨 Building and starting services..."
 ./start-unmute.sh
 
-echo "ðŸŽ‰ Unmute.sh setup completed successfully!"
+echo "🎉 Unmute.sh setup completed successfully!"
 echo ""
-echo "ðŸ“‹ Management Commands:"
+echo "📋 Management Commands:"
 echo "  Start:  ./start-unmute.sh"
 echo "  Stop:   ./stop-unmute.sh"
 echo "  Logs:   ./logs-unmute.sh"
 echo ""
-echo "ðŸ”— Connection URLs:"
+echo "🔗 Connection URLs:"
 echo "  WebSocket: ws://$(curl -s ifconfig.me):80/ws"
 echo "  HTTP API:  http://$(curl -s ifconfig.me):80"
 echo ""
-echo "ðŸ“± Use these URLs in your React Native app's RunPod setup!"
+echo "📱 Use these URLs in your React Native app's RunPod setup!"
