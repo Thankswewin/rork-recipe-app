@@ -188,6 +188,14 @@ export const Button: React.FC<ButtonProps> = ({
     );
     
     if (children) {
+      // Ensure children are wrapped in Text component if they are strings
+      if (typeof children === 'string') {
+        return (
+          <Text style={textStyleComputed}>
+            {children}
+          </Text>
+        );
+      }
       return children;
     }
     
