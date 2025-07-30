@@ -320,7 +320,7 @@ export const MoshiSettings: React.FC<MoshiSettingsProps> = ({ onClose }) => {
         </Card>
 
         {/* Info Card */}
-        <Card style={[styles.section, styles.infoCard]}>
+        <Card style={{...styles.section, ...styles.infoCard}}>
           <View style={styles.sectionHeader}>
             <Info size={20} color="#3B82F6" />
             <Text style={[styles.sectionTitle, { color: '#3B82F6' }]}>About Moshi</Text>
@@ -341,14 +341,14 @@ export const MoshiSettings: React.FC<MoshiSettingsProps> = ({ onClose }) => {
             onPress={handleClearData}
             variant="outline"
             style={styles.actionButton}
-            leftIcon={<X size={16} color="#EF4444" />}
+            icon={X}
           />
           <Button
             title="Reset to Defaults"
             onPress={handleReset}
             variant="outline"
             style={styles.actionButton}
-            leftIcon={<RotateCcw size={16} color="#6B7280" />}
+            icon={RotateCcw}
           />
         </View>
       </ScrollView>
@@ -364,8 +364,11 @@ export const MoshiSettings: React.FC<MoshiSettingsProps> = ({ onClose }) => {
         <Button
           title={hasChanges ? "Save Changes" : "Close"}
           onPress={hasChanges ? handleSave : onClose}
-          style={[styles.footerButton, hasChanges && styles.saveButton]}
-          leftIcon={hasChanges ? <Save size={16} color="#FFFFFF" /> : undefined}
+          style={{
+            ...styles.footerButton,
+            ...(hasChanges && styles.saveButton),
+          }}
+          icon={hasChanges ? Save : undefined}
         />
       </View>
     </View>

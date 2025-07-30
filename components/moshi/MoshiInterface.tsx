@@ -369,11 +369,8 @@ export const MoshiInterface: React.FC<MoshiInterfaceProps> = ({
             multiline
             style={styles.textInput}
             onSubmitEditing={handleSendText}
-            rightIcon={
-              <TouchableOpacity onPress={handleSendText}>
-                <Send size={20} color="#8B5CF6" />
-              </TouchableOpacity>
-            }
+            rightIcon={Send}
+            onRightIconPress={handleSendText}
           />
         </View>
       )}
@@ -386,7 +383,7 @@ export const MoshiInterface: React.FC<MoshiInterfaceProps> = ({
             onPress={handleConnect}
             disabled={isConnecting}
             style={styles.connectButton}
-            leftIcon={isConnecting ? undefined : <Server size={20} color="#FFFFFF" />}
+            icon={isConnecting ? undefined : Server}
           />
         ) : (
           <View style={styles.connectedControls}>
@@ -400,19 +397,11 @@ export const MoshiInterface: React.FC<MoshiInterfaceProps> = ({
             <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
               <Button
                 onPress={handleMicPress}
-                style={[
-                  styles.micButton,
-                  {
-                    backgroundColor: isRecording ? '#EF4444' : '#8B5CF6',
-                  },
-                ]}
-                leftIcon={
-                  isRecording ? (
-                    <MicOff size={24} color="#FFFFFF" />
-                  ) : (
-                    <Mic size={24} color="#FFFFFF" />
-                  )
-                }
+                style={{
+                  ...styles.micButton,
+                  backgroundColor: isRecording ? '#EF4444' : '#8B5CF6',
+                }}
+                icon={isRecording ? MicOff : Mic}
               />
             </Animated.View>
             
