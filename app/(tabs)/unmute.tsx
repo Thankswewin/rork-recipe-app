@@ -1,25 +1,30 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { UnmuteInterface } from '@/components/unmute/UnmuteInterface';
-import { UnmuteSettings } from '@/components/unmute/UnmuteSettings';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Stack } from 'expo-router';
+import { MoshiInterface } from '@/components/moshi/MoshiInterface';
+import { MoshiSettings } from '@/components/moshi/MoshiSettings';
+import { useTheme } from '@/hooks/useTheme';
 
-export default function UnmuteTab() {
+export default function UnmuteScreen() {
+  const { colors } = useTheme();
   const [showSettings, setShowSettings] = useState(false);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <Stack.Screen options={{ headerShown: false }} />
+      
       {showSettings ? (
-        <UnmuteSettings onClose={() => setShowSettings(false)} />
+        <MoshiSettings onClose={() => setShowSettings(false)} />
       ) : (
-        <UnmuteInterface onSettingsPress={() => setShowSettings(true)} />
+        <MoshiInterface onSettingsPress={() => setShowSettings(true)} />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
   },
 });

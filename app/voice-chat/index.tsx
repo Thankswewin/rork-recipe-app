@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
-import { VoiceChatInterface } from '@/components/voice-chat/VoiceChatInterface';
-import { VoiceSettings } from '@/components/voice-chat/VoiceSettings';
+import { MoshiInterface } from '@/components/moshi/MoshiInterface';
+import { MoshiSettings } from '@/components/moshi/MoshiSettings';
 import { useTheme } from '@/hooks/useTheme';
 
 export default function VoiceChatScreen() {
@@ -15,9 +15,9 @@ export default function VoiceChatScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       
       {showSettings ? (
-        <VoiceSettings onClose={() => setShowSettings(false)} />
+        <MoshiSettings onClose={() => setShowSettings(false)} />
       ) : (
-        <VoiceChatInterface onSettingsPress={() => setShowSettings(true)} />
+        <MoshiInterface onSettingsPress={() => setShowSettings(true)} />
       )}
     </SafeAreaView>
   );
