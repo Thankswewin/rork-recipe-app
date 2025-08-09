@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, View, Text, FlatList, TouchableOpacity, Image, TextInput, ScrollView } from "react-native";
+import { StyleSheet, View, Text, FlatList, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Search, User, UserPlus, UserCheck, BookOpen, Filter, TrendingUp } from "lucide-react-native";
 import { Stack, router, useFocusEffect } from "expo-router";
@@ -11,9 +11,10 @@ import SearchBar from "@/components/SearchBar";
 import CategoryCard from "@/components/CategoryCard";
 import RecipeCard from "@/components/RecipeCard";
 import UserProfileCard from "@/components/UserProfileCard";
+import SwipeableRow from "@/components/ui/SwipeableRow";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Card } from "@/components/ui/Card";
+import Header from "@/components/ui/Header";
 import {
   spacing,
   typography,
@@ -372,11 +373,18 @@ export default function SearchScreen() {
   };
 
   const renderUserItem = ({ item }: { item: UserProfile }) => (
-    <UserProfileCard
-      user={item}
-      onFollowToggle={handleFollowToggle}
-      showFollowButton={true}
-    />
+    <SwipeableRow
+      rightActionText={item.is_following ? 'Unfollow' : 'Follow'}
+      rightActionColor={item.is_following ? '#DC2626' : '#10B981'}
+      onRightAction={() => handleFollowToggle(item.id, !!item.is_following)}
+      testID={`user-${item.id}-swipe`}
+    >
+      <UserProfileCard
+        user={item}
+        onFollowToggle={handleFollowToggle}
+        showFollowButton={true}
+      />
+    </SwipeableRow>
   );
 
   const filteredRecipes = selectedCategory 
@@ -388,16 +396,8 @@ export default function SearchScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>Search</Text>
-          <Button
-            variant="purple"
-            size="icon"
-            icon={Filter}
-            iconSize={20}
-          />
-        </View>
-        
+        <Header title="Search" rightActionIcon="filter" />
+
         <View style={styles.searchTypeToggle}>
           <Button
             variant={searchType === 'recipes' ? 'purple' : 'outline'}

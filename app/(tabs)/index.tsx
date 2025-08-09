@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Animated } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowRight, Clock, Star } from "lucide-react-native";
@@ -7,6 +7,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuthStore } from "@/stores/authStore";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import Header from "@/components/ui/Header";
 import { spacing, typography, borderRadius, colorPalette, shadows } from "@/constants/designSystem";
 
 const recipeSteps = [
@@ -61,12 +62,8 @@ export default function HomeScreen() {
       <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}> 
         <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
           <Animated.View style={[styles.content, containerStyle]}> 
-            <View style={styles.header}>
-              <View style={styles.headerContent}>
-                <Text style={[styles.title, { color: colors.text }]}>Recipe builder</Text>
-                <Text style={[styles.subtitle, { color: colors.muted }]}>Create your perfect recipe in 3 easy steps</Text>
-              </View>
-            </View>
+            <Header title="Recipe builder" />
+            <Text style={[styles.subtitle, { color: colors.muted, textAlign: 'center', marginBottom: spacing.lg }]}>Create your perfect recipe in 3 easy steps</Text>
 
             <Card style={[styles.mainCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}> 
               <Button
@@ -179,9 +176,6 @@ const styles = StyleSheet.create({
   content: { padding: 24, paddingBottom: 100 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { fontSize: 16, fontWeight: '500' },
-  header: { alignItems: 'center', marginBottom: 28 },
-  headerContent: { alignItems: 'center' },
-  title: { fontSize: 28, fontWeight: '800', letterSpacing: 0.5, marginBottom: 6 },
   subtitle: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
   mainCard: {
     borderRadius: 20,
