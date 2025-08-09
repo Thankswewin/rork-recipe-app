@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useMemo, useRef } from "react";
 import { Tabs } from "expo-router";
 import { Home, Search, User, Bot } from "lucide-react-native";
-import { StyleSheet, View, Text } from "react-native";
+import { StyleSheet, View, Text, Animated } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/hooks/useTheme";
 import { AuthGuard } from "@/components/AuthGuard";
@@ -12,52 +12,50 @@ export default function TabLayout() {
   return (
     <AuthGuard>
       <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: colors.tint,
-        tabBarInactiveTintColor: colors.tabIconDefault,
-        tabBarShowLabel: false,
-        tabBarStyle: [styles.tabBar, { backgroundColor: colors.gray800 }],
-        headerShown: false,
-      }}
-    >
-      <Tabs.Screen
-        name="assistant"
-        options={{
-          title: "Chat",
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon icon={Bot} color={color} focused={focused} label="Chat" />
-          ),
+        screenOptions={{
+          tabBarActiveTintColor: colors.tint,
+          tabBarInactiveTintColor: colors.tabIconDefault,
+          tabBarShowLabel: false,
+          tabBarStyle: [styles.tabBar, { backgroundColor: colors.gray800 }],
+          headerShown: false,
         }}
-      />
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Recipes",
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon icon={Home} color={color} focused={focused} label="Recipes" />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="search"
-        options={{
-          title: "Search",
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon icon={Search} color={color} focused={focused} label="Search" />
-          ),
-        }}
-      />
-
-
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon icon={User} color={color} focused={focused} label="Profile" />
-          ),
-        }}
-      />
+      >
+        <Tabs.Screen
+          name="assistant"
+          options={{
+            title: "Chat",
+            tabBarIcon: ({ color, focused }) => (
+              <TabBarIcon icon={Bot} color={color} focused={focused} label="Chat" />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: "Recipes",
+            tabBarIcon: ({ color, focused }) => (
+              <TabBarIcon icon={Home} color={color} focused={focused} label="Recipes" />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="search"
+          options={{
+            title: "Search",
+            tabBarIcon: ({ color, focused }) => (
+              <TabBarIcon icon={Search} color={color} focused={focused} label="Search" />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: "Profile",
+            tabBarIcon: ({ color, focused }) => (
+              <TabBarIcon icon={User} color={color} focused={focused} label="Profile" />
+            ),
+          }}
+        />
       </Tabs>
     </AuthGuard>
   );
@@ -71,18 +69,27 @@ interface TabBarIconProps {
 }
 
 function TabBarIcon({ icon: Icon, color, focused, label }: TabBarIconProps) {
-  const { colors } = useTheme();
+  const scaleRef = useRef(new Animated.Value(focused ? 1 : 0)).current;
+
+  React.useEffect(() => {
+    Animated.timing(scaleRef, {
+      toValue: focused ? 1 : 0,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+  }, [focused, scaleRef]);
+
+  const scale = scaleRef.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] });
 
   return (
     <View style={styles.tabIconContainer}>
       {focused ? (
-        <LinearGradient
-          colors={["#EF4444", "#DC2626"]}
-          style={styles.activeTabContainer}
-        >
-          <Icon size={18} color="white" />
-          <Text style={styles.labelText}>{label}</Text>
-        </LinearGradient>
+        <Animated.View style={{ transform: [{ scale }] }}>
+          <LinearGradient colors={["#EF4444", "#DC2626"]} style={styles.activeTabContainer}>
+            <Icon size={18} color="white" />
+            <Text style={styles.labelText}>{label}</Text>
+          </LinearGradient>
+        </Animated.View>
       ) : (
         <Icon size={24} color={color} />
       )}
