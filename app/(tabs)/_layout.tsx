@@ -1,6 +1,6 @@
 import React, { useMemo, useRef } from "react";
 import { Tabs } from "expo-router";
-import { Home, Search, User, Bot, Heart } from "lucide-react-native";
+import { Home, Compass, User, Bot } from "lucide-react-native";
 import { StyleSheet, View, Text, Animated } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/hooks/useTheme";
@@ -23,27 +23,27 @@ export default function TabLayout() {
         <Tabs.Screen
           name="assistant"
           options={{
-            title: "Chat",
+            title: "Assistant",
             tabBarIcon: ({ color, focused }) => (
-              <TabBarIcon icon={Bot} color={color} focused={focused} label="Chat" />
+              <TabBarIcon icon={Bot} color={color} focused={focused} label="Assistant" testID="tab-assistant" />
             ),
           }}
         />
         <Tabs.Screen
           name="index"
           options={{
-            title: "Recipes",
+            title: "Home",
             tabBarIcon: ({ color, focused }) => (
-              <TabBarIcon icon={Home} color={color} focused={focused} label="Recipes" />
+              <TabBarIcon icon={Home} color={color} focused={focused} label="Home" testID="tab-home" />
             ),
           }}
         />
         <Tabs.Screen
           name="search"
           options={{
-            title: "Search",
+            title: "Explore",
             tabBarIcon: ({ color, focused }) => (
-              <TabBarIcon icon={Search} color={color} focused={focused} label="Search" />
+              <TabBarIcon icon={Compass} color={color} focused={focused} label="Explore" testID="tab-explore" />
             ),
           }}
         />
@@ -52,7 +52,7 @@ export default function TabLayout() {
           options={{
             title: "Profile",
             tabBarIcon: ({ color, focused }) => (
-              <TabBarIcon icon={User} color={color} focused={focused} label="Profile" />
+              <TabBarIcon icon={User} color={color} focused={focused} label="Profile" testID="tab-profile" />
             ),
           }}
         />
@@ -68,7 +68,7 @@ interface TabBarIconProps {
   label: string;
 }
 
-function TabBarIcon({ icon: Icon, color, focused, label }: TabBarIconProps) {
+function TabBarIcon({ icon: Icon, color, focused, label, testID }: TabBarIconProps & { testID?: string }) {
   const scaleRef = useRef(new Animated.Value(focused ? 1 : 0)).current;
 
   React.useEffect(() => {
@@ -82,10 +82,10 @@ function TabBarIcon({ icon: Icon, color, focused, label }: TabBarIconProps) {
   const scale = scaleRef.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] });
 
   return (
-    <View style={styles.tabIconContainer}>
+    <View style={styles.tabIconContainer} testID={testID}>
       {focused ? (
         <Animated.View style={{ transform: [{ scale }] }}>
-          <LinearGradient colors={["#EF4444", "#DC2626"]} style={styles.activeTabContainer}>
+          <LinearGradient colors={["#8B5CF6", "#7C3AED"]} style={styles.activeTabContainer}>
             <Icon size={18} color="white" />
             <Text style={styles.labelText}>{label}</Text>
           </LinearGradient>

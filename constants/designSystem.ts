@@ -161,7 +161,7 @@ export const colorPalette = {
 // Button variants
 export const buttonVariants = {
   primary: {
-    backgroundColor: colorPalette.primary[500],
+    backgroundColor: colorPalette.purple[500],
     color: '#FFFFFF',
     borderColor: 'transparent',
   },
@@ -172,8 +172,8 @@ export const buttonVariants = {
   },
   outline: {
     backgroundColor: 'transparent',
-    color: colorPalette.primary[500],
-    borderColor: colorPalette.primary[500],
+    color: colorPalette.purple[500],
+    borderColor: colorPalette.purple[500],
   },
   ghost: {
     backgroundColor: 'transparent',
