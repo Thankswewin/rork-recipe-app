@@ -9,6 +9,7 @@ import {
   Dimensions,
   Modal,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import {
   Camera,
@@ -35,6 +36,7 @@ import {
 import * as MediaLibrary from 'expo-media-library';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../hooks/useTheme';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -99,6 +101,8 @@ export function CameraCapture({
   });
 
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const isWeb = Platform.select({ web: true, default: false }) as boolean;
+  const [analysisBaseUrl, setAnalysisBaseUrl] = useState<string | null>(null);
   const [capturedMedia, setCapturedMedia] = useState<string | null>(null);
 
   useEffect(() => {
@@ -115,6 +119,25 @@ export function CameraCapture({
       }
     };
   }, [visible, enableRealTimeAnalysis, permission?.granted]);
+
+  useEffect(() => {
+    const loadBase = async () => {
+      try {
+        const fromStorage = await AsyncStorage.getItem('ANALYSIS_BASE_URL');
+        if (fromStorage && fromStorage.length > 0) {
+          setAnalysisBaseUrl(fromStorage.replace(/\/$/, ''));
+          return;
+        }
+        const fromEnv = process.env.EXPO_PUBLIC_ANALYSIS_BASE_URL;
+        if (fromEnv && typeof fromEnv === 'string' && fromEnv.length > 0) {
+          setAnalysisBaseUrl(fromEnv.replace(/\/$/, ''));
+        }
+      } catch (e) {
+        console.log('Failed to load ANALYSIS_BASE_URL', e);
+      }
+    };
+    loadBase();
+  }, []);
 
   const startRealTimeAnalysis = () => {
     if (analysisTimer.current) return;
@@ -169,8 +192,10 @@ export function CameraCapture({
         reader.readAsDataURL(blob);
       });
 
+      const base = analysisBaseUrl ?? analysisEndpoint.replace(/\/$/, '');
+      const endpoint = base.includes('/analyze') ? base : `${base}/analyze`;
       // Send to analysis endpoint
-      const analysisResponse = await fetch(analysisEndpoint, {
+      const analysisResponse = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -233,7 +258,7 @@ export function CameraCapture({
 
       if (saveToLibrary) {
         // Save to media library
-        if (mediaPermission?.granted) {
+        if (!isWeb && mediaPermission?.granted) {
           await MediaLibrary.saveToLibraryAsync(photo.uri);
         }
 
@@ -251,6 +276,11 @@ export function CameraCapture({
   const startVideoRecording = async () => {
     if (!cameraRef.current) return;
 
+    if (isWeb) {
+      Alert.alert('Not supported on web', 'Video recording is not supported in web preview. Use a mobile device.');
+      return;
+    }
+
     try {
       setCameraState(prev => ({ ...prev, isRecording: true, recordingDuration: 0 }));
       stopRealTimeAnalysis(); // Stop real-time analysis during recording
@@ -261,7 +291,7 @@ export function CameraCapture({
 
       if (video?.uri) {
         setCapturedMedia(video.uri);
-        if (mediaPermission?.granted) {
+        if (!isWeb && mediaPermission?.granted) {
           await MediaLibrary.saveToLibraryAsync(video.uri);
         }
         onCapture(video.uri);
@@ -281,6 +311,7 @@ export function CameraCapture({
     if (!cameraRef.current) return;
 
     try {
+      if (isWeb) return;
       await cameraRef.current.stopRecording();
     } catch (error) {
       console.error('Failed to stop recording:', error);
@@ -380,7 +411,7 @@ export function CameraCapture({
     <View style={styles.controlsContainer}>
       {/* Top Controls */}
       <View style={styles.topControls}>
-        <TouchableOpacity style={styles.controlButton} onPress={onClose}>
+        <TouchableOpacity style={styles.controlButton} onPress={onClose} testID="close-camera">
           <X size={24} color="#FFFFFF" />
         </TouchableOpacity>
         
@@ -428,17 +459,18 @@ export function CameraCapture({
       
       {/* Bottom Controls */}
       <View style={styles.bottomControls}>
-        <TouchableOpacity style={styles.galleryButton} onPress={pickFromGallery}>
+        <TouchableOpacity style={styles.galleryButton} onPress={pickFromGallery} testID="open-gallery">
           <ImageIcon size={24} color="#FFFFFF" />
         </TouchableOpacity>
         
         <TouchableOpacity
+          testID="capture-button"
           style={[
             styles.captureButton,
             cameraState.isRecording && styles.recordingCaptureButton,
           ]}
           onPress={
-            mode === 'video'
+            !isWeb && mode === 'video'
               ? cameraState.isRecording
                 ? stopVideoRecording
                 : startVideoRecording
@@ -453,7 +485,7 @@ export function CameraCapture({
             }
             style={styles.captureButtonGradient}
           >
-            {mode === 'video' ? (
+            {!isWeb && mode === 'video' ? (
               cameraState.isRecording ? (
                 <Square size={24} color="#FFFFFF" />
               ) : (
@@ -465,7 +497,7 @@ export function CameraCapture({
           </LinearGradient>
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.flipButton} onPress={toggleCameraType}>
+        <TouchableOpacity style={styles.flipButton} onPress={toggleCameraType} testID="flip-camera">
           <RotateCcw size={24} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
@@ -498,13 +530,13 @@ export function CameraCapture({
 
   return (
     <Modal visible={visible} animationType="slide">
-      <View style={styles.container}>
+      <View style={styles.container} testID="camera-container">
         <CameraView
           ref={cameraRef}
           style={styles.camera}
           facing={cameraState.type}
           flash={cameraState.flash}
-          mode={mode === 'video' ? 'video' : 'picture'}
+          mode={isWeb ? 'picture' : mode === 'video' ? 'video' : 'picture'}
         >
           {renderAnalysisOverlay()}
           {renderControls()}
