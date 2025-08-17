@@ -1,6 +1,7 @@
 import { initTRPC } from '@trpc/server';
 import { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
 import { supabase } from '@/lib/supabase';
+import superjson from 'superjson';
 
 export const createContext = async (opts: FetchCreateContextFnOptions) => {
   const authHeader = opts.req.headers.get('authorization');
@@ -24,7 +25,9 @@ export const createContext = async (opts: FetchCreateContextFnOptions) => {
   };
 };
 
-const t = initTRPC.context<typeof createContext>().create();
+const t = initTRPC.context<typeof createContext>().create({
+  transformer: superjson,
+});
 
 export const router = t.router;
 export const publicProcedure = t.procedure;
